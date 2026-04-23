@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Card, CardBody } from "@heroui/card";
-import { Bot, CheckCircle, Loader, Pencil, Plus, Trash2, X, XCircle, Zap } from "lucide-react";
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
+import { Input } from "@heroui/input";
+import { Button } from "@heroui/button";
+import { Select, SelectItem } from "@heroui/select";
+import { Bot, CheckCircle, Loader, Pencil, Plus, Trash2, XCircle, Zap } from "lucide-react";
 
 import { llmService } from "@/services/llm.service";
 import type { LLMClientType, LLMProvider, LLMProviderWrite } from "@/types/llm.types";
@@ -8,21 +12,28 @@ import type { LLMClientType, LLMProvider, LLMProviderWrite } from "@/types/llm.t
 const EMPTY_FORM: LLMProviderWrite = { name: "", api_key: "", model: "", base_url: "", client_type: "openai" };
 
 function ProviderModal({
+  isOpen,
   provider,
   onClose,
   onSaved,
 }: {
+  isOpen: boolean;
   provider: LLMProvider | null;
   onClose: () => void;
   onSaved: (p: LLMProvider) => void;
 }) {
-  const [form, setForm] = useState<LLMProviderWrite>(
-    provider
-      ? { name: provider.name, api_key: "", model: provider.model, base_url: provider.base_url, client_type: provider.client_type }
-      : EMPTY_FORM,
-  );
+  const [form, setForm] = useState<LLMProviderWrite>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setForm(
+      provider
+        ? { name: provider.name, api_key: "", model: provider.model, base_url: provider.base_url, client_type: provider.client_type }
+        : EMPTY_FORM,
+    );
+    setError("");
+  }, [provider, isOpen]);
 
   const set = (k: keyof LLMProviderWrite, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -47,75 +58,54 @@ function ProviderModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-default-200 px-5 py-4">
-          <span className="font-semibold text-default-900">{provider ? "Edit Provider" : "Add Provider"}</span>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-default-400 hover:bg-default-100">
-            <X className="size-4" />
-          </button>
-        </div>
+    <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()} size="md" placement="center">
+      <ModalContent>
+        <form onSubmit={handleSubmit}>
+          <ModalHeader>{provider ? "Edit Provider" : "Add Provider"}</ModalHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 p-5">
-          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          <ModalBody className="gap-4">
+            {error && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+            )}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-default-600">Client Type</label>
-            <select
-              value={form.client_type}
-              onChange={(e) => set("client_type", e.target.value as LLMClientType)}
-              className="w-full rounded-lg border border-default-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+            <Select
+              label="Client Type"
+              size="sm"
+              selectedKeys={[form.client_type]}
+              onSelectionChange={(keys) => set("client_type", Array.from(keys)[0] as LLMClientType)}
             >
-              <option value="openai">OpenAI Compatible (/chat/completions)</option>
-              <option value="messages">Messages API (/messages)</option>
-            </select>
-          </div>
+              <SelectItem key="openai">OpenAI Compatible (/chat/completions)</SelectItem>
+              <SelectItem key="messages">Messages API (/messages)</SelectItem>
+            </Select>
 
-          {(["name", "model", "base_url"] as const).map((field) => (
-            <div key={field}>
-              <label className="mb-1 block text-xs font-medium text-default-600 capitalize">
-                {field === "base_url" ? "Base URL" : field}
-              </label>
-              <input
-                required={field !== "base_url" || !provider}
-                value={form[field]}
-                onChange={(e) => set(field, e.target.value)}
-                placeholder={
-                  field === "base_url" ? "https://api.openai.com/v1" :
-                  field === "model" ? "gpt-4o-mini" : "OpenAI"
-                }
-                className="w-full rounded-lg border border-default-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
-              />
-            </div>
-          ))}
+            <Input label="Name" size="sm" isRequired value={form.name}
+              onValueChange={(v) => set("name", v)} placeholder="OpenAI" />
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-default-600">
-              API Key {provider && <span className="text-default-400">(leave blank to keep current)</span>}
-            </label>
-            <input
+            <Input label="Model" size="sm" isRequired value={form.model}
+              onValueChange={(v) => set("model", v)} placeholder="gpt-4o-mini" />
+
+            <Input label="Base URL" size="sm" value={form.base_url}
+              onValueChange={(v) => set("base_url", v)} placeholder="https://api.openai.com/v1" />
+
+            <Input
+              label="API Key"
+              size="sm"
               type="password"
-              required={!provider}
+              isRequired={!provider}
               value={form.api_key}
-              onChange={(e) => set("api_key", e.target.value)}
-              placeholder={provider ? "••••••••" : "sk-..."}
-              className="w-full rounded-lg border border-default-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+              onValueChange={(v) => set("api_key", v)}
+              placeholder={provider ? "Leave blank to keep current" : "sk-..."}
+              description={provider ? "Leave blank to keep current key" : undefined}
             />
-          </div>
+          </ModalBody>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-default-200 px-4 py-2 text-sm text-default-600 hover:bg-default-50">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60">
-              {saving ? "Saving…" : "Save"}
-            </button>
-          </div>
+          <ModalFooter>
+            <Button variant="flat" onPress={onClose}>Cancel</Button>
+            <Button type="submit" color="primary" isLoading={saving}>Save</Button>
+          </ModalFooter>
         </form>
-      </div>
-    </div>
+      </ModalContent>
+    </Modal>
   );
 }
 
@@ -309,13 +299,12 @@ export default function LLMProvidersPage() {
         </CardBody>
       </Card>
 
-      {modalProvider !== null && (
-        <ProviderModal
-          provider={modalProvider === "new" ? null : modalProvider}
-          onClose={() => setModalProvider(null)}
-          onSaved={handleSaved}
-        />
-      )}
+      <ProviderModal
+        isOpen={modalProvider !== null}
+        provider={modalProvider === "new" ? null : (modalProvider as LLMProvider | null)}
+        onClose={() => setModalProvider(null)}
+        onSaved={handleSaved}
+      />
     </div>
   );
 }
