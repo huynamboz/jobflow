@@ -21,6 +21,15 @@ const SENIORITY_COLOR: Record<number, string> = {
 const EDUCATION_LABEL: Record<number, string> = {
   0: "None", 1: "College", 2: "Bachelor", 3: "Master", 4: "PhD",
 };
+const SKILL_CATEGORY_LABEL: Record<number, string> = {
+  0: "Technical", 1: "Soft", 2: "Tool", 3: "Domain",
+};
+const SKILL_CATEGORY_COLOR: Record<number, string> = {
+  0: "bg-blue-50 text-blue-700 border-blue-200",
+  1: "bg-green-50 text-green-700 border-green-200",
+  2: "bg-orange-50 text-orange-700 border-orange-200",
+  3: "bg-purple-50 text-purple-700 border-purple-200",
+};
 const SOURCE_LABEL: Record<string, string> = {
   upload: "Upload",
   linkedin_dataset: "LinkedIn",
@@ -87,7 +96,12 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
     <Drawer isOpen={isOpen} onOpenChange={(open) => !open && onClose()} placement="right" size="lg">
       <DrawerContent>
         <DrawerHeader className="border-b border-default-200">
-          {loading ? "Loading…" : (cv ? `CV #${cv.id}` : "CV Detail")}
+          <div>
+            <p className="text-sm font-semibold text-default-900">
+              {loading ? "Loading…" : (cv?.candidate_name || `CV #${cv?.id ?? ""}` || "CV Detail")}
+            </p>
+            {cv && <p className="text-xs font-normal text-default-400">CV #{cv.id}</p>}
+          </div>
         </DrawerHeader>
         <DrawerBody className="p-0 overflow-y-auto">
         {loading ? (
@@ -96,9 +110,6 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
           <div className="py-16 text-center text-default-400">CV not found.</div>
         ) : (
           <div className="space-y-5 p-5">
-            {cv.candidate_name && (
-              <p className="text-lg font-semibold text-default-900">{cv.candidate_name}</p>
-            )}
             <p className="truncate text-xs text-default-400" title={cv.file_name}>{cv.file_name}</p>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -142,16 +153,36 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
 
             {cv.skills && cv.skills.length > 0 && (
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-default-400">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-default-400">
                   Skills ({cv.skills.length})
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {cv.skills.map((s) => (
-                    <span key={s.skill_name} className="rounded-lg border border-default-200 bg-default-50 px-2 py-0.5 text-xs text-default-600">
-                      {s.skill_name}
-                    </span>
-                  ))}
-                </div>
+                {([0, 1, 2, 3] as const).map((cat) => {
+                  const catSkills = cv.skills!.filter((s) => s.category === cat);
+                  if (catSkills.length === 0) return null;
+                  return (
+                    <div key={cat} className="mb-3">
+                      <p className="mb-1.5 text-xs font-medium text-default-400">
+                        {SKILL_CATEGORY_LABEL[cat]}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {catSkills
+                          .sort((a, b) => b.proficiency - a.proficiency)
+                          .map((s) => (
+                          <span
+                            key={s.skill_name}
+                            title={`Proficiency: ${s.proficiency}/5`}
+                            className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium ${SKILL_CATEGORY_COLOR[cat]}`}
+                          >
+                            {s.skill_name}
+                            {s.proficiency >= 4 && (
+                              <span className="opacity-60">★</span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
