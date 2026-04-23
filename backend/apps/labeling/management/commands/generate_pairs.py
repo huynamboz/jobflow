@@ -39,12 +39,37 @@ _TITLE_ROLE_RULES: list[tuple[list[str], str]] = [
     (["software engineer", "software developer", "web developer", "web engineer"],                "backend"),
 ]
 
+# Broader keywords used only as fallback on combined_text (not title-matching)
+_TEXT_ROLE_RULES: list[tuple[list[str], str]] = [
+    (["react native", "flutter", "android", "ios developer", "mobile developer"],                "mobile"),
+    (["reactjs", "react.js", "vuejs", "vue.js", "angular", "next.js", "nuxt",
+      "frontend developer", "front-end developer"],                                               "frontend"),
+    (["nodejs", "node.js", "expressjs", "express.js", "django", "flask", "fastapi",
+      "spring boot", "laravel", "nestjs", "backend developer", "back-end developer"],            "backend"),
+    (["machine learning", "deep learning", "tensorflow", "pytorch", "scikit-learn",
+      "data scientist", "ml engineer", "ai engineer"],                                            "data_ml"),
+    (["apache spark", "apache airflow", "data pipeline", "etl developer",
+      "data warehouse", "bigquery", "snowflake", "data engineer"],                               "data_eng"),
+    (["kubernetes", "docker swarm", "terraform", "ansible", "ci/cd pipeline",
+      "devops engineer", "site reliability", "cloud infrastructure"],                             "devops"),
+    (["test automation", "selenium", "cypress", "playwright", "qa engineer",
+      "quality assurance engineer", "software tester"],                                           "qa"),
+    (["ux research", "user experience design", "figma", "sketch", "product designer",
+      "ui/ux designer"],                                                                          "design"),
+]
 
-def _infer_role(title: str) -> str:
+
+def _infer_role(title: str, fallback_text: str = "") -> str:
     t = title.lower()
     for keywords, role in _TITLE_ROLE_RULES:
         if any(kw in t for kw in keywords):
             return role
+    # Fallback: scan first 400 chars of combined_text with broader keywords
+    if fallback_text:
+        fb = fallback_text[:400].lower()
+        for keywords, role in _TEXT_ROLE_RULES:
+            if any(kw in fb for kw in keywords):
+                return role
     return "other"
 
 
@@ -140,7 +165,7 @@ class Command(BaseCommand):
             jd = _JobData()
             jd.rec_id     = rec.id
             jd.title      = (r.get("title") or "")[:200]
-            jd.role       = _infer_role(jd.title)
+            jd.role       = _infer_role(jd.title, rec.combined_text or "")
             seniority_raw = r.get("seniority")
             jd.seniority  = SENIORITY_LABELS.get(seniority_raw if isinstance(seniority_raw, int) else 2, "MID")
             jd.exp_min    = float(r.get("experience_min") or 0)
