@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from apps.matching.serializers import (
     CVFileMatchRequest,
+    CVMatchResponse,
     CVParseResponse,
     CVTextMatchRequest,
     JobMatchResponse,
@@ -22,16 +23,16 @@ class MatchCVTextView(APIView):
 
     permission_classes = [AllowAny]
 
-    @extend_schema(request=CVTextMatchRequest, responses={200: JobMatchResponse(many=True)})
+    @extend_schema(request=CVTextMatchRequest, responses={200: CVMatchResponse()})
     def post(self, request):
         serializer = CVTextMatchRequest(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        results = match_cv_text(
+        result = match_cv_text(
             cv_text=serializer.validated_data["text"],
             top_k=serializer.validated_data.get("top_k", 10),
         )
-        return Response({"success": True, "data": JobMatchResponse(results, many=True).data})
+        return Response({"success": True, "data": CVMatchResponse(result).data})
 
 
 class MatchCVUploadView(APIView):
@@ -76,17 +77,17 @@ class MatchCVUploadView(APIView):
             tmp_path = tmp.name
 
         try:
-            results = match_cv_file(tmp_path, top_k=top_k)
+            result = match_cv_file(tmp_path, top_k=top_k)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 
-        if not results:
+        if not result["jobs"] and not result["cv_info"]["skills"]:
             return Response(
                 {"success": False, "error": {"code": "UNPROCESSABLE_ENTITY", "message": "No skills could be extracted from the CV.", "status": 422}},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
 
-        return Response({"success": True, "data": JobMatchResponse(results, many=True).data})
+        return Response({"success": True, "data": CVMatchResponse(result).data})
 
 
 class ParseCVTextView(APIView):

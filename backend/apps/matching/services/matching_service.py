@@ -1,6 +1,7 @@
 """Matching service — singleton wrapper around ml_service InferenceEngine.
 
-Loads model once, reuses across requests.
+CV parsing uses LLMCVParser (LLM-based extraction) instead of the rule-based CVParser.
+Loads model and parser once, reuses across requests.
 """
 
 from __future__ import annotations
@@ -52,60 +53,17 @@ def _get_engine():
 
 
 def _refresh_job_skills_from_db(engine) -> None:
-    """Replace checkpoint job skills with DB-stored canonical skills.
+    """No-op: engine job_id = JDExtractionRecord.id, not Job.id.
 
-    The checkpoint's SkillExtractor can miss or mis-extract skills from job
-    descriptions. The DB stores canonical_name skills (via JobSkill M2M) that
-    were extracted and normalised when the job was crawled, giving more accurate
-    skill data for scoring without needing to retrain.
+    JobSkill is keyed by Job.id, which differs from JDExtractionRecord.id after
+    rebuild_jobs deleted duplicates and reassigned IDs. Checkpoint skills are
+    already LLM-extracted canonical skills from the labeling pipeline — no refresh needed.
     """
-    from apps.jobs.models import JobSkill
-    from ml_service.graph.schema import JobData
-
-    job_ids = [j.job_id for j in engine.job_pool]
-    if not job_ids:
-        return
-
-    # One query: all skill entries for all jobs in pool
-    skill_rows = (
-        JobSkill.objects
-        .filter(job_id__in=job_ids)
-        .select_related("skill")
-        .values_list("job_id", "skill__canonical_name", "importance")
-    )
-
-    db_skills: dict[int, list[tuple[str, int]]] = {}
-    for job_id, canonical, importance in skill_rows:
-        db_skills.setdefault(job_id, []).append((canonical, importance))
-
-    if not db_skills:
-        logger.info("DB has no skills for engine job pool — keeping checkpoint skills.")
-        return
-
-    updated = 0
-    new_jobs = []
-    for job in engine.job_pool:
-        entries = db_skills.get(job.job_id)
-        if entries:
-            new_jobs.append(JobData(
-                job_id=job.job_id,
-                seniority=job.seniority,
-                skills=tuple(s for s, _ in entries),
-                skill_importances=tuple(i for _, i in entries),
-                salary_min=job.salary_min,
-                salary_max=job.salary_max,
-                text=job.text,
-            ))
-            updated += 1
-        else:
-            new_jobs.append(job)
-
-    engine.replace_job_skills(new_jobs)
-    logger.info("Refreshed DB skills for %d/%d jobs.", updated, len(new_jobs))
+    logger.info("Skill refresh skipped: checkpoint already has LLM-canonical skills.")
 
 
 def _get_parser():
-    """Lazy-load CVParser singleton."""
+    """Lazy-load LLMCVParser singleton."""
     global _parser
     if _parser is not None:
         return _parser
@@ -114,11 +72,11 @@ def _get_parser():
         if _parser is not None:
             return _parser
 
-        from ml_service.cv_parser import CVParser
         from ml_service.data.skill_normalization import SkillNormalizer
+        from apps.matching.services.llm_cv_parser import LLMCVParser
 
         normalizer = SkillNormalizer(settings.ML_SKILL_ALIAS_PATH)
-        _parser = CVParser(normalizer)
+        _parser = LLMCVParser(normalizer)
         return _parser
 
 
@@ -142,53 +100,89 @@ def _filter_soft_skills(skills: list[str]) -> list[str]:
 
 
 def _enrich(results) -> list[dict]:
-    """Enrich raw match results with DB job fields."""
-    from apps.jobs.models import Job
+    """Enrich raw match results with metadata from JDExtractionRecord + LabelingJob.
 
-    job_ids = [r.job_id for r in results]
-    db_jobs = {
-        j.id: j
-        for j in Job.objects.filter(id__in=job_ids).select_related("company", "platform")
+    JobData.job_id = JDExtractionRecord.id (set by generate_pairs via LabelingJob.job_id).
+    Job table IDs are unrelated after rebuild_jobs deleted duplicates.
+    """
+    from apps.jobs.models import JDExtractionRecord
+    from apps.labeling.models import LabelingJob
+
+    jd_ids = [r.job_id for r in results]
+
+    jd_map = {
+        jd.id: jd
+        for jd in JDExtractionRecord.objects.filter(id__in=jd_ids)
     }
+    lj_map = {
+        lj.job_id: lj
+        for lj in LabelingJob.objects.filter(job_id__in=jd_ids)
+    }
+
     enriched = []
     for r in results:
-        j = db_jobs.get(r.job_id)
-        raw_title = j.title if j else r.title
+        jd  = jd_map.get(r.job_id)
+        lj  = lj_map.get(r.job_id)
+        res = (jd.result   or {}) if jd else {}
+        raw = (jd.raw_data or {}) if jd else {}
+
+        # Title: LabelingJob is most accurate (LLM-extracted), fallback to raw scrape
+        title = _clean_title(
+            (lj.title if lj else None)
+            or res.get("title") or raw.get("title")
+            or r.title or ""
+        )
+
         enriched.append({
-            "job_id": r.job_id,
-            "score": r.score,
-            "eligible": r.eligible,
+            "job_id":         r.job_id,
+            "score":          r.score,
+            "eligible":       r.eligible,
             "matched_skills": _filter_soft_skills(list(r.matched_skills)),
             "missing_skills": _filter_soft_skills(list(r.missing_skills)),
             "seniority_match": r.seniority_match,
-            "title": _clean_title(raw_title),
-            "company_name": j.company.name if j and j.company else "",
-            "location": j.location if j else "",
-            "job_type": j.job_type if j else "",
-            "salary_min": j.salary_min if j else 0,
-            "salary_max": j.salary_max if j else 0,
-            "source_url": j.source_url if j else "",
+            "title":          title,
+            "company_name":   res.get("company") or raw.get("company") or "",
+            "location":       res.get("location") or raw.get("location") or "",
+            "job_type":       res.get("job_type") or raw.get("job_type") or "",
+            "salary_min":     int(res.get("salary_min") or raw.get("salary_min") or 0),
+            "salary_max":     int(res.get("salary_max") or raw.get("salary_max") or 0),
+            "salary_currency": res.get("salary_currency") or "USD",
+            "role_category":  (lj.role_category if lj else None) or "",
+            "experience_min": (lj.experience_min if lj else None) or res.get("experience_min"),
+            "experience_max": (lj.experience_max if lj else None) or res.get("experience_max"),
+            "source_url":     (jd.source_url if jd else None) or raw.get("source_url") or raw.get("job_url") or "",
         })
     return enriched
 
 
-def match_cv_text(cv_text: str, top_k: int = 10) -> list[dict]:
-    """Match CV text against all jobs. Returns list of match results."""
+def _cv_info(cv_data) -> dict:
+    return {
+        "skills": list(cv_data.skills),
+        "seniority": cv_data.seniority.name,
+        "experience_years": cv_data.experience_years,
+        "education": cv_data.education.name,
+    }
+
+
+def match_cv_text(cv_text: str, top_k: int = 10) -> dict:
+    """Match CV text against all jobs. Returns {cv_info, jobs}."""
+    parser = _get_parser()
+    cv_data = parser.parse_text(cv_text, cv_id=-1)
     engine = _get_engine()
-    results = engine.match_cv_text(cv_text, top_k=top_k)
-    return _enrich(results)
+    results = engine.match_cv(cv_data, top_k=top_k)
+    return {"cv_info": _cv_info(cv_data), "jobs": _enrich(results)}
 
 
-def match_cv_file(file_path: str, top_k: int = 10) -> list[dict]:
-    """Parse CV file (PDF/DOCX) and match against all jobs."""
+def match_cv_file(file_path: str, top_k: int = 10) -> dict:
+    """Parse CV file (PDF/DOCX) and match against all jobs. Returns {cv_info, jobs}."""
     parser = _get_parser()
     cv_data = parser.parse_file(file_path)
     if not cv_data.skills:
-        return []
+        return {"cv_info": _cv_info(cv_data), "jobs": []}
 
     engine = _get_engine()
     results = engine.match_cv(cv_data, top_k=top_k)
-    return _enrich(results)
+    return {"cv_info": _cv_info(cv_data), "jobs": _enrich(results)}
 
 
 def parse_cv_file(file_path: str) -> dict:

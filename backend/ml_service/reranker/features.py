@@ -159,20 +159,23 @@ class FeatureExtractor:
         self, cvs: list[CVData], jobs: list[JobData],
         cv_indices: list[int], job_indices: list[int],
         gnn_scores: list[float] | None = None,
+        stage1_scores: list[float] | None = None,
     ) -> np.ndarray:
         """Extract features for multiple pairs with batched text encoding.
 
         Args:
             cvs, jobs: Lists of CVs and Jobs
             cv_indices, job_indices: Indices of pairs to extract
-            gnn_scores: Optional list of GNN decode scores (one per pair).
-                       If None, defaults to 0.0 for each pair.
+            gnn_scores: GNN decode scores per pair. Defaults to 0.0 if None.
+            stage1_scores: Stage 1 hybrid scores per pair. Overrides context dict if provided.
         """
         if not cv_indices:
             return np.empty((0, len(self.FEATURE_NAMES)))
 
         if gnn_scores is None:
             gnn_scores = [0.0] * len(cv_indices)
+        if stage1_scores is None:
+            stage1_scores = [None] * len(cv_indices)
 
         # Pre-encode all unique texts in one batch (avoid 10K+ individual calls)
         unique_cv_idx = sorted(set(cv_indices))
@@ -188,8 +191,11 @@ class FeatureExtractor:
 
         # Extract features using cached vectors
         features = []
-        for ci, ji, gs in zip(cv_indices, job_indices, gnn_scores):
-            f = self._extract_with_cache(cvs[ci], jobs[ji], cv_vec_map[ci], job_vec_map[ji], gnn_score=gs)
+        for ci, ji, gs, s1 in zip(cv_indices, job_indices, gnn_scores, stage1_scores):
+            f = self._extract_with_cache(
+                cvs[ci], jobs[ji], cv_vec_map[ci], job_vec_map[ji],
+                gnn_score=gs, stage1_score_override=s1,
+            )
             features.append(f)
         return np.array(features, dtype=np.float32)
 
@@ -197,11 +203,13 @@ class FeatureExtractor:
         self, cv: CVData, job: JobData,
         cv_vec: np.ndarray, job_vec: np.ndarray,
         *, gnn_score: float = 0.0,
+        stage1_score_override: float | None = None,
     ) -> np.ndarray:
         """Extract features using pre-computed text vectors.
 
         Args:
-            gnn_score: Actual GNN decode score (0-1). Default 0.0 for backward compat.
+            gnn_score: Actual GNN decode score (0-1).
+            stage1_score_override: If provided, uses this instead of the context dict lookup.
         """
         cv_set = set(cv.skills)
         job_set = set(job.skills)
@@ -244,7 +252,7 @@ class FeatureExtractor:
         tool_ratio = self._tool_ratio(cv_set)
 
         # 16-20. Stage 1 + GNN + penalty signals
-        stage1_score = self._stage1_scores.get(job.job_id, 0.5)
+        stage1_score = stage1_score_override if stage1_score_override is not None else self._stage1_scores.get(job.job_id, 0.5)
         gnn_rank = float(self._stage1_ranks.get(job.job_id, 50)) / 50.0
         must_have_triggered = 1.0 if missing_req >= 2 else (0.5 if missing_req == 1 else 0.0)
         edge_penalty = 0.0

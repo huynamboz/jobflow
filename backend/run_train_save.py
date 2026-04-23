@@ -14,8 +14,13 @@ import argparse
 import copy
 import json
 import logging
+import os
 import time
 from pathlib import Path
+
+import django
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+django.setup()
 
 import numpy as np
 import torch
@@ -75,11 +80,15 @@ def load_dataset(data_dir: Path):
         s["name"]: SkillCategory(s["category"]) for s in raw_skills
     }
 
-    # CVData — cv_id = sequential idx from export (matches label cv_idx)
+    # idx → actual DB ID mappings (sequential export idx ≠ DB primary key)
+    job_idx_to_db_id: dict[int, int] = {j["idx"]: j["job_id"] for j in raw_jobs}
+    cv_idx_to_db_id:  dict[int, int] = {c["idx"]: c["cv_id"]  for c in raw_cvs}
+
+    # CVData — cv_id = actual DB CV.id so _enrich() can JOIN back to DB
     cvs: list[CVData] = []
     for c in raw_cvs:
         cvs.append(CVData(
-            cv_id=c["idx"],
+            cv_id=c["cv_id"],
             seniority=SeniorityLevel(c["seniority"]),
             experience_years=float(c["experience_years"]),
             education=EducationLevel(c["education"]),
@@ -88,11 +97,11 @@ def load_dataset(data_dir: Path):
             text=c["text"] or "",
         ))
 
-    # JobData — job_id = sequential idx from export (matches label job_idx)
+    # JobData — job_id = actual DB Job.id so _enrich() can JOIN back to DB
     jobs: list[JobData] = []
     for j in raw_jobs:
         jobs.append(JobData(
-            job_id=j["idx"],
+            job_id=j["job_id"],
             seniority=SeniorityLevel(j["seniority"]),
             skills=tuple(j["skills"]),
             skill_importances=tuple(j["skill_importances"]),
@@ -101,14 +110,14 @@ def load_dataset(data_dir: Path):
             text=j["text"] or "",
         ))
 
-    # LabeledPair — cv_id/job_id match the sequential indices above
+    # LabeledPair — translate sequential export idx → actual DB IDs
     split_map: dict[str, list[LabeledPair]] = {"train": [], "val": [], "test": []}
     for lbl in raw_labels:
         split = lbl.get("split", "train")
         split_map.setdefault(split, []).append(
             LabeledPair(
-                cv_id=lbl["cv_idx"],
-                job_id=lbl["job_idx"],
+                cv_id=cv_idx_to_db_id[lbl["cv_idx"]],
+                job_id=job_idx_to_db_id[lbl["job_idx"]],
                 label=lbl["label"],
                 split=split,
             )
@@ -194,9 +203,49 @@ def main(data_dir: Path) -> None:
         model.load_state_dict(best_state)
     model.eval()
 
-    # --- Save checkpoint ---
+    # --- Register TrainRun in DB ---
+    from django.utils import timezone
+    from apps.matching.models import TrainRun
+
+    m = result.test_metrics
+    run = TrainRun(
+        status=TrainRun.Status.COMPLETED,
+        description=f"CLI train — data: {data_dir}",
+        num_cvs=len(cvs),
+        num_jobs=len(jobs),
+        num_pairs=len(result.test_metrics.get("num_pairs", 0) or 0),
+        num_skills=data["skill"].x.shape[0],
+        auc_roc=m.get("auc_roc"),
+        recall_at_5=m.get("recall@5"),
+        recall_at_10=m.get("recall@10"),
+        precision_at_5=m.get("precision@5"),
+        precision_at_10=m.get("precision@10"),
+        ndcg_at_10=m.get("ndcg@10"),
+        mrr=m.get("mrr"),
+        best_epoch=result.best_epoch,
+        final_loss=result.train_losses[-1] if result.train_losses else None,
+        model_type=cfg.model_type,
+        hidden_channels=cfg.hidden_channels,
+        num_layers=cfg.num_layers,
+        learning_rate=cfg.lr,
+        config_json={
+            "hybrid_alpha": cfg.hybrid_alpha,
+            "hybrid_beta":  cfg.hybrid_beta,
+            "hybrid_gamma": cfg.hybrid_gamma,
+            "weight_decay": cfg.weight_decay,
+            "data_dir":     str(data_dir),
+        },
+        metrics_json=m,
+        started_at=timezone.now(),
+        completed_at=timezone.now(),
+        training_duration_seconds=int(time.time() - t_start),
+    )
+    run.save()  # auto-generates version (v1, v2, ...)
+
+    # Save versioned checkpoint alongside "latest"
+    versioned_dir = CHECKPOINT_DIR.parent / f"run_{run.version}"
     save_checkpoint(
-        CHECKPOINT_DIR, model, data, cvs, jobs,
+        versioned_dir, model, data, cvs, jobs,
         metadata={
             "best_epoch":   result.best_epoch,
             "test_metrics": result.test_metrics,
@@ -204,6 +253,8 @@ def main(data_dir: Path) -> None:
             "num_jobs":     len(jobs),
             "cv_source":    "db_export",
             "data_dir":     str(data_dir),
+            "train_run_id": run.id,
+            "version":      run.version,
             "train_config": {
                 "hidden_channels": cfg.hidden_channels,
                 "num_layers":      cfg.num_layers,
@@ -215,8 +266,40 @@ def main(data_dir: Path) -> None:
         },
     )
 
+    run.checkpoint_path = str(versioned_dir)
+    run.save(update_fields=["checkpoint_path"])
+
+    # Also update "latest" for immediate use
+    save_checkpoint(
+        CHECKPOINT_DIR, model, data, cvs, jobs,
+        metadata={
+            "best_epoch":   result.best_epoch,
+            "test_metrics": result.test_metrics,
+            "num_cvs":      len(cvs),
+            "num_jobs":     len(jobs),
+            "cv_source":    "db_export",
+            "data_dir":     str(data_dir),
+            "train_run_id": run.id,
+            "version":      run.version,
+            "train_config": {
+                "hidden_channels": cfg.hidden_channels,
+                "num_layers":      cfg.num_layers,
+                "lr":              cfg.lr,
+                "hybrid_alpha":    cfg.hybrid_alpha,
+                "hybrid_beta":     cfg.hybrid_beta,
+                "hybrid_gamma":    cfg.hybrid_gamma,
+            },
+        },
+    )
+
+    # Auto-activate if first run or best AUC
+    prev_active = TrainRun.objects.filter(is_active=True).exclude(id=run.id).first()
+    if prev_active is None or (run.auc_roc or 0) >= (prev_active.auc_roc or 0):
+        run.activate()
+        logger.info("Model %s activated (AUC %.4f)", run.version, run.auc_roc or 0)
+
     total = time.time() - t_start
-    logger.info("Done in %.1fs. Checkpoint: %s", total, CHECKPOINT_DIR)
+    logger.info("Done in %.1fs. Checkpoint: %s  DB: TrainRun %s (id=%d)", total, CHECKPOINT_DIR, run.version, run.id)
 
 
 if __name__ == "__main__":

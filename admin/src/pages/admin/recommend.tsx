@@ -1,66 +1,191 @@
 import { useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { ExternalLink, Loader2, Search, Upload, X } from "lucide-react";
+import { Briefcase, ExternalLink, Loader2, MapPin, Search, Upload, X } from "lucide-react";
 
 import { matchingService } from "@/services/matching.service";
-import type { JobMatchResult } from "@/types/matching.types";
+import type { CVInfo, CVMatchData, JobMatchResult } from "@/types/matching.types";
 
 const JOB_TYPE_LABEL: Record<string, string> = {
   "full-time": "Full-time", "part-time": "Part-time",
   remote: "Remote", hybrid: "Hybrid", "on-site": "On-site",
 };
 
-function fmtSalary(min: number, max: number) {
+const SENIORITY_LABEL: Record<string, string> = {
+  INTERN: "Intern", JUNIOR: "Junior", MID: "Mid", SENIOR: "Senior",
+  LEAD: "Lead", MANAGER: "Manager",
+};
+
+const EDUCATION_LABEL: Record<string, string> = {
+  NONE: "No degree", COLLEGE: "College", BACHELOR: "Bachelor",
+  MASTER: "Master", PHD: "PhD",
+};
+
+const CURRENCY_SYMBOL: Record<string, string> = {
+  USD: "$", SGD: "S$", VND: "₫", EUR: "€", GBP: "£", JPY: "¥", AUD: "A$",
+};
+
+function fmtSalary(min: number | null, max: number | null, currency = "USD"): string | null {
   if (!min && !max) return null;
-  const fmt = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(0)}M` : `${(n / 1000).toFixed(0)}K`;
-  if (min && max) return `${fmt(min)}–${fmt(max)}`;
-  if (min) return `≥ ${fmt(min)}`;
-  return `≤ ${fmt(max)}`;
+  const sym = CURRENCY_SYMBOL[currency] ?? currency + " ";
+  const fmt = (n: number) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+    return String(n);
+  };
+  if (min && max) return `${sym}${fmt(min)}–${sym}${fmt(max)}`;
+  if (min) return `≥ ${sym}${fmt(min)}`;
+  return `≤ ${sym}${fmt(max!)}`;
 }
 
-function ScoreBar({ score, eligible }: { score: number; eligible: boolean }) {
-  const pct = Math.round(score * 100);
-  const color = eligible ? "bg-emerald-500" : score >= 0.5 ? "bg-amber-400" : "bg-default-300";
+function fmtExp(min: number | null, max: number | null): string | null {
+  if (!min && !max) return null;
+  if (min && max) return `${min}–${max} yrs`;
+  if (min) return `${min}+ yrs`;
+  return `≤${max} yrs`;
+}
+
+// ── CV Info Panel ───────────────────────────────────────────────────────────
+function CVInfoPanel({ cv }: { cv: CVInfo }) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-20 rounded-full bg-default-100 overflow-hidden">
-        <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />
+    <div className="rounded-2xl border border-violet-100 bg-violet-50/60 p-5 space-y-3">
+      <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-violet-500">
+        Extracted from your CV
+      </p>
+
+      <div className="flex flex-wrap gap-2 text-[12.5px]">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-violet-200 px-3 py-1 font-semibold text-violet-700">
+          {SENIORITY_LABEL[cv.seniority] ?? cv.seniority}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-default-200 px-3 py-1 text-default-600">
+          {cv.experience_years > 0 ? `${cv.experience_years} yrs exp` : "No exp detected"}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white border border-default-200 px-3 py-1 text-default-600">
+          {EDUCATION_LABEL[cv.education] ?? cv.education}
+        </span>
       </div>
-      <span className={`text-xs font-semibold tabular-nums ${eligible ? "text-emerald-600" : "text-default-500"}`}>
-        {pct}%
-      </span>
-      {eligible && <span className="text-[10px] font-medium text-emerald-600 border border-emerald-200 bg-emerald-50 rounded px-1">Match</span>}
+
+      {cv.skills.length > 0 ? (
+        <div>
+          <p className="mb-1.5 text-[10.5px] font-semibold text-violet-500">
+            {cv.skills.length} skills detected
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {cv.skills.map((s) => (
+              <span
+                key={s}
+                className="rounded-md border border-violet-200 bg-white px-2 py-0.5 text-[11px] font-medium text-violet-700"
+              >
+                {s}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-[12px] text-amber-600">
+          No skills detected — try adding a skills section to your CV.
+        </p>
+      )}
     </div>
   );
 }
 
-function JobCard({ job }: { job: JobMatchResult }) {
-  const salary = fmtSalary(job.salary_min, job.salary_max);
+// ── Score Bar ───────────────────────────────────────────────────────────────
+function ScoreBar({ score, eligible }: { score: number; eligible: boolean }) {
+  const pct = Math.round(score * 100);
+  const color = eligible
+    ? "bg-emerald-500"
+    : score >= 0.5
+    ? "bg-amber-400"
+    : "bg-default-300";
   return (
-    <div className="rounded-2xl border border-default-200 bg-white p-5 space-y-3 hover:border-default-300 transition-colors">
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-default-100">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className={`tabular-nums text-xs font-semibold ${eligible ? "text-emerald-600" : "text-default-500"}`}>
+        {pct}%
+      </span>
+      {eligible && (
+        <span className="rounded border border-emerald-200 bg-emerald-50 px-1 text-[10px] font-medium text-emerald-600">
+          Match
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Job Card ────────────────────────────────────────────────────────────────
+function JobCard({ job }: { job: JobMatchResult }) {
+  const salary = fmtSalary(job.salary_min, job.salary_max, job.salary_currency);
+  const exp = fmtExp(job.experience_min, job.experience_max);
+  const isWorkMode = ["remote", "hybrid", "on-site"].includes(job.job_type);
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-default-200 bg-white p-5 transition-colors hover:border-default-300">
+      {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="font-semibold text-default-900 truncate">{job.title || `Job #${job.job_id}`}</h3>
-          <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-default-500">
-            {job.company_name && <span>{job.company_name}</span>}
-            {job.location && <><span>·</span><span>{job.location}</span></>}
-            {job.job_type && <><span>·</span><span>{JOB_TYPE_LABEL[job.job_type] ?? job.job_type}</span></>}
-            {salary && <><span>·</span><span>{salary}</span></>}
+          <h3 className="truncate font-semibold text-default-900">
+            {job.title || `Job #${job.job_id}`}
+          </h3>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-default-500">
+            {job.company_name && <span className="font-medium text-default-700">{job.company_name}</span>}
+            {job.location && (
+              <span className="inline-flex items-center gap-0.5">
+                <MapPin className="size-3" />{job.location}
+              </span>
+            )}
           </div>
         </div>
         {job.source_url && (
-          <a href={job.source_url} target="_blank" rel="noreferrer"
-            className="shrink-0 rounded-lg border border-default-200 p-1.5 text-default-400 hover:text-blue-600 hover:border-blue-300 transition-colors">
+          <a
+            href={job.source_url}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 rounded-lg border border-default-200 p-1.5 text-default-400 transition-colors hover:border-blue-300 hover:text-blue-600"
+          >
             <ExternalLink className="size-3.5" />
           </a>
         )}
       </div>
 
+      {/* Score */}
       <ScoreBar score={job.score} eligible={job.eligible} />
 
+      {/* Meta chips */}
+      <div className="flex flex-wrap gap-1.5">
+        {isWorkMode && (
+          <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+            {JOB_TYPE_LABEL[job.job_type] ?? job.job_type}
+          </span>
+        )}
+        {!isWorkMode && job.job_type && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-default-200 bg-default-50 px-2 py-0.5 text-[11px] text-default-600">
+            <Briefcase className="size-2.5" />
+            {JOB_TYPE_LABEL[job.job_type] ?? job.job_type}
+          </span>
+        )}
+        {exp && (
+          <span className="rounded-full border border-default-200 bg-default-50 px-2 py-0.5 text-[11px] text-default-600">
+            {exp}
+          </span>
+        )}
+        {salary && (
+          <span className="rounded-full border border-default-200 bg-default-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-default-700">
+            {salary}
+          </span>
+        )}
+        {!job.seniority_match && (
+          <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-600">
+            Seniority mismatch
+          </span>
+        )}
+      </div>
+
+      {/* Skills */}
       {job.matched_skills.length > 0 && (
         <div>
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
             Matched ({job.matched_skills.length})
           </p>
           <div className="flex flex-wrap gap-1">
@@ -72,10 +197,9 @@ function JobCard({ job }: { job: JobMatchResult }) {
           </div>
         </div>
       )}
-
       {job.missing_skills.length > 0 && (
         <div>
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-500">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-red-500">
             Missing ({job.missing_skills.length})
           </p>
           <div className="flex flex-wrap gap-1">
@@ -91,13 +215,14 @@ function JobCard({ job }: { job: JobMatchResult }) {
   );
 }
 
+// ── Page ────────────────────────────────────────────────────────────────────
 export default function RecommendPage() {
   const location = useLocation();
   const prefilled = (location.state as { cvText?: string } | null)?.cvText ?? "";
   const [text, setText] = useState(prefilled);
   const [file, setFile] = useState<File | null>(null);
   const [topK, setTopK] = useState(10);
-  const [results, setResults] = useState<JobMatchResult[] | null>(null);
+  const [result, setResult] = useState<CVMatchData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -108,10 +233,10 @@ export default function RecommendPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = file
+      const data = file
         ? await matchingService.matchFile(file, topK)
         : await matchingService.matchText(text, topK);
-      setResults(res);
+      setResult(data);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to get recommendations.");
     } finally {
@@ -130,6 +255,9 @@ export default function RecommendPage() {
     if (fileRef.current) fileRef.current.value = "";
   };
 
+  const jobs = result?.jobs ?? [];
+  const strongCount = jobs.filter((r) => r.eligible).length;
+
   return (
     <div className="space-y-6">
       <div>
@@ -138,9 +266,9 @@ export default function RecommendPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-default-200 bg-white p-5">
-        {/* File upload area */}
+        {/* Drop zone */}
         <div
-          className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-default-200 bg-default-50 px-4 py-6 text-center hover:border-blue-300 hover:bg-blue-50/30 transition-colors"
+          className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-default-200 bg-default-50 px-4 py-6 text-center transition-colors hover:border-violet-300 hover:bg-violet-50/30"
           onClick={() => fileRef.current?.click()}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
@@ -149,11 +277,11 @@ export default function RecommendPage() {
             if (f) { setFile(f); setText(""); }
           }}
         >
-          <Upload className="size-5 text-default-400 mb-1" />
+          <Upload className="mb-1 size-5 text-default-400" />
           <p className="text-sm text-default-600">
             {file ? (
               <span className="flex items-center gap-1.5">
-                <span className="font-medium text-blue-600">{file.name}</span>
+                <span className="font-medium text-violet-600">{file.name}</span>
                 <button type="button" onClick={(e) => { e.stopPropagation(); clearFile(); }}>
                   <X className="size-3.5 text-default-400 hover:text-red-500" />
                 </button>
@@ -174,7 +302,7 @@ export default function RecommendPage() {
           placeholder="Paste your CV / resume text here..."
           value={text}
           onChange={(e) => { setText(e.target.value); if (e.target.value) clearFile(); }}
-          className="w-full resize-none rounded-xl border border-default-200 bg-default-50 px-4 py-3 text-sm text-default-800 placeholder:text-default-400 focus:border-blue-300 focus:bg-white focus:outline-none transition-colors"
+          className="w-full resize-none rounded-xl border border-default-200 bg-default-50 px-4 py-3 text-sm text-default-800 placeholder:text-default-400 transition-colors focus:border-violet-300 focus:bg-white focus:outline-none"
           disabled={!!file}
         />
 
@@ -184,7 +312,7 @@ export default function RecommendPage() {
             <select
               value={topK}
               onChange={(e) => setTopK(Number(e.target.value))}
-              className="h-8 rounded-lg border border-default-200 bg-white px-2 text-sm text-default-700 outline-none focus:border-blue-300"
+              className="h-8 rounded-lg border border-default-200 bg-white px-2 text-sm text-default-700 outline-none focus:border-violet-300"
             >
               {[5, 10, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
@@ -194,7 +322,7 @@ export default function RecommendPage() {
           <button
             type="submit"
             disabled={loading || (!text.trim() && !file)}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
           >
             {loading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
             {loading ? "Matching… (may take ~30s on first run)" : "Find Jobs"}
@@ -206,27 +334,32 @@ export default function RecommendPage() {
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      {results !== null && (
-        <div className="space-y-4">
+      {result && (
+        <div className="space-y-5">
+          {/* CV parse panel */}
+          <CVInfoPanel cv={result.cv_info} />
+
+          {/* Results header */}
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-default-700">
-              {results.length} job{results.length !== 1 ? "s" : ""} found
-              {results.filter((r) => r.eligible).length > 0 && (
+              {jobs.length} job{jobs.length !== 1 ? "s" : ""} found
+              {strongCount > 0 && (
                 <span className="ml-2 text-emerald-600">
-                  · {results.filter((r) => r.eligible).length} strong match{results.filter((r) => r.eligible).length !== 1 ? "es" : ""}
+                  · {strongCount} strong match{strongCount !== 1 ? "es" : ""}
                 </span>
               )}
             </p>
           </div>
 
-          {results.length === 0 ? (
+          {/* Job cards */}
+          {jobs.length === 0 ? (
             <div className="rounded-2xl border border-default-200 bg-white py-16 text-center text-default-400">
-              <Search className="size-8 mx-auto mb-2" />
+              <Search className="mx-auto mb-2 size-8" />
               <p>No matching jobs found. Try a more detailed CV.</p>
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {results.map((job) => <JobCard key={job.job_id} job={job} />)}
+              {jobs.map((job) => <JobCard key={job.job_id} job={job} />)}
             </div>
           )}
         </div>

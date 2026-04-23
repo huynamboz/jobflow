@@ -64,10 +64,12 @@ class Reranker:
         *,
         epochs: int = 50,
         lr: float = 1e-3,
+        gnn_scores: list[float] | None = None,
+        stage1_scores: list[float] | None = None,
     ) -> dict[str, float]:
         """Train MLP reranker on labeled pairs."""
         logger.info("Extracting features for %d pairs...", len(labels))
-        X = self._fe.extract_batch(cvs, jobs, cv_indices, job_indices)
+        X = self._fe.extract_batch(cvs, jobs, cv_indices, job_indices, gnn_scores=gnn_scores, stage1_scores=stage1_scores)
         y = np.array(labels, dtype=np.float32)
 
         if len(y) == 0 or len(np.unique(y)) < 2:

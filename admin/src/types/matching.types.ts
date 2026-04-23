@@ -11,10 +11,26 @@ export interface JobMatchResult {
   job_type: string;
   salary_min: number;
   salary_max: number;
+  salary_currency: string;
+  role_category: string;
+  experience_min: number | null;
+  experience_max: number | null;
   source_url: string;
+}
+
+export interface CVInfo {
+  skills: string[];
+  seniority: string;
+  experience_years: number;
+  education: string;
+}
+
+export interface CVMatchData {
+  cv_info: CVInfo;
+  jobs: JobMatchResult[];
 }
 
 export interface MatchResponse {
   success: boolean;
-  data: JobMatchResult[];
+  data: CVMatchData;
 }

@@ -316,13 +316,17 @@ class InferenceEngine:
         cv_indices: list[int],
         job_indices: list[int],
         labels: list[int],
+        *,
+        gnn_scores: list[float] | None = None,
+        stage1_scores: list[float] | None = None,
     ) -> dict[str, float]:
-        """Train the Stage 2 XGBoost reranker on labeled pairs."""
+        """Train the Stage 2 reranker on labeled pairs."""
         metrics = self._reranker.train(
             self._cvs, self._jobs, cv_indices, job_indices, labels,
+            gnn_scores=gnn_scores, stage1_scores=stage1_scores,
         )
         if self._reranker.is_trained:
-            self._reranker.save(self._checkpoint_dir)  # FIX 1
+            self._reranker.save(self._checkpoint_dir)
         return metrics
 
     @property

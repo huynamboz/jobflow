@@ -29,7 +29,23 @@ class JobMatchResponse(serializers.Serializer):
     job_type = serializers.CharField(default="")
     salary_min = serializers.IntegerField(default=0)
     salary_max = serializers.IntegerField(default=0)
+    salary_currency = serializers.CharField(default="USD")
+    role_category = serializers.CharField(default="")
+    experience_min = serializers.FloatField(allow_null=True, default=None)
+    experience_max = serializers.FloatField(allow_null=True, default=None)
     source_url = serializers.CharField(default="")
+
+
+class CVInfoResponse(serializers.Serializer):
+    skills = serializers.ListField(child=serializers.CharField())
+    seniority = serializers.CharField()
+    experience_years = serializers.FloatField()
+    education = serializers.CharField()
+
+
+class CVMatchResponse(serializers.Serializer):
+    cv_info = CVInfoResponse()
+    jobs = JobMatchResponse(many=True)
 
 
 class CVParseResponse(serializers.Serializer):
