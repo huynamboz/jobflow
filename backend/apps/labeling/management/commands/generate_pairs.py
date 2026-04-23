@@ -224,19 +224,23 @@ class Command(BaseCommand):
             job_objs[jd.rec_id] = obj
 
         # ── Compute overlaps + bucket ─────────────────────────────────────────
+        # Compatible pairs (HIGH/MEDIUM/HARD_NEG) are collected WITHOUT a per-CV
+        # cap so high-overlap pairs aren't missed due to iteration order.
+        # RANDOM (incompatible role) pairs are capped at max_per_cv per CV.
         self.stdout.write("Computing skill overlaps...")
         n_pairs    = options["n_pairs"]
         max_per_cv = options["max_per_cv"]
 
         buckets: dict[str, list] = {r: [] for r in SelectionReason.values}
-        cv_pair_count: dict[int, int] = defaultdict(int)
 
         for cv in cvs:
             cv_skills = cv_skill_sets[cv.id]
             cv_role   = cv.role_category or "other"
+
+            compatible_pairs: list[tuple] = []
+            random_candidates: list[tuple] = []
+
             for jd in job_list:
-                if cv_pair_count[cv.id] >= max_per_cv:
-                    break
                 job_skills = job_skill_sets[jd.rec_id]
                 overlap    = _jaccard(cv_skills, job_skills)
                 compatible = _same_or_related(cv_role, jd.role)
@@ -248,11 +252,18 @@ class Command(BaseCommand):
                         reason = SelectionReason.MEDIUM_OVERLAP
                     else:
                         reason = SelectionReason.HARD_NEGATIVE
+                    compatible_pairs.append((cv.id, jd.rec_id, overlap, reason))
                 else:
-                    reason = SelectionReason.RANDOM
+                    random_candidates.append((cv.id, jd.rec_id, overlap, SelectionReason.RANDOM))
 
-                buckets[reason].append((cv.id, jd.rec_id, overlap, reason))
-                cv_pair_count[cv.id] += 1
+            # All compatible pairs go in — no per-CV cap (they are the signal)
+            for item in compatible_pairs:
+                buckets[item[3]].append(item)
+
+            # Random (incompatible) pairs capped at max_per_cv per CV
+            random.shuffle(random_candidates)
+            for item in random_candidates[:max_per_cv]:
+                buckets[SelectionReason.RANDOM].append(item)
 
         for bucket in buckets.values():
             random.shuffle(bucket)
