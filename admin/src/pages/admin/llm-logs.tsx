@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardBody } from "@heroui/card";
-import { ChevronLeft, ChevronRight, ClipboardList, X } from "lucide-react";
+import { Drawer, DrawerContent, DrawerHeader, DrawerBody } from "@heroui/drawer";
+import { ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 
 import { llmService } from "@/services/llm.service";
 import type { LLMCallLog } from "@/types/llm.types";
@@ -20,21 +21,20 @@ function StatusBadge({ status }: { status: "success" | "error" }) {
     : <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600">Error</span>;
 }
 
-function LogDrawer({ log, onClose }: { log: LLMCallLog; onClose: () => void }) {
+function LogDrawer({ log, isOpen, onClose }: { log: LLMCallLog | null; isOpen: boolean; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="relative h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 flex items-center justify-between border-b border-default-200 bg-white px-5 py-4">
-          <div>
-            <span className="font-semibold text-default-900">Log #{log.id}</span>
-            <span className="ml-2"><StatusBadge status={log.status} /></span>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-default-400 hover:bg-default-100">
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <div className="space-y-5 p-5">
+    <Drawer isOpen={isOpen} onOpenChange={(open) => !open && onClose()} placement="right" size="lg">
+      <DrawerContent>
+        <DrawerHeader className="border-b border-default-200">
+          {log && (
+            <div className="flex items-center gap-2">
+              <span>Log #{log.id}</span>
+              <StatusBadge status={log.status} />
+            </div>
+          )}
+        </DrawerHeader>
+        <DrawerBody className="p-0 overflow-y-auto">
+        {log && <div className="space-y-5 p-5">
           <div className="space-y-1.5 rounded-xl border border-default-100 bg-default-50 px-4 py-3 text-sm">
             {[
               ["Feature", FEATURE_LABEL[log.feature] ?? (log.feature || "—")],
@@ -75,9 +75,10 @@ function LogDrawer({ log, onClose }: { log: LLMCallLog; onClose: () => void }) {
               </pre>
             </div>
           )}
-        </div>
-      </div>
-    </div>
+        </div>}
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -194,7 +195,7 @@ export default function LLMLogsPage() {
         </CardBody>
       </Card>
 
-      {selected && <LogDrawer log={selected} onClose={() => setSelected(null)} />}
+      <LogDrawer log={selected} isOpen={selected !== null} onClose={() => setSelected(null)} />
     </div>
   );
 }

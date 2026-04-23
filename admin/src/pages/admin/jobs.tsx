@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardBody } from "@heroui/card";
-import { Briefcase, ChevronLeft, ChevronRight, Download, X } from "lucide-react";
+import { Drawer, DrawerContent, DrawerHeader, DrawerBody } from "@heroui/drawer";
+import { Briefcase, ChevronLeft, ChevronRight, Download } from "lucide-react";
 
 import { jobService } from "@/services/job.service";
 import type { JobDetail, JobListItem } from "@/types/job.types";
@@ -29,11 +30,14 @@ function fmtSalary(min: number | null, max: number | null) {
   return `≤ ${fmt(max!)}`;
 }
 
-function DetailDrawer({ jobId, onClose }: { jobId: number; onClose: () => void }) {
+function DetailDrawer({ jobId, isOpen, onClose }: { jobId: number | null; isOpen: boolean; onClose: () => void }) {
   const [job, setJob] = useState<JobDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!jobId) return;
+    setJob(null);
+    setLoading(true);
     jobService.getJob(jobId)
       .then(setJob)
       .catch(console.error)
@@ -41,15 +45,12 @@ function DetailDrawer({ jobId, onClose }: { jobId: number; onClose: () => void }
   }, [jobId]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="relative h-full w-full max-w-lg overflow-y-auto bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 flex items-center justify-between border-b border-default-200 bg-white px-5 py-4">
-          <span className="font-semibold text-default-900">{loading ? "Loading…" : (job?.title ?? "Job Detail")}</span>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-default-400 hover:bg-default-100">
-            <X className="size-4" />
-          </button>
-        </div>
-
+    <Drawer isOpen={isOpen} onOpenChange={(open) => !open && onClose()} placement="right" size="lg">
+      <DrawerContent>
+        <DrawerHeader className="border-b border-default-200">
+          {loading ? "Loading…" : (job?.title ?? "Job Detail")}
+        </DrawerHeader>
+        <DrawerBody className="p-0 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-default-400">Loading…</div>
         ) : !job ? (
@@ -104,8 +105,9 @@ function DetailDrawer({ jobId, onClose }: { jobId: number; onClose: () => void }
             )}
           </div>
         )}
-      </div>
-    </div>
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -256,7 +258,7 @@ export default function JobsPage() {
         </CardBody>
       </Card>
 
-      {selectedId !== null && <DetailDrawer jobId={selectedId} onClose={() => setSelectedId(null)} />}
+      <DetailDrawer jobId={selectedId} isOpen={selectedId !== null} onClose={() => setSelectedId(null)} />
     </div>
   );
 }

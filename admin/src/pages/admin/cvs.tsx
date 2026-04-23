@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardBody } from "@heroui/card";
-import { ChevronLeft, ChevronRight, Download, FileText, Upload, X } from "lucide-react";
+import { Drawer, DrawerContent, DrawerHeader, DrawerBody } from "@heroui/drawer";
+import { ChevronLeft, ChevronRight, Download, FileText, Upload } from "lucide-react";
 
 import { cvAdminService } from "@/services/cv-admin.service";
 import type { AdminCVDetail, AdminCVItem, WorkExperienceItem } from "@/types/cv-admin.types";
@@ -68,11 +69,14 @@ function WorkExperienceSection({ items }: { items: WorkExperienceItem[] }) {
   );
 }
 
-function DetailDrawer({ cvId, onClose }: { cvId: number; onClose: () => void }) {
+function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: boolean; onClose: () => void }) {
   const [cv, setCv] = useState<AdminCVDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!cvId) return;
+    setCv(null);
+    setLoading(true);
     cvAdminService.getCV(cvId)
       .then(setCv)
       .catch(console.error)
@@ -80,17 +84,12 @@ function DetailDrawer({ cvId, onClose }: { cvId: number; onClose: () => void }) 
   }, [cvId]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="relative h-full w-full max-w-md overflow-y-auto bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 flex items-center justify-between border-b border-default-200 bg-white px-5 py-4">
-          <span className="font-semibold text-default-900">
-            {loading ? "Loading…" : (cv ? `CV #${cv.id}` : "CV Detail")}
-          </span>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-default-400 hover:bg-default-100">
-            <X className="size-4" />
-          </button>
-        </div>
-
+    <Drawer isOpen={isOpen} onOpenChange={(open) => !open && onClose()} placement="right" size="lg">
+      <DrawerContent>
+        <DrawerHeader className="border-b border-default-200">
+          {loading ? "Loading…" : (cv ? `CV #${cv.id}` : "CV Detail")}
+        </DrawerHeader>
+        <DrawerBody className="p-0 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-default-400">Loading…</div>
         ) : !cv ? (
@@ -166,8 +165,9 @@ function DetailDrawer({ cvId, onClose }: { cvId: number; onClose: () => void }) 
             )}
           </div>
         )}
-      </div>
-    </div>
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
@@ -331,7 +331,7 @@ export default function CVsPage() {
         </CardBody>
       </Card>
 
-      {selectedId !== null && <DetailDrawer cvId={selectedId} onClose={() => setSelectedId(null)} />}
+      <DetailDrawer cvId={selectedId} isOpen={selectedId !== null} onClose={() => setSelectedId(null)} />
     </div>
   );
 }

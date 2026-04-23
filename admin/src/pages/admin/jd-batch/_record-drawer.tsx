@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Modal, ModalContent, ModalHeader, ModalBody } from "@heroui/modal";
+import { Drawer, DrawerContent, DrawerHeader, DrawerBody } from "@heroui/drawer";
 import {
   IconAlertCircle,
   IconClock,
@@ -35,14 +35,14 @@ export function RecordDrawer({ batchId, record, fieldsConfig, onClose }: {
   const res = r?.result;
 
   return (
-    <Modal
+    <Drawer
       isOpen={!!record}
-      onClose={onClose}
-      size="5xl"
-      scrollBehavior="inside"
+      onOpenChange={(open) => !open && onClose()}
+      placement="right"
+      size="4xl"
     >
-      <ModalContent>
-        <ModalHeader style={{ borderBottom: `1px solid ${T.line}`, padding: "16px 24px" }}>
+      <DrawerContent>
+        <DrawerHeader style={{ borderBottom: `1px solid ${T.line}`, padding: "16px 24px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -65,9 +65,9 @@ export function RecordDrawer({ batchId, record, fieldsConfig, onClose }: {
               </button>
             )}
           </div>
-        </ModalHeader>
+        </DrawerHeader>
 
-        <ModalBody style={{ padding: 0 }}>
+        <DrawerBody style={{ padding: 0, overflow: "auto" }}>
           {loading ? (
             <div style={{ display: "grid", placeItems: "center", height: 300, color: T.ink3 }}>
               <IconLoader2 size={20} style={{ animation: "jb-spin 0.7s linear infinite" }} />
@@ -151,9 +151,9 @@ export function RecordDrawer({ batchId, record, fieldsConfig, onClose }: {
               </div>
             </div>
           )}
-        </ModalBody>
-      </ModalContent>
-    </Modal>
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
   );
 }
 
