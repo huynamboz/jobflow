@@ -43,6 +43,12 @@ def save_checkpoint(
     meta = metadata or {}
     meta["num_cvs"] = len(cvs)
     meta["num_jobs"] = len(jobs)
+    # Save node_dims so load_checkpoint can reconstruct the right projection layers
+    # when embedding dim changes (e.g. MiniLM 384 → BGE-base 768).
+    meta["node_dims"] = {
+        ntype: int(layer.in_features)
+        for ntype, layer in model.projections.items()
+    }
     with open(path / "metadata.json", "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
 
@@ -79,11 +85,13 @@ def load_checkpoint(
     else:
         dropout = 0.0
 
+    node_dims = meta.get("node_dims") or None  # None → GNN uses its built-in default
     model = HeteroGraphSAGE(
         metadata=metadata,
         hidden_channels=hidden_channels,
         num_layers=num_layers,
         dropout=dropout,
+        node_dims=node_dims,
     )
     model.load_state_dict(torch.load(path / "model.pt", weights_only=True))
     model.eval()

@@ -6,11 +6,13 @@ _REGISTRY: dict[str, type[EmbeddingProvider]] = {}
 def _ensure_registry() -> None:
     if _REGISTRY:
         return
+    from ml_service.embedding.bge import BgeSmallProvider
     from ml_service.embedding.english import EnglishProvider
     from ml_service.embedding.multilingual import MultilingualProvider
 
     _REGISTRY["english"] = EnglishProvider
     _REGISTRY["multilingual"] = MultilingualProvider
+    _REGISTRY["bge-small"] = BgeSmallProvider
 
 
 def get_provider(name: str | None = None) -> EmbeddingProvider:
