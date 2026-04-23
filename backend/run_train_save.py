@@ -213,7 +213,7 @@ def main(data_dir: Path) -> None:
         description=f"CLI train — data: {data_dir}",
         num_cvs=len(cvs),
         num_jobs=len(jobs),
-        num_pairs=len(result.test_metrics.get("num_pairs", 0) or 0),
+        num_pairs=int(result.test_metrics.get("num_pairs", 0) or 0),
         num_skills=data["skill"].x.shape[0],
         auc_roc=m.get("auc_roc"),
         recall_at_5=m.get("recall@5"),
