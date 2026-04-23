@@ -34,7 +34,7 @@ SENIORITY_MAP = {"INTERN": 0, "JUNIOR": 1, "MID": 2, "SENIOR": 3, "LEAD": 4, "MA
 EDUCATION_MAP = {"NONE": 0, "COLLEGE": 1, "BACHELOR": 2, "MASTER": 3, "PHD": 4}
 
 
-def main(output_dir: Path, min_cv_skills: int, min_job_skills: int) -> None:
+def main(output_dir: Path, min_cv_skills: int, min_job_skills: int, batch_ids: list[int] | None = None) -> None:
     from apps.labeling.models import LabelingCV, LabelingJob, HumanLabel, PairQueue
     from apps.cvs.models import CV
     from apps.jobs.models import JDExtractionRecord
@@ -152,11 +152,10 @@ def main(output_dir: Path, min_cv_skills: int, min_job_skills: int) -> None:
     labels_out = []
     skipped = 0
 
-    human_labels = (
-        HumanLabel.objects
-        .select_related("pair__cv", "pair__job", "pair")
-        .all()
-    )
+    human_labels = HumanLabel.objects.select_related("pair__cv", "pair__job", "pair")
+    if batch_ids:
+        human_labels = human_labels.filter(batch_id__in=batch_ids)
+        print(f"  (filtered to batch(es): {batch_ids})")
 
     split_counts = {"train": 0, "val": 0, "test": 0}
     label_counts = {0: 0, 1: 0}
@@ -208,6 +207,7 @@ def main(output_dir: Path, min_cv_skills: int, min_job_skills: int) -> None:
         "split": split_counts,
         "min_cv_skills":  min_cv_skills,
         "min_job_skills": min_job_skills,
+        "batch_ids": batch_ids or "all",
     }
 
     # ── Write files ───────────────────────────────────────────────────────────
@@ -238,6 +238,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", default="data/processed/v2", help="Output directory")
     parser.add_argument("--min-cv-skills",  type=int, default=2)
     parser.add_argument("--min-job-skills", type=int, default=2)
+    parser.add_argument("--batches", type=int, nargs="+", default=None,
+                        help="Only include HumanLabels from these batch IDs (e.g. --batches 8 9)")
     args = parser.parse_args()
 
-    main(Path(args.output), args.min_cv_skills, args.min_job_skills)
+    main(Path(args.output), args.min_cv_skills, args.min_job_skills, args.batches)

@@ -39,8 +39,8 @@ class JobListSerializer(serializers.ModelSerializer):
         model = Job
         fields = (
             "id", "title", "company_name", "platform_name", "location",
-            "seniority", "job_type", "salary_min", "salary_max",
-            "is_active", "date_posted", "created_at",
+            "seniority", "job_type", "salary_min", "salary_max", "salary_currency",
+            "applicant_count", "is_active", "date_posted", "created_at",
         )
 
 

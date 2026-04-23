@@ -13,5 +13,15 @@ export default {
     extend: {},
   },
   darkMode: "class",
-  plugins: [heroui()],
+  plugins: [
+    heroui({
+      layout: {
+        radius: {
+          small: "10px",
+          medium: "14px",
+          large: "20px",
+        },
+      },
+    }),
+  ],
 };

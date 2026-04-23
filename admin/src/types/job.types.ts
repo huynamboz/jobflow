@@ -28,6 +28,8 @@ export interface JobListItem {
   job_type: string;
   salary_min: number;
   salary_max: number;
+  salary_currency: string;
+  applicant_count: string;
   is_active: boolean;
   date_posted: string | null;
   created_at: string;

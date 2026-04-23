@@ -130,9 +130,10 @@ def _label_one(pair_id: int) -> tuple[dict | None, str | None]:
 
 
 def _run(batch_id: int, cancel_event: threading.Event, workers: int = WORKERS) -> None:
-    import django
-    django.setup()
-
+    # django.setup() must NOT be called here — Django is already initialised by
+    # the web server process and calling setup() again in a thread re-triggers
+    # every AppConfig.ready(), including the one that resets running batches to
+    # "cancelled", which immediately kills the batch we just started.
     from django.db.models import F
     from apps.labeling.models import LabelingBatch, PairQueue, PairStatus, HumanLabel
 
@@ -144,9 +145,14 @@ def _run(batch_id: int, cancel_event: threading.Event, workers: int = WORKERS) -
             .values_list("id", flat=True)
         )
 
+        # Sync counters with actual DB state — guards against restarts where
+        # a previous run already created some labels and updated done_count,
+        # but total was re-snapshotted to a smaller pending count.
+        already_done = HumanLabel.objects.filter(batch_id=batch_id).count()
         LabelingBatch.objects.filter(id=batch_id).update(
             status=LabelingBatch.STATUS_RUNNING,
-            total=len(pending_ids),
+            total=already_done + len(pending_ids),
+            done_count=already_done,
         )
         logger.info("LabelingBatch #%d: %d pending pairs to label", batch_id, len(pending_ids))
 
