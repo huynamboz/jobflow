@@ -16,6 +16,7 @@ export interface JobMatchResult {
   experience_min: number | null;
   experience_max: number | null;
   source_url: string;
+  match_level: "strong" | "good" | "weak" | "";
 }
 
 export interface CVInfo {

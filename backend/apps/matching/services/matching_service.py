@@ -137,6 +137,7 @@ def _enrich(results) -> list[dict]:
             "job_id":         r.job_id,
             "score":          r.score,
             "eligible":       r.eligible,
+            "match_level":    r.match_level,
             "matched_skills": _filter_soft_skills(list(r.matched_skills)),
             "missing_skills": _filter_soft_skills(list(r.missing_skills)),
             "seniority_match": r.seniority_match,

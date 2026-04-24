@@ -89,6 +89,23 @@ function CVInfoPanel({ cv }: { cv: CVInfo }) {
   );
 }
 
+// ── Match Level Badge ───────────────────────────────────────────────────────
+const MATCH_LEVEL_CONFIG = {
+  strong: { label: "Very suitable", cls: "border-emerald-300 bg-emerald-50 text-emerald-700" },
+  good:   { label: "Suitable",      cls: "border-blue-200   bg-blue-50   text-blue-700"    },
+  weak:   { label: "Weak match",    cls: "border-default-200 bg-default-50 text-default-500" },
+};
+
+function MatchLevelBadge({ level }: { level: string }) {
+  const cfg = MATCH_LEVEL_CONFIG[level as keyof typeof MATCH_LEVEL_CONFIG];
+  if (!cfg) return null;
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${cfg.cls}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
 // ── Score Bar ───────────────────────────────────────────────────────────────
 function ScoreBar({ score, eligible }: { score: number; eligible: boolean }) {
   const pct = Math.round(score * 100);
@@ -149,8 +166,11 @@ function JobCard({ job }: { job: JobMatchResult }) {
         )}
       </div>
 
-      {/* Score */}
-      <ScoreBar score={job.score} eligible={job.eligible} />
+      {/* Score + Match level */}
+      <div className="flex items-center gap-2">
+        <ScoreBar score={job.score} eligible={job.eligible} />
+        <MatchLevelBadge level={job.match_level} />
+      </div>
 
       {/* Meta chips */}
       <div className="flex flex-wrap gap-1.5">

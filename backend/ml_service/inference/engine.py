@@ -57,6 +57,7 @@ class JobMatchResult:
     seniority_match: bool
     title: str = ""
     company: str = ""
+    match_level: str = ""  # "strong" | "good" | "weak"
 
 
 class InferenceEngine:
@@ -257,17 +258,21 @@ class InferenceEngine:
                 cand_indices,
                 gnn_scores=gnn_scores_for_candidates,
             )
+            # Sort by reranker score; keep reranker_score map for match_level
+            reranker_score_map = {idx: float(s) for idx, s in zip(cand_indices, rerank_probs)}
             reranked = sorted(
                 zip(cand_indices, rerank_probs),
                 key=lambda x: -x[1],
             )
+            # Preserve reranker order — do NOT re-sort by stage1 score
             scored = [(idx, stage1_score_map[idx]) for idx, _ in reranked]
         else:
+            reranker_score_map = {}
             scored = candidates
 
-        # --- Build results (with calibrated scores, sorted by display score) ---
+        # --- Build results (reranker order preserved, no secondary sort) ---
         results: list[JobMatchResult] = []
-        for job_idx, raw_score in sorted(scored[:top_k], key=lambda x: -x[1]):
+        for job_idx, raw_score in scored[:top_k]:
             job = self._jobs[job_idx]
             job_skills = set(job.skills)
             title = job.text.split(".")[0] if job.text else ""
@@ -275,6 +280,17 @@ class InferenceEngine:
             display_score = float(raw_score)
             calibrated = self._calibrator.transform_single(display_score)
             eligible = calibrated >= 0.5 if self._calibrator.is_fitted else display_score >= self._threshold
+
+            # match_level from ordinal reranker score (thresholds from eval: class2≈0.33, class1≈0.25, class0≈0.18)
+            rs = reranker_score_map.get(job_idx, -1.0)
+            if rs >= 0.30:
+                match_level = "strong"
+            elif rs >= 0.22:
+                match_level = "good"
+            elif rs >= 0:
+                match_level = "weak"
+            else:
+                match_level = ""
 
             results.append(
                 JobMatchResult(
@@ -285,6 +301,7 @@ class InferenceEngine:
                     missing_skills=tuple(sorted(job_skills - cv_skills)),
                     seniority_match=abs(int(cv.seniority) - int(job.seniority)) <= 1,
                     title=title,
+                    match_level=match_level,
                 )
             )
 
