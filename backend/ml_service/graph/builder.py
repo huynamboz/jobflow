@@ -4,7 +4,12 @@ import numpy as np
 import torch
 from torch_geometric.data import HeteroData
 
-from ml_service.data.skill_graph import build_cv_similarity_edges, build_job_similarity_edges, build_skill_edges
+from ml_service.data.skill_graph import (
+    build_cv_similarity_edges,
+    build_job_similarity_edges,
+    build_semantic_skill_edges,
+    build_skill_edges,
+)
 from ml_service.embedding.base import EmbeddingProvider
 from ml_service.graph.schema import (
     CVData,
@@ -54,12 +59,25 @@ class GraphBuilder:
         cv_extra = np.stack([exp_norm, edu_norm], axis=1)
         data["cv"].x = torch.from_numpy(np.concatenate([cv_embeddings, cv_extra], axis=1))
 
-        # --- Job nodes: embedding(384) + salary_min_norm + salary_max_norm = 386 ---
+        # --- Job nodes: embedding(384) + salary_min_norm + salary_max_norm + role_category_onehot(11) = 397 ---
+        _ROLE_CATEGORIES = [
+            "other", "frontend", "backend", "fullstack", "qa",
+            "devops", "data_ml", "mobile", "ba", "data_eng", "design",
+        ]
+        _role_to_idx = {r: i for i, r in enumerate(_ROLE_CATEGORIES)}
+
         job_texts = [job.text for job in jobs]
         job_embeddings = self._embed.encode(job_texts)  # (N, 384)
         sal_min = np.array([float(job.salary_min) for job in jobs], dtype=np.float32)
         sal_max = np.array([float(job.salary_max) for job in jobs], dtype=np.float32)
-        job_extra = np.stack([_minmax(sal_min), _minmax(sal_max)], axis=1)
+        role_onehot = np.zeros((len(jobs), len(_ROLE_CATEGORIES)), dtype=np.float32)
+        for i, job in enumerate(jobs):
+            rc = (job.role_category or "other").lower()
+            role_onehot[i, _role_to_idx.get(rc, 0)] = 1.0
+        job_extra = np.concatenate(
+            [np.stack([_minmax(sal_min), _minmax(sal_max)], axis=1), role_onehot],
+            axis=1,
+        )
         data["job"].x = torch.from_numpy(np.concatenate([job_embeddings, job_extra], axis=1))
 
         # --- Skill nodes: embedding(384) + category = 385 ---
@@ -119,14 +137,30 @@ class GraphBuilder:
             [rsen_src, rsen_dst], dtype=torch.long
         )
 
-        # --- skill → skill (relates_to) edges: co-occurrence PMI ---
+        # --- skill → skill (relates_to) edges: PMI co-occurrence + semantic similarity ---
         sk_edge_index, sk_edge_attr = build_skill_edges(cvs, jobs, skill_to_idx)
-        if sk_edge_index[0]:
+
+        # Supplement with embedding-based edges for semantically close skills
+        # that rarely co-occur (e.g. nodejs ↔ express, fastapi ↔ flask).
+        existing_pmi: set[tuple[str, str]] = set()
+        for s, d in zip(sk_edge_index[0], sk_edge_index[1]):
+            a, b = skill_names[s], skill_names[d]
+            existing_pmi.add((min(a, b), max(a, b)))
+        sem_edge_index, sem_attr = build_semantic_skill_edges(
+            skill_names, skill_embeddings, skill_to_idx, existing_pmi,
+            threshold=0.70, max_new_per_skill=5,
+        )
+
+        all_src = sk_edge_index[0] + sem_edge_index[0]
+        all_dst = sk_edge_index[1] + sem_edge_index[1]
+        all_attr = sk_edge_attr + sem_attr
+
+        if all_src:
             data["skill", "relates_to", "skill"].edge_index = torch.tensor(
-                sk_edge_index, dtype=torch.long
+                [all_src, all_dst], dtype=torch.long
             )
             data["skill", "relates_to", "skill"].edge_attr = torch.tensor(
-                sk_edge_attr, dtype=torch.float
+                all_attr, dtype=torch.float
             )
 
         # --- job → job (similar_to) edges: skill overlap ---

@@ -58,6 +58,11 @@ class JobMatchResult:
     title: str = ""
     company: str = ""
     match_level: str = ""  # "strong" | "good" | "weak"
+    dim_scores: dict = None  # skill_fit/experience_fit/seniority_fit/domain_fit → "good"|"ok"|"weak"
+
+    def __post_init__(self):
+        # dataclass frozen=True — default mutable arg workaround
+        object.__setattr__(self, "dim_scores", self.dim_scores if self.dim_scores is not None else {})
 
 
 class InferenceEngine:
@@ -215,7 +220,7 @@ class InferenceEngine:
         results.sort(key=lambda r: r.score, reverse=True)
         return results[:top_k]
 
-    def match_cv(self, cv: CVData, top_k: int = 10, retrieve_n: int = 50) -> list[JobMatchResult]:
+    def match_cv(self, cv: CVData, top_k: int = 10, retrieve_n: int = 200) -> list[JobMatchResult]:
         """Two-stage matching: CV against all Jobs.
 
         Stage 1 (Retrieve): Fast hybrid scoring → top N candidates
@@ -251,15 +256,15 @@ class InferenceEngine:
                 self._gnn_score_fast(cv, self._jobs[idx], idx, cv_text_vec, cv_gnn_emb)
                 for idx in cand_indices
             ]
-            rerank_probs = self._reranker.score_batch(
+            rerank_probs, dim_levels_list = self._reranker.score_batch_with_dims(
                 [cv] * len(cand_indices),
                 self._jobs,
                 list(range(len(cand_indices))),
                 cand_indices,
                 gnn_scores=gnn_scores_for_candidates,
             )
-            # Sort by reranker score; keep reranker_score map for match_level
             reranker_score_map = {idx: float(s) for idx, s in zip(cand_indices, rerank_probs)}
+            dim_levels_map = {idx: d for idx, d in zip(cand_indices, dim_levels_list)}
             reranked = sorted(
                 zip(cand_indices, rerank_probs),
                 key=lambda x: -x[1],
@@ -268,20 +273,46 @@ class InferenceEngine:
             scored = [(idx, stage1_score_map[idx]) for idx, _ in reranked]
         else:
             reranker_score_map = {}
+            dim_levels_map = {}
             scored = candidates
 
-        # --- Build results (reranker order preserved, no secondary sort) ---
+        # --- Build results: apply all penalties to ALL candidates, then final sort ---
+        _EXP_PENALTY_THRESHOLD = 0.80   # cv_exp < 80% of job_exp_min → penalize
+        _EXP_PENALTY_FACTOR    = 0.40   # experience mismatch multiplier
+        _SEN_PENALTY_FACTOR    = 0.70   # seniority mismatch multiplier
+
         results: list[JobMatchResult] = []
-        for job_idx, raw_score in scored[:top_k]:
+        for job_idx, raw_score in scored:   # iterate ALL retrieve_n, sort after
             job = self._jobs[job_idx]
             job_skills = set(job.skills)
             title = job.text.split(".")[0] if job.text else ""
 
             display_score = float(raw_score)
-            calibrated = self._calibrator.transform_single(display_score)
-            eligible = calibrated >= 0.5 if self._calibrator.is_fitted else display_score >= self._threshold
 
-            # match_level from ordinal reranker score (thresholds from eval: class2≈0.33, class1≈0.25, class0≈0.18)
+            # Experience gate: recruiters reject under-experienced candidates outright.
+            _exp_weak = False
+            if job.experience_min and job.experience_min > 0:
+                if cv.experience_years / job.experience_min < _EXP_PENALTY_THRESHOLD:
+                    display_score *= _EXP_PENALTY_FACTOR
+                    _exp_weak = True
+
+            # Seniority gate: senior/lead roles for junior/mid CVs.
+            _sen_weak = False
+            sen_gap = int(job.seniority) - int(cv.seniority)
+            if sen_gap >= 2 or (sen_gap >= 1 and int(job.seniority) >= 3 and int(cv.seniority) <= 2):
+                display_score *= _SEN_PENALTY_FACTOR
+                _sen_weak = True
+
+            # Overqualification: CV is 2+ seniority levels above job (e.g. senior → intern).
+            _OVERQUAL_PENALTY = 0.75
+            overqual_gap = int(cv.seniority) - int(job.seniority)
+            if overqual_gap >= 2:
+                display_score *= _OVERQUAL_PENALTY
+                _sen_weak = True
+
+            eligible = display_score >= 0.45  # placeholder; overwritten below
+
+            # match_level from ordinal reranker score (thresholds from eval)
             rs = reranker_score_map.get(job_idx, -1.0)
             if rs >= 0.30:
                 match_level = "strong"
@@ -291,6 +322,12 @@ class InferenceEngine:
                 match_level = "weak"
             else:
                 match_level = ""
+
+            dim_scores = dict(dim_levels_map.get(job_idx, {}))
+            if _exp_weak:
+                dim_scores["experience_fit"] = "weak"
+            if _sen_weak:
+                dim_scores["seniority_fit"] = "weak"
 
             results.append(
                 JobMatchResult(
@@ -302,10 +339,17 @@ class InferenceEngine:
                     seniority_match=abs(int(cv.seniority) - int(job.seniority)) <= 1,
                     title=title,
                     match_level=match_level,
+                    dim_scores=dim_scores,
                 )
             )
 
-        return results
+        results.sort(key=lambda r: r.score, reverse=True)
+        final = results[:top_k]
+        if final:
+            thr = final[0].score * 0.65
+            for r in final:
+                object.__setattr__(r, "eligible", r.score >= thr)
+        return final
 
     def match_cv_text(self, cv_text: str, top_k: int = 10) -> list[JobMatchResult]:
         """Match raw CV text against all Jobs."""
@@ -336,11 +380,15 @@ class InferenceEngine:
         *,
         gnn_scores: list[float] | None = None,
         stage1_scores: list[float] | None = None,
+        dim_labels: list[dict] | None = None,
+        epochs: int = 150,
+        aux_weight: float = 0.3,
     ) -> dict[str, float]:
         """Train the Stage 2 reranker on labeled pairs."""
         metrics = self._reranker.train(
             self._cvs, self._jobs, cv_indices, job_indices, labels,
             gnn_scores=gnn_scores, stage1_scores=stage1_scores,
+            dim_labels=dim_labels, epochs=epochs, aux_weight=aux_weight,
         )
         if self._reranker.is_trained:
             self._reranker.save(self._checkpoint_dir)

@@ -5,12 +5,12 @@ from apps.matching.models import TrainRun
 
 class CVTextMatchRequest(serializers.Serializer):
     text = serializers.CharField(min_length=10, help_text="CV text content")
-    top_k = serializers.IntegerField(default=10, min_value=1, max_value=100)
+    top_k = serializers.IntegerField(default=60, min_value=1, max_value=200)
 
 
 class CVFileMatchRequest(serializers.Serializer):
     file = serializers.FileField(help_text="CV file (PDF/DOCX/TXT)")
-    top_k = serializers.IntegerField(default=10, min_value=1, max_value=100, required=False)
+    top_k = serializers.IntegerField(default=60, min_value=1, max_value=200, required=False)
 
     class Meta:
         pass
@@ -35,6 +35,7 @@ class JobMatchResponse(serializers.Serializer):
     experience_max = serializers.FloatField(allow_null=True, default=None)
     source_url = serializers.CharField(default="")
     match_level = serializers.CharField(default="")
+    dim_scores = serializers.DictField(child=serializers.CharField(), default=dict)
 
 
 class CVInfoResponse(serializers.Serializer):

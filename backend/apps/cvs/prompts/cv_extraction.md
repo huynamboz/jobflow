@@ -56,7 +56,7 @@ Use experience_years as primary signal, but override with title context when the
 
 **education**: Highest degree achieved. One of: `"none"`, `"college"`, `"bachelor"`, `"master"`, `"phd"`. Return `"bachelor"` if unclear.
 
-**skills**: Technical skills only (programming languages, frameworks, tools, databases, cloud platforms). Exclude pure soft skills (communication, teamwork) unless they appear as `agile`, `problem_solving`, or `leadership` in the list below. Proficiency 1–5 where 1=beginner, 3=proficient, 5=expert. Infer from context (years used, role seniority, project complexity).
+**skills**: Extract ONLY skills explicitly mentioned in the CV text (programming languages, frameworks, tools, databases, cloud platforms). Do NOT infer or add skills based on job title, role, or context — if a skill is not written in the CV, do not include it. Exclude pure soft skills (communication, teamwork) unless they appear as `agile`, `problem_solving`, or `leadership` in the list below. Proficiency 1–5 where 1=beginner, 3=proficient, 5=expert (infer proficiency from context such as years used or seniority, but only for skills that are explicitly present).
 
 The `name` field MUST be one of the canonical identifiers below — map what you read to the closest match. Omit a skill if nothing in the list fits.
 

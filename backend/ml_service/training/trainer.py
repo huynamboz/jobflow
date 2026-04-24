@@ -48,6 +48,7 @@ class TrainConfig:
     hybrid_alpha: float = 0.6
     hybrid_beta: float = 0.3
     hybrid_gamma: float = 0.1
+    seed: int = 42
 
 
 @dataclass
@@ -224,7 +225,10 @@ class Trainer:
     ) -> TrainResult:
         """Train the GNN model and return results."""
         cfg = self.config
-        rng = np.random.RandomState(42)
+        seed = getattr(cfg, "seed", 42)
+        rng = np.random.RandomState(seed)
+        torch.manual_seed(seed)
+        np.random.seed(seed)
 
         cv_id_to_idx = {cv.cv_id: i for i, cv in enumerate(cvs)}
         job_id_to_idx = {job.job_id: i for i, job in enumerate(jobs)}
@@ -245,11 +249,17 @@ class Trainer:
                 num_layers=cfg.num_layers,
             )
         else:
+            node_dims = {
+                ntype: data_clean[ntype].x.shape[1]
+                for ntype in data_clean.node_types
+                if hasattr(data_clean[ntype], "x") and data_clean[ntype].x is not None
+            }
             model = HeteroGraphSAGE(
                 metadata=metadata,
                 hidden_channels=cfg.hidden_channels,
                 num_layers=cfg.num_layers,
                 dropout=cfg.dropout,
+                node_dims=node_dims,
             )
         model = model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)

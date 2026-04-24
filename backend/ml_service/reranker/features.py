@@ -39,6 +39,10 @@ class FeatureExtractor:
         "gnn_rank",
         "must_have_cap_triggered",
         "edge_case_penalty_triggered",
+        # Experience & role (new)
+        "skill_coverage_ratio",
+        "experience_gap",
+        "role_category_match",
     ]
 
     def __init__(
@@ -144,6 +148,24 @@ class FeatureExtractor:
         if intersection and len(intersection - _TOOL_SKILLS) == 0:
             edge_penalty = 1.0
 
+        # 20. Skill coverage ratio
+        skill_coverage = matched_count / max(total_job_skills, 1)
+
+        # 21. Experience gap (positive = over-qualified, negative = under-qualified)
+        # Clamp to [-5, +10] then normalize to [-1, 1]
+        if job.experience_min > 0:
+            raw_gap = cv.experience_years - job.experience_min
+            experience_gap = max(-5.0, min(10.0, raw_gap)) / 10.0
+        else:
+            experience_gap = 0.0  # unknown requirement → neutral
+
+        # 22. Role category match (direct label match, more reliable than infer_role())
+        if job.role_category:
+            cv_role = infer_role(cv.skills, cv.text)
+            role_category_match = 1.0 if cv_role == job.role_category else 0.0
+        else:
+            role_category_match = 0.5  # unknown → neutral
+
         return np.array([
             text_sim, jaccard, weighted, semantic,
             missing_req, missing_ratio,
@@ -151,8 +173,9 @@ class FeatureExtractor:
             sen_dist, sen_score,
             role_pen, exp_years, cv_skill_count,
             specificity, tool_ratio,
-            stage1_score, gnn_score,  # Actual GNN decode score
+            stage1_score, gnn_score,
             gnn_rank, must_have_triggered, edge_penalty,
+            skill_coverage, experience_gap, role_category_match,
         ], dtype=np.float32)
 
     def extract_batch(
@@ -264,6 +287,18 @@ class FeatureExtractor:
         if intersection and len(intersection - _TOOL_SKILLS) == 0:
             edge_penalty = 1.0
 
+        # 21-23. New features
+        skill_coverage = matched_count / max(total_job_skills, 1)
+        if job.experience_min > 0:
+            raw_gap = cv.experience_years - job.experience_min
+            experience_gap = max(-5.0, min(10.0, raw_gap)) / 10.0
+        else:
+            experience_gap = 0.0
+        if job.role_category:
+            role_category_match = 1.0 if cv_role == job.role_category else 0.0
+        else:
+            role_category_match = 0.5
+
         return np.array([
             text_sim, jaccard, weighted, semantic,
             missing_req, missing_ratio,
@@ -271,8 +306,9 @@ class FeatureExtractor:
             sen_dist, sen_score,
             role_pen, cv.experience_years, len(cv_set),
             self._skill_specificity(cv_set), tool_ratio,
-            stage1_score, gnn_score,  # Actual GNN decode score
+            stage1_score, gnn_score,
             gnn_rank, must_have_triggered, edge_penalty,
+            skill_coverage, experience_gap, role_category_match,
         ], dtype=np.float32)
 
     def _text_similarity(self, cv: CVData, job: JobData) -> float:

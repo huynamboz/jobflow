@@ -17,6 +17,12 @@ export interface JobMatchResult {
   experience_max: number | null;
   source_url: string;
   match_level: "strong" | "good" | "weak" | "";
+  dim_scores: {
+    skill_fit?: "good" | "ok" | "weak";
+    experience_fit?: "good" | "ok" | "weak";
+    seniority_fit?: "good" | "ok" | "weak";
+    domain_fit?: "good" | "ok" | "weak";
+  };
 }
 
 export interface CVInfo {

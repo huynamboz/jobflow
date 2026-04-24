@@ -126,6 +126,55 @@ def build_skill_edges(
     return [src, dst], attr
 
 
+def build_semantic_skill_edges(
+    skill_names: list[str],
+    skill_embeddings: "np.ndarray",
+    skill_to_idx: dict[str, int],
+    existing_edges: set[tuple[str, str]],
+    threshold: float = 0.70,
+    max_new_per_skill: int = 5,
+) -> tuple[list[list[int]], list[float]]:
+    """Build skill-skill edges from embedding cosine similarity.
+
+    Supplements PMI edges for skill pairs that rarely co-occur in the training
+    data but are semantically close (e.g. nodejs ↔ express, fastapi ↔ flask).
+    Only adds edges not already covered by existing_edges.
+    """
+    import numpy as np
+
+    n = len(skill_names)
+    norms = np.linalg.norm(skill_embeddings, axis=1, keepdims=True)
+    norms = np.where(norms < 1e-8, 1.0, norms)
+    emb_norm = skill_embeddings / norms
+    sim_matrix = (emb_norm @ emb_norm.T).astype(float)  # (S, S)
+
+    src, dst, attr = [], [], []
+    added: set[tuple[str, str]] = set()
+
+    for i, skill_a in enumerate(skill_names):
+        sims = sorted(
+            ((j, float(sim_matrix[i, j])) for j in range(n) if j != i),
+            key=lambda x: -x[1],
+        )
+        count = 0
+        for j, sim in sims:
+            if count >= max_new_per_skill:
+                break
+            if sim < threshold:
+                break
+            skill_b = skill_names[j]
+            pair = (min(skill_a, skill_b), max(skill_a, skill_b))
+            if pair in existing_edges or pair in added:
+                continue
+            added.add(pair)
+            src.extend([skill_to_idx[skill_a], skill_to_idx[skill_b]])
+            dst.extend([skill_to_idx[skill_b], skill_to_idx[skill_a]])
+            attr.extend([sim, sim])
+            count += 1
+
+    return [src, dst], attr
+
+
 def build_job_similarity_edges(
     jobs: list[JobData],
     top_k: int = 5,

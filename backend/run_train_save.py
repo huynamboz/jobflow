@@ -22,6 +22,7 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
+import sklearn.metrics.pairwise  # pre-warm to prevent deadlock with sentence_transformers
 import numpy as np
 import torch
 
@@ -60,6 +61,7 @@ TRAIN_CONFIG = TrainConfig(
     hybrid_alpha=0.55,
     hybrid_beta=0.30,
     hybrid_gamma=0.15,
+    seed=500,
 )
 
 
@@ -107,6 +109,9 @@ def load_dataset(data_dir: Path):
             skill_importances=tuple(j["skill_importances"]),
             salary_min=int(j["salary_min"] or 0),
             salary_max=int(j["salary_max"] or 0),
+            experience_min=float(j.get("experience_min") or 0),
+            experience_max=float(j["experience_max"]) if j.get("experience_max") else None,
+            role_category=j.get("role_category") or "",
             text=j["text"] or "",
         ))
 
@@ -172,10 +177,16 @@ def main(data_dir: Path) -> None:
     data_clean   = _strip_label_edges(data)
     data_prepared = prepare_data_for_gnn(data_clean)
 
+    node_dims = {
+        ntype: data_clean[ntype].x.shape[1]
+        for ntype in data_clean.node_types
+        if hasattr(data_clean[ntype], "x") and data_clean[ntype].x is not None
+    }
     model = HeteroGraphSAGE(
         metadata=data_prepared.metadata(),
         hidden_channels=cfg.hidden_channels,
         num_layers=cfg.num_layers,
+        node_dims=node_dims,
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     rng = np.random.RandomState(42)
@@ -203,107 +214,87 @@ def main(data_dir: Path) -> None:
         model.load_state_dict(best_state)
     model.eval()
 
-    # --- Register TrainRun in DB ---
-    from django.utils import timezone
-    from apps.matching.models import TrainRun
-
     m = result.test_metrics
-    run = TrainRun(
-        status=TrainRun.Status.COMPLETED,
-        description=f"CLI train — data: {data_dir}",
-        num_cvs=len(cvs),
-        num_jobs=len(jobs),
-        num_pairs=int(result.test_metrics.get("num_pairs", 0) or 0),
-        num_skills=data["skill"].x.shape[0],
-        auc_roc=m.get("auc_roc"),
-        recall_at_5=m.get("recall@5"),
-        recall_at_10=m.get("recall@10"),
-        precision_at_5=m.get("precision@5"),
-        precision_at_10=m.get("precision@10"),
-        ndcg_at_10=m.get("ndcg@10"),
-        mrr=m.get("mrr"),
-        best_epoch=result.best_epoch,
-        final_loss=result.train_losses[-1] if result.train_losses else None,
-        model_type=cfg.model_type,
-        hidden_channels=cfg.hidden_channels,
-        num_layers=cfg.num_layers,
-        learning_rate=cfg.lr,
-        config_json={
-            "hybrid_alpha": cfg.hybrid_alpha,
-            "hybrid_beta":  cfg.hybrid_beta,
-            "hybrid_gamma": cfg.hybrid_gamma,
-            "weight_decay": cfg.weight_decay,
-            "data_dir":     str(data_dir),
-        },
-        metrics_json=m,
-        started_at=timezone.now(),
-        completed_at=timezone.now(),
-        training_duration_seconds=int(time.time() - t_start),
-    )
-    run.save()  # auto-generates version (v1, v2, ...)
+    train_meta = {
+        "hidden_channels": cfg.hidden_channels,
+        "num_layers":      cfg.num_layers,
+        "lr":              cfg.lr,
+        "hybrid_alpha":    cfg.hybrid_alpha,
+        "hybrid_beta":     cfg.hybrid_beta,
+        "hybrid_gamma":    cfg.hybrid_gamma,
+    }
+    base_meta = {
+        "best_epoch":   result.best_epoch,
+        "test_metrics": result.test_metrics,
+        "num_cvs":      len(cvs),
+        "num_jobs":     len(jobs),
+        "cv_source":    "db_export",
+        "data_dir":     str(data_dir),
+        "train_config": train_meta,
+    }
 
-    # Save versioned checkpoint alongside "latest"
-    versioned_dir = CHECKPOINT_DIR.parent / f"run_{run.version}"
-    save_checkpoint(
-        versioned_dir, model, data, cvs, jobs,
-        metadata={
-            "best_epoch":   result.best_epoch,
-            "test_metrics": result.test_metrics,
-            "num_cvs":      len(cvs),
-            "num_jobs":     len(jobs),
-            "cv_source":    "db_export",
-            "data_dir":     str(data_dir),
-            "train_run_id": run.id,
-            "version":      run.version,
-            "train_config": {
-                "hidden_channels": cfg.hidden_channels,
-                "num_layers":      cfg.num_layers,
-                "lr":              cfg.lr,
-                "hybrid_alpha":    cfg.hybrid_alpha,
-                "hybrid_beta":     cfg.hybrid_beta,
-                "hybrid_gamma":    cfg.hybrid_gamma,
-            },
-        },
-    )
+    # --- Save checkpoint first (works even without DB) ---
+    save_checkpoint(CHECKPOINT_DIR, model, data, cvs, jobs, metadata=base_meta)
+    logger.info("Checkpoint saved to %s", CHECKPOINT_DIR)
 
-    run.checkpoint_path = str(versioned_dir)
-    run.save(update_fields=["checkpoint_path"])
+    # --- Register TrainRun in DB (optional — skipped if DB unavailable) ---
+    run_version = "no_db"
+    try:
+        from django.utils import timezone
+        from apps.matching.models import TrainRun
 
-    # Also update "latest" for immediate use
-    save_checkpoint(
-        CHECKPOINT_DIR, model, data, cvs, jobs,
-        metadata={
-            "best_epoch":   result.best_epoch,
-            "test_metrics": result.test_metrics,
-            "num_cvs":      len(cvs),
-            "num_jobs":     len(jobs),
-            "cv_source":    "db_export",
-            "data_dir":     str(data_dir),
-            "train_run_id": run.id,
-            "version":      run.version,
-            "train_config": {
-                "hidden_channels": cfg.hidden_channels,
-                "num_layers":      cfg.num_layers,
-                "lr":              cfg.lr,
-                "hybrid_alpha":    cfg.hybrid_alpha,
-                "hybrid_beta":     cfg.hybrid_beta,
-                "hybrid_gamma":    cfg.hybrid_gamma,
-            },
-        },
-    )
+        run = TrainRun(
+            status=TrainRun.Status.COMPLETED,
+            description=f"CLI train — data: {data_dir}",
+            num_cvs=len(cvs),
+            num_jobs=len(jobs),
+            num_pairs=int(result.test_metrics.get("num_pairs", 0) or 0),
+            num_skills=data["skill"].x.shape[0],
+            auc_roc=m.get("auc_roc"),
+            recall_at_5=m.get("recall@5"),
+            recall_at_10=m.get("recall@10"),
+            precision_at_5=m.get("precision@5"),
+            precision_at_10=m.get("precision@10"),
+            ndcg_at_10=m.get("ndcg@10"),
+            mrr=m.get("mrr"),
+            best_epoch=result.best_epoch,
+            final_loss=result.train_losses[-1] if result.train_losses else None,
+            model_type=cfg.model_type,
+            hidden_channels=cfg.hidden_channels,
+            num_layers=cfg.num_layers,
+            learning_rate=cfg.lr,
+            config_json={**train_meta, "weight_decay": cfg.weight_decay, "data_dir": str(data_dir)},
+            metrics_json=m,
+            started_at=timezone.now(),
+            completed_at=timezone.now(),
+            training_duration_seconds=int(time.time() - t_start),
+        )
+        run.save()
+        run_version = run.version
 
-    # Auto-activate if first run or best AUC
-    prev_active = TrainRun.objects.filter(is_active=True).exclude(id=run.id).first()
-    if prev_active is None or (run.auc_roc or 0) >= (prev_active.auc_roc or 0):
-        run.activate()
-        logger.info("Model %s activated (AUC %.4f)", run.version, run.auc_roc or 0)
+        versioned_dir = CHECKPOINT_DIR.parent / f"run_{run.version}"
+        save_checkpoint(versioned_dir, model, data, cvs, jobs, metadata={**base_meta, "train_run_id": run.id, "version": run.version})
+        run.checkpoint_path = str(versioned_dir)
+        run.save(update_fields=["checkpoint_path"])
+
+        prev_active = TrainRun.objects.filter(is_active=True).exclude(id=run.id).first()
+        if prev_active is None or (run.auc_roc or 0) >= (prev_active.auc_roc or 0):
+            run.activate()
+            logger.info("Model %s activated (AUC %.4f)", run.version, run.auc_roc or 0)
+
+        logger.info("DB: TrainRun %s (id=%d) saved.", run.version, run.id)
+    except Exception as db_err:
+        logger.warning("DB unavailable, skipping TrainRun record: %s", db_err)
 
     total = time.time() - t_start
-    logger.info("Done in %.1fs. Checkpoint: %s  DB: TrainRun %s (id=%d)", total, CHECKPOINT_DIR, run.version, run.id)
+    logger.info("Done in %.1fs. Checkpoint: %s  version=%s", total, CHECKPOINT_DIR, run_version)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", default="data/processed/v2", help="Dataset directory")
+    parser.add_argument("--checkpoint-dir", default=None, help="Override checkpoint output dir (default: checkpoints/latest)")
     args = parser.parse_args()
+    if args.checkpoint_dir:
+        CHECKPOINT_DIR = Path(args.checkpoint_dir)
     main(Path(args.data))

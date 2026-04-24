@@ -19,25 +19,42 @@ from ml_service.reranker.features import FeatureExtractor
 logger = logging.getLogger(__name__)
 
 
-class _RerankerMLP(nn.Module):
-    """Small MLP: features → class logits (binary or 3-class ordinal)."""
+_DIM_NAMES = ["skill_fit", "experience_fit", "seniority_fit", "domain_fit"]
 
-    def __init__(self, input_dim: int, hidden: int = 32, num_classes: int = 1) -> None:
+
+class _RerankerMLP(nn.Module):
+    """Shared-trunk MLP with one main head (overall) + 4 auxiliary heads (dimensions).
+
+    Auxiliary heads are only used during training (multi-task loss).
+    At inference only the main head is used.
+    """
+
+    def __init__(self, input_dim: int, hidden: int = 64, num_classes: int = 1) -> None:
         super().__init__()
         self.num_classes = num_classes
-        self.net = nn.Sequential(
+        self.trunk = nn.Sequential(
             nn.Linear(input_dim, hidden),
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(hidden, hidden),
             nn.ReLU(),
             nn.Dropout(0.2),
-            nn.Linear(hidden, num_classes),
         )
+        self.main_head = nn.Linear(hidden, num_classes)
+        # Auxiliary heads — one per dimension (3-class each)
+        self.aux_heads = nn.ModuleList([nn.Linear(hidden, 3) for _ in _DIM_NAMES])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.net(x)
+        z = self.trunk(x)
+        out = self.main_head(z)
         return out if self.num_classes > 1 else out.squeeze(-1)
+
+    def forward_all(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
+        """Return main logits + list of auxiliary logits (for training)."""
+        z = self.trunk(x)
+        main = self.main_head(z)
+        aux = [head(z) for head in self.aux_heads]
+        return main, aux
 
 
 class Reranker:
@@ -69,11 +86,15 @@ class Reranker:
         lr: float = 1e-3,
         gnn_scores: list[float] | None = None,
         stage1_scores: list[float] | None = None,
+        dim_labels: list[dict] | None = None,
+        aux_weight: float = 0.3,
     ) -> dict[str, float]:
-        """Train MLP reranker on labeled pairs.
+        """Train MLP reranker with optional multi-task auxiliary heads.
 
         Labels for ordinal mode: 0=not suitable, 1=suitable, 2=very suitable.
-        Labels for binary mode: 0=negative, 1=positive.
+        dim_labels: list of dicts with keys skill_fit/experience_fit/seniority_fit/domain_fit (0/1/2).
+                    Pairs with missing dim label (-1) are masked out of that auxiliary loss.
+        aux_weight: weight for auxiliary losses relative to main loss.
         """
         logger.info("Extracting features for %d pairs...", len(labels))
         X = self._fe.extract_batch(cvs, jobs, cv_indices, job_indices, gnn_scores=gnn_scores, stage1_scores=stage1_scores)
@@ -88,27 +109,50 @@ class Reranker:
 
         if self._ordinal:
             num_classes = 3
-            y_t = torch.from_numpy(y)  # long tensor for CrossEntropyLoss
+            y_t = torch.from_numpy(y)
             self._model = _RerankerMLP(input_dim, num_classes=num_classes)
-            loss_fn = nn.CrossEntropyLoss()
+            counts = np.bincount(y.astype(int), minlength=3).clip(1)
+            weights = torch.tensor(len(y) / (3.0 * counts), dtype=torch.float32)
+            main_loss_fn = nn.CrossEntropyLoss(weight=weights)
+            logger.info("Class weights: %s", weights.tolist())
         else:
             self._model = _RerankerMLP(input_dim, num_classes=1)
             y_t = torch.from_numpy(y.astype(np.float32))
-            loss_fn = nn.BCEWithLogitsLoss()
+            main_loss_fn = nn.BCEWithLogitsLoss()
+
+        # Build auxiliary label tensors (mask=-1 means missing → excluded from loss)
+        use_multitask = self._ordinal and dim_labels is not None
+        aux_tensors: list[torch.Tensor] = []
+        if use_multitask:
+            for dim in _DIM_NAMES:
+                arr = np.array([d.get(dim, -1) for d in dim_labels], dtype=np.int64)
+                aux_tensors.append(torch.from_numpy(arr))
+            logger.info("Multi-task: auxiliary heads for %s (aux_weight=%.2f)", _DIM_NAMES, aux_weight)
 
         optimizer = torch.optim.Adam(self._model.parameters(), lr=lr)
 
         self._model.train()
         for _ in range(epochs):
-            logits = self._model(X_t)
-            loss = loss_fn(logits, y_t)
+            main_logits, aux_logits = self._model.forward_all(X_t)
+            loss = main_loss_fn(main_logits, y_t)
+
+            if use_multitask:
+                for aux_l, y_aux in zip(aux_logits, aux_tensors):
+                    mask = y_aux >= 0
+                    if mask.sum() > 0:
+                        # Each dim has its own inverse-freq weight
+                        dim_counts = torch.bincount(y_aux[mask], minlength=3).float().clamp(min=1)
+                        dim_w = mask.sum().float() / (3.0 * dim_counts)
+                        aux_loss_fn = nn.CrossEntropyLoss(weight=dim_w)
+                        loss = loss + aux_weight * aux_loss_fn(aux_l[mask], y_aux[mask])
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
         self._trained = True
 
-        # Compute accuracy
+        # Compute accuracy on main head
         self._model.eval()
         with torch.no_grad():
             if self._ordinal:
@@ -180,11 +224,56 @@ class Reranker:
                 scores = torch.sigmoid(logits)
         return scores.numpy()
 
+    def score_batch_with_dims(
+        self,
+        cvs: list[CVData],
+        jobs: list[JobData],
+        cv_indices: list[int],
+        job_indices: list[int],
+        gnn_scores: list[float] | None = None,
+    ) -> tuple[np.ndarray, list[dict[str, str]]]:
+        """Score pairs and return (overall_scores, dim_levels).
+
+        dim_levels: list of dicts with keys skill_fit/experience_fit/seniority_fit/domain_fit
+                    each value is "good" | "ok" | "weak"
+        """
+        _LEVEL = {0: "weak", 1: "ok", 2: "good"}
+
+        if not self._trained or self._model is None:
+            n = len(cv_indices)
+            empty_dims = [{"skill_fit": "", "experience_fit": "", "seniority_fit": "", "domain_fit": ""} for _ in range(n)]
+            return np.full(n, 0.5), empty_dims
+
+        X = self._fe.extract_batch(cvs, jobs, cv_indices, job_indices, gnn_scores=gnn_scores)
+        if len(X) == 0:
+            return np.array([]), []
+
+        X_t = torch.from_numpy(X.astype(np.float32))
+        self._model.eval()
+        with torch.no_grad():
+            main_logits, aux_logits = self._model.forward_all(X_t)
+            if self._ordinal:
+                probs = torch.softmax(main_logits, dim=-1)
+                weights = torch.tensor([0.0, 1.0, 2.0])
+                scores = (probs * weights).sum(dim=-1) / 2.0
+            else:
+                scores = torch.sigmoid(main_logits)
+
+            dim_levels: list[dict[str, str]] = []
+            aux_preds = [logits.argmax(dim=-1).tolist() for logits in aux_logits]
+            for i in range(len(cv_indices)):
+                dim_levels.append({
+                    dim: _LEVEL[aux_preds[d][i]]
+                    for d, dim in enumerate(_DIM_NAMES)
+                })
+
+        return scores.numpy(), dim_levels
+
     def feature_importance(self) -> dict[str, float]:
         """Approximate feature importance from first layer weights."""
         if not self._trained or self._model is None:
             return {}
-        first_layer = self._model.net[0]
+        first_layer = self._model.trunk[0]
         weights = first_layer.weight.data.abs().mean(dim=0).numpy()
         return {
             name: float(w)
@@ -216,9 +305,15 @@ class Reranker:
             self._ordinal = meta.get("ordinal", False)
             num_classes = meta.get("num_classes", 3 if self._ordinal else 1)
             self._model = _RerankerMLP(input_dim, num_classes=num_classes)
-            self._model.load_state_dict(torch.load(model_path, weights_only=True))
-            self._model.eval()
-            self._trained = True
-            logger.info("Reranker loaded from %s (ordinal=%s)", path, self._ordinal)
+            try:
+                self._model.load_state_dict(torch.load(model_path, weights_only=True))
+                self._model.eval()
+                self._trained = True
+                logger.info("Reranker loaded from %s (ordinal=%s)", path, self._ordinal)
+            except RuntimeError as e:
+                # Architecture changed (e.g. old net.* keys vs new trunk/heads) — start fresh
+                logger.warning("Reranker checkpoint incompatible, will retrain: %s", e)
+                self._model = None
+                self._trained = False
         else:
             logger.warning("No reranker model found at %s", path)

@@ -12,19 +12,16 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 from pathlib import Path
-
-import django
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
-django.setup()
 
 import numpy as np
 
-from django.conf import settings
 from ml_service.data.skill_normalization import SkillNormalizer
 from ml_service.embedding import get_provider
 from ml_service.inference import InferenceEngine
+
+_BACKEND_DIR = Path(__file__).parent
+DEFAULT_SKILL_ALIAS = _BACKEND_DIR / "ml_service" / "data" / "skill-alias.json"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,9 +48,15 @@ def load_labels(data_dir: Path):
         job_db_id = job_idx_to_db_id.get(lbl["job_idx"])
         if cv_db_id is None or job_db_id is None:
             continue
-        # Use ordinal label (0/1/2) when available, fall back to binary
-        ordinal_label = lbl.get("overall", lbl["label"])
-        record = {"cv_id": cv_db_id, "job_id": job_db_id, "label": ordinal_label}
+        record = {
+            "cv_id": cv_db_id,
+            "job_id": job_db_id,
+            "label": lbl.get("overall", lbl["label"]),
+            "skill_fit":      lbl.get("skill_fit", -1),
+            "experience_fit": lbl.get("experience_fit", -1),
+            "seniority_fit":  lbl.get("seniority_fit", -1),
+            "domain_fit":     lbl.get("domain_fit", -1),
+        }
         if lbl.get("split") == "val":
             val.append(record)
         elif lbl.get("split") == "train":
@@ -64,7 +67,7 @@ def load_labels(data_dir: Path):
 
 
 def build_index_pairs(records, cv_id_to_idx, job_id_to_idx):
-    cv_indices, job_indices, labels = [], [], []
+    cv_indices, job_indices, labels, dim_labels = [], [], [], []
     skipped = 0
     for r in records:
         ci = cv_id_to_idx.get(r["cv_id"])
@@ -75,14 +78,20 @@ def build_index_pairs(records, cv_id_to_idx, job_id_to_idx):
         cv_indices.append(ci)
         job_indices.append(ji)
         labels.append(r["label"])
+        dim_labels.append({
+            "skill_fit":      r.get("skill_fit", -1),
+            "experience_fit": r.get("experience_fit", -1),
+            "seniority_fit":  r.get("seniority_fit", -1),
+            "domain_fit":     r.get("domain_fit", -1),
+        })
     if skipped:
         logger.warning("Skipped %d pairs (CV/Job not in engine pool)", skipped)
-    return cv_indices, job_indices, labels
+    return cv_indices, job_indices, labels, dim_labels
 
 
-def main(data_dir: Path, checkpoint_dir: Path) -> None:
+def main(data_dir: Path, checkpoint_dir: Path, *, epochs: int = 150, aux_weight: float = 0.3, skill_alias: Path | None = None) -> None:
     logger.info("Loading engine from %s ...", checkpoint_dir)
-    normalizer = SkillNormalizer(settings.ML_SKILL_ALIAS_PATH)
+    normalizer = SkillNormalizer(str(skill_alias or DEFAULT_SKILL_ALIAS))
     provider = get_provider()
     engine = InferenceEngine.from_checkpoint(checkpoint_dir, normalizer, provider)
 
@@ -92,8 +101,8 @@ def main(data_dir: Path, checkpoint_dir: Path) -> None:
 
     train_records, val_records = load_labels(data_dir)
 
-    train_cv, train_job, train_lbl = build_index_pairs(train_records, cv_id_to_idx, job_id_to_idx)
-    val_cv,   val_job,   val_lbl   = build_index_pairs(val_records,   cv_id_to_idx, job_id_to_idx)
+    train_cv, train_job, train_lbl, train_dim = build_index_pairs(train_records, cv_id_to_idx, job_id_to_idx)
+    val_cv,   val_job,   val_lbl,   _         = build_index_pairs(val_records,   cv_id_to_idx, job_id_to_idx)
 
     logger.info("Usable pairs — train: %d, val: %d", len(train_lbl), len(val_lbl))
     pos = sum(train_lbl)
@@ -126,15 +135,17 @@ def main(data_dir: Path, checkpoint_dir: Path) -> None:
     engine.reranker._model = None
     engine.reranker._trained = False
 
-    logger.info("Training reranker (ordinal) ...")
-    metrics = engine.train_reranker(train_cv, train_job, train_lbl, gnn_scores=train_gnn, stage1_scores=train_s1)
+    logger.info("Training reranker (ordinal + multi-task, epochs=%d, aux_weight=%.2f) ...", epochs, aux_weight)
+    metrics = engine.train_reranker(train_cv, train_job, train_lbl, gnn_scores=train_gnn, stage1_scores=train_s1, dim_labels=train_dim, epochs=epochs, aux_weight=aux_weight)
     logger.info("Reranker metrics: %s", {k: round(v, 4) for k, v in metrics.items()})
 
     # --- Calibrate on val set ---
     if val_lbl:
         logger.info("Pre-computing Stage1 scores for %d val pairs ...", len(val_lbl))
         _, val_s1 = compute_scores(val_cv, val_job)
-        engine.calibrate(val_s1, val_lbl)
+        # Platt calibrator expects binary labels (0/1); convert from ordinal (0/1/2)
+        val_lbl_binary = [1 if l >= 1 else 0 for l in val_lbl]
+        engine.calibrate(val_s1, val_lbl_binary)
         logger.info("Calibration fitted on %d val pairs", len(val_lbl))
 
     # --- Save to checkpoint ---
@@ -158,5 +169,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data",       default="data/processed/b89",  help="Dataset dir with labels.json")
     parser.add_argument("--checkpoint", default="checkpoints/latest",   help="Checkpoint dir to save into")
+    parser.add_argument("--epochs",      default=150, type=int,   help="Training epochs (default: 150)")
+    parser.add_argument("--aux-weight",  default=0.3, type=float, help="Multi-task auxiliary loss weight (default: 0.3)")
+    parser.add_argument("--skill-alias", default=None,             help="Path to skill-alias.json (default: auto-detect)")
     args = parser.parse_args()
-    main(Path(args.data), Path(args.checkpoint))
+    main(
+        Path(args.data), Path(args.checkpoint),
+        epochs=args.epochs, aux_weight=args.aux_weight,
+        skill_alias=Path(args.skill_alias) if args.skill_alias else None,
+    )

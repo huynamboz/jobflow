@@ -107,6 +107,9 @@ class JobData:
     salary_min: int
     salary_max: int
     text: str  # free-text for embedding
+    experience_min: float = 0.0
+    experience_max: float | None = None
+    role_category: str = ""
 
 
 @dataclass(frozen=True)

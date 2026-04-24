@@ -20,5 +20,7 @@ class MatchingConfig(AppConfig):
             from apps.matching.services.matching_service import _get_engine
             _get_engine()
             logger.info("Inference engine warmed up.")
+            print("[ML] Inference engine warmed up and ready.", flush=True)
         except Exception as e:
             logger.warning("Engine warm-up skipped: %s", e)
+            print(f"[ML] Engine warm-up skipped: {e}", flush=True)

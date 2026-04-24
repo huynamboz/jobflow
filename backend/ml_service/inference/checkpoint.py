@@ -145,6 +145,9 @@ def _job_to_dict(job: JobData) -> dict:
         "salary_min": job.salary_min,
         "salary_max": job.salary_max,
         "text": job.text,
+        "experience_min": job.experience_min,
+        "experience_max": job.experience_max,
+        "role_category": job.role_category,
     }
 
 
@@ -157,4 +160,7 @@ def _dict_to_job(d: dict) -> JobData:
         salary_min=d["salary_min"],
         salary_max=d["salary_max"],
         text=d["text"],
+        experience_min=float(d.get("experience_min") or 0.0),
+        experience_max=float(d["experience_max"]) if d.get("experience_max") else None,
+        role_category=d.get("role_category") or "",
     )
