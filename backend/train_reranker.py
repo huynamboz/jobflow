@@ -51,7 +51,9 @@ def load_labels(data_dir: Path):
         job_db_id = job_idx_to_db_id.get(lbl["job_idx"])
         if cv_db_id is None or job_db_id is None:
             continue
-        record = {"cv_id": cv_db_id, "job_id": job_db_id, "label": lbl["label"]}
+        # Use ordinal label (0/1/2) when available, fall back to binary
+        ordinal_label = lbl.get("overall", lbl["label"])
+        record = {"cv_id": cv_db_id, "job_id": job_db_id, "label": ordinal_label}
         if lbl.get("split") == "val":
             val.append(record)
         elif lbl.get("split") == "train":
@@ -119,7 +121,12 @@ def main(data_dir: Path, checkpoint_dir: Path) -> None:
     train_gnn, train_s1 = compute_scores(train_cv, train_job)
 
     # --- Train reranker ---
-    logger.info("Training reranker ...")
+    # Force ordinal mode regardless of what was loaded from checkpoint
+    engine.reranker._ordinal = True
+    engine.reranker._model = None
+    engine.reranker._trained = False
+
+    logger.info("Training reranker (ordinal) ...")
     metrics = engine.train_reranker(train_cv, train_job, train_lbl, gnn_scores=train_gnn, stage1_scores=train_s1)
     logger.info("Reranker metrics: %s", {k: round(v, 4) for k, v in metrics.items()})
 
