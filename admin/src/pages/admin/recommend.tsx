@@ -47,7 +47,7 @@ function fmtExp(min: number | null, max: number | null): string | null {
 // ── CV Info Panel ───────────────────────────────────────────────────────────
 function CVInfoPanel({ cv }: { cv: CVInfo }) {
   return (
-    <div className="rounded-2xl border border-violet-100 bg-violet-50/60 p-5 space-y-3">
+    <div className="p-5 space-y-3 border rounded-2xl border-violet-100 bg-violet-50/60">
       <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-violet-500">
         Extracted from your CV
       </p>
@@ -138,11 +138,11 @@ function JobCard({ job }: { job: JobMatchResult }) {
   const isWorkMode = ["remote", "hybrid", "on-site"].includes(job.job_type);
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-default-200 bg-white p-5 transition-colors hover:border-default-300">
+    <div className="flex flex-col gap-3 p-5 transition-colors bg-white border rounded-2xl border-default-200 hover:border-default-300">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="truncate font-semibold text-default-900">
+          <h3 className="font-semibold truncate text-default-900">
             {job.title || `Job #${job.job_id}`}
           </h3>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-default-500">
@@ -285,10 +285,10 @@ export default function RecommendPage() {
         <p className="text-default-500">Paste CV text or upload a file to find matching jobs</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-default-200 bg-white p-5">
+      <form onSubmit={handleSubmit} className="p-5 space-y-4 bg-white border rounded-2xl border-default-200">
         {/* Drop zone */}
         <div
-          className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-default-200 bg-default-50 px-4 py-6 text-center transition-colors hover:border-violet-300 hover:bg-violet-50/30"
+          className="flex flex-col items-center justify-center px-4 py-6 text-center transition-colors border-2 border-dashed cursor-pointer rounded-xl border-default-200 bg-default-50 hover:border-violet-300 hover:bg-violet-50/30"
           onClick={() => fileRef.current?.click()}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
@@ -312,9 +312,9 @@ export default function RecommendPage() {
         </div>
 
         <div className="flex items-center gap-3 text-xs text-default-400">
-          <div className="h-px flex-1 bg-default-200" />
+          <div className="flex-1 h-px bg-default-200" />
           <span>or paste CV text</span>
-          <div className="h-px flex-1 bg-default-200" />
+          <div className="flex-1 h-px bg-default-200" />
         </div>
 
         <textarea
@@ -322,7 +322,7 @@ export default function RecommendPage() {
           placeholder="Paste your CV / resume text here..."
           value={text}
           onChange={(e) => { setText(e.target.value); if (e.target.value) clearFile(); }}
-          className="w-full resize-none rounded-xl border border-default-200 bg-default-50 px-4 py-3 text-sm text-default-800 placeholder:text-default-400 transition-colors focus:border-violet-300 focus:bg-white focus:outline-none"
+          className="w-full px-4 py-3 text-sm transition-colors border resize-none rounded-xl border-default-200 bg-default-50 text-default-800 placeholder:text-default-400 focus:border-violet-300 focus:bg-white focus:outline-none"
           disabled={!!file}
         />
 
@@ -332,7 +332,7 @@ export default function RecommendPage() {
             <select
               value={topK}
               onChange={(e) => setTopK(Number(e.target.value))}
-              className="h-8 rounded-lg border border-default-200 bg-white px-2 text-sm text-default-700 outline-none focus:border-violet-300"
+              className="h-8 px-2 text-sm bg-white border rounded-lg outline-none border-default-200 text-default-700 focus:border-violet-300"
             >
               {[5, 10, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
@@ -342,7 +342,7 @@ export default function RecommendPage() {
           <button
             type="submit"
             disabled={loading || (!text.trim() && !file)}
-            className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white transition-colors rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50"
           >
             {loading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
             {loading ? "Matching… (may take ~30s on first run)" : "Find Jobs"}
@@ -351,7 +351,7 @@ export default function RecommendPage() {
       </form>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="px-4 py-3 text-sm text-red-700 border border-red-200 rounded-xl bg-red-50">{error}</div>
       )}
 
       {result && (
@@ -373,7 +373,7 @@ export default function RecommendPage() {
 
           {/* Job cards */}
           {jobs.length === 0 ? (
-            <div className="rounded-2xl border border-default-200 bg-white py-16 text-center text-default-400">
+            <div className="py-16 text-center bg-white border rounded-2xl border-default-200 text-default-400">
               <Search className="mx-auto mb-2 size-8" />
               <p>No matching jobs found. Try a more detailed CV.</p>
             </div>

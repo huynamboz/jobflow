@@ -34,6 +34,7 @@ class JobMatchResponse(serializers.Serializer):
     experience_min = serializers.FloatField(allow_null=True, default=None)
     experience_max = serializers.FloatField(allow_null=True, default=None)
     source_url = serializers.CharField(default="")
+    match_level = serializers.CharField(default="")
 
 
 class CVInfoResponse(serializers.Serializer):
