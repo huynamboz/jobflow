@@ -14,7 +14,7 @@ import { DetailDrawer } from "./_job-drawer";
 type ViewMode = "grid" | "list";
 const PAGE_SIZE = 20;
 
-// ── Segmented control ──────────────────────────────────────────────
+/* ── NODE-styled segmented control ─────────────────────────────────── */
 function Seg({
   value, onChange, options,
 }: {
@@ -23,26 +23,38 @@ function Seg({
   options: { value: string; label: React.ReactNode }[];
 }) {
   return (
-    <div className="inline-flex gap-0.5 rounded-xl bg-default-100 p-[3px]">
-      {options.map((o) => (
-        <button
-          key={String(o.value)}
-          type="button"
-          onClick={() => onChange(o.value)}
-          className={`rounded-[10px] px-3 py-1.5 text-[12.5px] font-semibold transition-colors ${
-            value === o.value
-              ? "bg-white text-default-900 shadow-sm"
-              : "text-default-600 hover:text-default-900"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div
+      className="inline-flex gap-0.5"
+      style={{ background: "var(--c3)", borderRadius: 12, padding: 3 }}
+    >
+      {options.map((o) => {
+        const active = value === o.value;
+        return (
+          <button
+            key={String(o.value)}
+            type="button"
+            onClick={() => onChange(o.value)}
+            style={{
+              borderRadius: 10,
+              padding: "6px 12px",
+              font: "600 12.5px/16px var(--font-node-sans)",
+              color: active ? "var(--ink)" : "var(--muted)",
+              background: active ? "#ffffff" : "transparent",
+              boxShadow: active ? "var(--shadow-1)" : "none",
+              border: "none",
+              cursor: "pointer",
+              transition: "background 0.12s, color 0.12s",
+            }}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-// ── Ghost / accent buttons ─────────────────────────────────────────
+/* ── Ghost button (NODE recipe) ────────────────────────────────────── */
 function GhostBtn({
   icon, children, onClick, disabled,
 }: {
@@ -56,7 +68,20 @@ function GhostBtn({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-transparent bg-transparent px-3.5 py-[9px] text-[13px] font-semibold text-default-700 transition-colors hover:bg-default-100 disabled:opacity-50"
+      className="inline-flex items-center gap-2"
+      style={{
+        background: "transparent",
+        border: "none",
+        borderRadius: 12,
+        padding: "8px 12px",
+        font: "600 13px/16px var(--font-node-sans)",
+        color: "var(--ink-soft)",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
+        transition: "background 0.14s, color 0.14s",
+      }}
+      onMouseEnter={(e) => { if (!disabled) { e.currentTarget.style.background = "var(--c3)"; e.currentTarget.style.color = "var(--ink)"; } }}
+      onMouseLeave={(e) => { if (!disabled) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--ink-soft)"; } }}
     >
       {icon}
       <span>{children}</span>
@@ -64,6 +89,7 @@ function GhostBtn({
   );
 }
 
+/* ── Primary accent button ─────────────────────────────────────────── */
 function AccentBtn({
   icon, children, onClick,
 }: {
@@ -75,7 +101,20 @@ function AccentBtn({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-violet-600 bg-violet-600 px-3.5 py-[9px] text-[13px] font-semibold text-white transition-colors hover:bg-violet-700"
+      className="inline-flex items-center gap-2"
+      style={{
+        background: "var(--blue)",
+        color: "#ffffff",
+        border: "1px solid var(--blue)",
+        borderRadius: 12,
+        padding: "8px 14px",
+        font: "600 13px/16px var(--font-node-sans)",
+        cursor: "pointer",
+        boxShadow: "var(--shadow-btn)",
+        transition: "background 0.14s",
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = "#1e6cf0"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = "var(--blue)"; }}
     >
       {icon}
       <span>{children}</span>
@@ -83,7 +122,7 @@ function AccentBtn({
   );
 }
 
-// ── Platform filter pill ───────────────────────────────────────────
+/* ── Platform filter pill ──────────────────────────────────────────── */
 function ProviderPill({
   name, count, active, onClick,
 }: {
@@ -96,18 +135,29 @@ function ProviderPill({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex cursor-pointer items-center gap-[7px] rounded-full border py-1.5 pl-[6px] pr-2.5 text-[12.5px] font-semibold transition-colors ${
-        active
-          ? "border-violet-200 bg-violet-50 text-violet-700"
-          : "border-default-200 bg-white text-default-700 hover:bg-white hover:text-default-900"
-      }`}
+      className="inline-flex items-center gap-[7px]"
+      style={{
+        borderRadius: 999,
+        padding: "5px 10px 5px 6px",
+        font: "600 12.5px/16px var(--font-node-sans)",
+        border: active ? "1px solid rgba(53,130,255,0.30)" : "1px solid var(--line)",
+        background: active ? "rgba(53,130,255,0.08)" : "#ffffff",
+        color: active ? "var(--blue)" : "var(--ink-soft)",
+        cursor: "pointer",
+        transition: "background 0.14s, border-color 0.14s, color 0.14s",
+      }}
     >
       <PlatformDot name={name} />
       <span>{name}</span>
       <span
-        className={`rounded-full px-[7px] py-[1px] text-[11px] font-bold tabular-nums ${
-          active ? "bg-violet-100 text-violet-700" : "bg-default-100 text-default-500"
-        }`}
+        style={{
+          borderRadius: 999,
+          padding: "1px 7px",
+          font: "700 11px/14px var(--font-node-mono)",
+          fontVariantNumeric: "tabular-nums",
+          background: active ? "rgba(53,130,255,0.15)" : "var(--c3)",
+          color: active ? "var(--blue)" : "var(--muted)",
+        }}
       >
         {count}
       </span>
@@ -115,7 +165,7 @@ function ProviderPill({
   );
 }
 
-// ── Main page ──────────────────────────────────────────────────────
+/* ── Main page ─────────────────────────────────────────────────────── */
 export default function JobsPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<JobListItem[]>([]);
@@ -125,14 +175,13 @@ export default function JobsPage() {
   const [search, setSearch] = useState("");
   const [seniority, setSeniority] = useState("");
   const [jobType, setJobType] = useState("");
-  const [activeFilter, setActiveFilter] = useState(""); // "" | "active" | "inactive"
+  const [activeFilter, setActiveFilter] = useState("");
   const [selectedIds, setSelectedIds] = useState(new Set<number>());
   const [openId, setOpenId] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
   const [view, setView] = useState<ViewMode>("grid");
   const [platformFilter, setPlatformFilter] = useState("");
 
-  // Derived: unique platforms from current page items
   const platforms = useMemo(() => {
     const map = new Map<string, number>();
     items.forEach((j) => {
@@ -141,11 +190,9 @@ export default function JobsPage() {
     return [...map.entries()].map(([name, count]) => ({ name, count }));
   }, [items]);
 
-  // Derived stats for seg control labels
   const activeCount = items.filter((j) => j.is_active).length;
   const inactiveCount = items.length - activeCount;
 
-  // Client-side filters (platform + active status)
   const filtered = useMemo(() => {
     let result = items;
     if (platformFilter) result = result.filter((j) => j.platform_name === platformFilter);
@@ -182,19 +229,35 @@ export default function JobsPage() {
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  // ── Render ─────────────────────────────────────────────────────
   return (
     <div>
-      {/* ── Page header ──────────────────────────────────────── */}
-      <div className="mb-6 flex items-end gap-4">
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <header className="mb-6 flex items-end gap-4">
         <div className="flex-1">
-          <h1 className="m-0 text-[32px] font-bold leading-none tracking-[-0.025em] text-default-900">
+          <h1
+            style={{
+              font: "700 32px/1 var(--font-node-sans)",
+              letterSpacing: "-0.025em",
+              color: "var(--ink)",
+              margin: 0,
+            }}
+          >
             All{" "}
-            <em className="font-serif font-normal not-italic italic text-violet-600">
+            <em
+              style={{
+                fontFamily: "Georgia, serif",
+                fontStyle: "italic",
+                fontWeight: 400,
+                color: "var(--blue)",
+              }}
+            >
               jobs
             </em>
           </h1>
-          <div className="mt-1 text-[14px] text-default-500">
+          <div
+            className="mt-1.5"
+            style={{ font: "400 13px/18px var(--font-node-sans)", color: "var(--muted)" }}
+          >
             {total.toLocaleString()} postings · {platforms.length} platform{platforms.length !== 1 ? "s" : ""} · {activeCount} active, {inactiveCount} inactive
           </div>
         </div>
@@ -214,7 +277,7 @@ export default function JobsPage() {
             New batch from jobs
           </AccentBtn>
         </div>
-      </div>
+      </header>
 
       {/* ── Provider filter strip ─────────────────────────────── */}
       {platforms.length > 0 && (
@@ -232,20 +295,35 @@ export default function JobsPage() {
       )}
 
       {/* ── Toolbar ──────────────────────────────────────────── */}
-      <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
-        {/* Search */}
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <form onSubmit={handleSearch} className="relative">
-          <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-default-400" />
+          <Search
+            className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2"
+            style={{ color: "var(--muted)" }}
+          />
           <input
             type="text"
             placeholder="Search title, company, skill…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-[38px] w-[360px] rounded-xl border border-default-200 bg-white pl-[34px] pr-3 text-[13px] text-default-800 outline-none transition-all focus:border-violet-400 focus:ring-2 focus:ring-violet-50"
+            style={{
+              height: 38,
+              width: 360,
+              borderRadius: 12,
+              border: "1px solid var(--line)",
+              background: "#ffffff",
+              boxShadow: "var(--shadow-input)",
+              paddingLeft: 34,
+              paddingRight: 12,
+              font: "400 13px/16px var(--font-node-sans)",
+              color: "var(--ink)",
+              outline: "none",
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--blue)"; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = "var(--line)"; }}
           />
         </form>
 
-        {/* Status segmented: All · N | Active · N | Inactive · N */}
         <Seg
           value={activeFilter}
           onChange={setActiveFilter}
@@ -256,7 +334,6 @@ export default function JobsPage() {
           ]}
         />
 
-        {/* Work-mode segmented: Any | Remote | Hybrid | On-site */}
         <Seg
           value={jobType}
           onChange={handleWorkMode}
@@ -268,11 +345,19 @@ export default function JobsPage() {
           ]}
         />
 
-        {/* Seniority select */}
         <select
           value={seniority}
           onChange={(e) => { setSeniority(e.target.value); setPage(1); load(1, search, e.target.value, jobType); }}
-          className="h-[38px] rounded-xl border border-default-200 bg-white px-3 text-[13px] text-default-700 outline-none focus:border-violet-400"
+          style={{
+            height: 38,
+            borderRadius: 12,
+            border: "1px solid var(--line)",
+            background: "#ffffff",
+            padding: "0 12px",
+            font: "400 13px/16px var(--font-node-sans)",
+            color: "var(--ink-soft)",
+            outline: "none",
+          }}
         >
           <option value="">All levels</option>
           {Object.entries(SENIORITY_LABEL).map(([v, l]) => (
@@ -280,7 +365,6 @@ export default function JobsPage() {
           ))}
         </select>
 
-        {/* View toggle */}
         <div className="ml-auto">
           <Seg
             value={view}
@@ -295,28 +379,72 @@ export default function JobsPage() {
 
       {/* ── Selection bar ─────────────────────────────────────── */}
       {selectedIds.size > 0 && (
-        <div className="mb-3.5 flex items-center gap-2.5 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2.5 text-[13px] font-semibold text-violet-700">
+        <div
+          className="mb-4 flex items-center gap-3"
+          style={{
+            borderRadius: 16,
+            border: "1px solid rgba(53,130,255,0.20)",
+            background: "rgba(53,130,255,0.06)",
+            padding: "10px 14px",
+            font: "600 13px/16px var(--font-node-sans)",
+            color: "var(--blue)",
+          }}
+        >
           <span><strong>{selectedIds.size}</strong> selected</span>
-          <button type="button" onClick={clearSel} className="font-semibold text-violet-400 hover:text-violet-700">
+          <button
+            type="button"
+            onClick={clearSel}
+            style={{ background: "transparent", border: "none", color: "rgba(53,130,255,0.6)", cursor: "pointer", font: "500 12.5px/16px var(--font-node-sans)" }}
+          >
             Clear
           </button>
           <div className="ml-auto flex items-center gap-1.5">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-default-200 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-default-700 hover:bg-default-50"
+              className="inline-flex items-center gap-1.5"
+              style={{
+                borderRadius: 10,
+                border: "1px solid var(--line)",
+                background: "#ffffff",
+                padding: "5px 10px",
+                font: "600 12px/16px var(--font-node-sans)",
+                color: "var(--ink-soft)",
+                cursor: "pointer",
+                boxShadow: "var(--shadow-btn)",
+              }}
             >
               <Tag className="size-3" /> Tag…
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-default-200 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-default-700 hover:bg-default-50"
+              className="inline-flex items-center gap-1.5"
+              style={{
+                borderRadius: 10,
+                border: "1px solid var(--line)",
+                background: "#ffffff",
+                padding: "5px 10px",
+                font: "600 12px/16px var(--font-node-sans)",
+                color: "var(--ink-soft)",
+                cursor: "pointer",
+                boxShadow: "var(--shadow-btn)",
+              }}
             >
               <Download className="size-3" /> Export {selectedIds.size}
             </button>
             <button
               type="button"
               onClick={() => navigate("/admin/jd-batch/new")}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-2.5 py-1.5 text-[12px] font-semibold text-white hover:bg-violet-700"
+              className="inline-flex items-center gap-1.5"
+              style={{
+                borderRadius: 10,
+                background: "var(--blue)",
+                color: "#ffffff",
+                border: "1px solid var(--blue)",
+                padding: "5px 10px",
+                font: "600 12px/16px var(--font-node-sans)",
+                cursor: "pointer",
+                boxShadow: "var(--shadow-btn)",
+              }}
             >
               <Sparkles className="size-3" /> Extract {selectedIds.size} jobs
             </button>
@@ -326,14 +454,30 @@ export default function JobsPage() {
 
       {/* ── Content ───────────────────────────────────────────── */}
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-default-400">Loading…</div>
+        <div
+          className="flex items-center justify-center"
+          style={{ padding: "64px 0", color: "var(--muted)", font: "400 13px/18px var(--font-node-sans)" }}
+        >
+          Loading…
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-default-200 bg-white py-16 text-default-400 shadow-sm">
-          <Briefcase className="size-8" />
-          <p className="text-sm">No jobs match these filters.</p>
+        <div
+          className="flex flex-col items-center justify-center gap-2"
+          style={{
+            background: "#ffffff",
+            border: "1px solid var(--line)",
+            borderRadius: 24,
+            boxShadow: "var(--shadow-card)",
+            padding: "64px 0",
+            color: "var(--muted)",
+          }}
+        >
+          <Briefcase className="size-8" strokeWidth={1.5} />
+          <p style={{ font: "400 13px/18px var(--font-node-sans)", margin: 0 }}>
+            No jobs match these filters.
+          </p>
         </div>
       ) : view === "grid" ? (
-        /* Grid view */
         <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-3.5">
           {filtered.map((j) => (
             <JobCard
@@ -346,24 +490,48 @@ export default function JobsPage() {
           ))}
         </div>
       ) : (
-        /* Table / list view */
-        <div className="overflow-hidden rounded-2xl border border-default-200 bg-white">
+        <div
+          className="overflow-hidden"
+          style={{
+            background: "#ffffff",
+            border: "1px solid var(--line)",
+            borderRadius: 24,
+            boxShadow: "var(--shadow-card)",
+          }}
+        >
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+            <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th className="w-10 border-b border-default-100 bg-default-50 px-4 py-3">
+                  <th
+                    className="px-4 py-3"
+                    style={{
+                      width: 40,
+                      background: "var(--c2)",
+                      borderBottom: "1px solid var(--line)",
+                    }}
+                  >
                     <input
                       type="checkbox"
                       checked={filtered.length > 0 && selectedIds.size === filtered.length}
                       onChange={(e) => (e.target.checked ? selectAll() : clearSel())}
-                      className="cursor-pointer rounded accent-violet-600"
+                      className="cursor-pointer rounded"
+                      style={{ accentColor: "var(--blue)" }}
                     />
                   </th>
                   {["Job", "Provider", "Location", "Posted", "Salary", "Status", ""].map((h, i) => (
                     <th
                       key={i}
-                      className={`border-b border-default-100 bg-default-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-default-500 ${i === 5 || i === 6 ? "text-right" : "text-left"}`}
+                      className="px-4 py-3"
+                      style={{
+                        background: "var(--c2)",
+                        borderBottom: "1px solid var(--line)",
+                        font: "600 11px/16px var(--font-node-mono)",
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: "var(--muted)",
+                        textAlign: (i === 5 || i === 6) ? "right" : "left",
+                      }}
                     >
                       {h}
                     </th>
@@ -371,13 +539,14 @@ export default function JobsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((job) => (
+                {filtered.map((job, idx) => (
                   <JobRow
                     key={job.id}
                     job={job}
                     selected={selectedIds.has(job.id)}
                     onToggle={() => toggleSel(job.id)}
                     onOpen={() => setOpenId(job.id)}
+                    isFirst={idx === 0}
                   />
                 ))}
               </tbody>
@@ -386,10 +555,10 @@ export default function JobsPage() {
         </div>
       )}
 
-      {/* ── Pagination (shared across grid + list) ────────────── */}
+      {/* ── Pagination ────────────────────────────────────────── */}
       {!loading && totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-[12.5px] text-default-500">
+          <span style={{ font: "400 12.5px/16px var(--font-node-sans)", color: "var(--muted)" }}>
             Page {page} of {totalPages} · {total.toLocaleString()} total
           </span>
           <div className="flex gap-1">
@@ -397,7 +566,16 @@ export default function JobsPage() {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="rounded-lg border border-default-200 bg-white p-1.5 text-default-500 transition-colors hover:bg-default-50 disabled:opacity-40"
+              style={{
+                borderRadius: 8,
+                border: "1px solid var(--line)",
+                background: "#ffffff",
+                padding: 6,
+                color: "var(--ink-soft)",
+                cursor: "pointer",
+                opacity: page === 1 ? 0.4 : 1,
+                boxShadow: "var(--shadow-btn)",
+              }}
             >
               <ChevronLeft className="size-4" />
             </button>
@@ -406,16 +584,23 @@ export default function JobsPage() {
                 : page <= 4 ? i + 1
                 : page >= totalPages - 3 ? totalPages - 6 + i
                 : page - 3 + i;
+              const isCurrent = p === page;
               return (
                 <button
                   key={p}
                   type="button"
                   onClick={() => setPage(p)}
-                  className={`min-w-[32px] rounded-lg border px-2 py-1.5 text-[12.5px] font-semibold transition-colors ${
-                    p === page
-                      ? "border-violet-600 bg-violet-600 text-white"
-                      : "border-default-200 bg-white text-default-600 hover:bg-default-50"
-                  }`}
+                  style={{
+                    minWidth: 32,
+                    borderRadius: 8,
+                    border: isCurrent ? "1px solid var(--blue)" : "1px solid var(--line)",
+                    background: isCurrent ? "var(--blue)" : "#ffffff",
+                    color: isCurrent ? "#ffffff" : "var(--ink-soft)",
+                    padding: "5px 8px",
+                    font: "600 12.5px/16px var(--font-node-sans)",
+                    cursor: "pointer",
+                    boxShadow: "var(--shadow-btn)",
+                  }}
                 >
                   {p}
                 </button>
@@ -425,7 +610,16 @@ export default function JobsPage() {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="rounded-lg border border-default-200 bg-white p-1.5 text-default-500 transition-colors hover:bg-default-50 disabled:opacity-40"
+              style={{
+                borderRadius: 8,
+                border: "1px solid var(--line)",
+                background: "#ffffff",
+                padding: 6,
+                color: "var(--ink-soft)",
+                cursor: "pointer",
+                opacity: page === totalPages ? 0.4 : 1,
+                boxShadow: "var(--shadow-btn)",
+              }}
             >
               <ChevronRight className="size-4" />
             </button>
@@ -433,7 +627,6 @@ export default function JobsPage() {
         </div>
       )}
 
-      {/* ── Detail drawer ─────────────────────────────────────── */}
       <DetailDrawer jobId={openId} isOpen={openId !== null} onClose={() => setOpenId(null)} />
     </div>
   );
