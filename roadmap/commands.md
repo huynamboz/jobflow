@@ -313,9 +313,55 @@ Order: `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` → `/speckit
 
 ---
 
+## 12. Admin dashboard endpoints (spec 003)
+
+The admin app's Dashboard page reads from these JSON endpoints. Useful
+for manual inspection or scripting.
+
+```bash
+# KPI strip — job lifecycle counts, CV counts, last run timestamps, auth state, model meta
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/admin/dashboard/kpi/ | jq
+
+# Catalog composition — by platform, lifecycle, role_category, seniority
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/admin/dashboard/catalog/ | jq
+
+# Freshness + verifier outcomes per day
+curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/admin/dashboard/freshness/?days_added=30&days_outcomes=14" | jq
+
+# Ops health — coverage % + recent runs
+curl -s -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/admin/dashboard/ops/?recent_runs_limit=20" | jq
+
+# Labeling stats (mirror of /api/labeling/stats/)
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/admin/dashboard/labeling/ | jq
+
+# Active GNN checkpoint metadata
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/admin/dashboard/model/ | jq
+```
+
+### Inspect VerifierRunLog (spec 003 data source)
+
+Each `verify_job_status` / `extract_job_dates` run inserts one row.
+Powers the "recent runs" table and outcomes-per-day chart.
+
+```bash
+.venv/bin/python -c '
+import django, os; os.environ.setdefault("DJANGO_SETTINGS_MODULE","config.settings"); django.setup()
+from apps.jobs.models import VerifierRunLog
+print(f"Total run logs: {VerifierRunLog.objects.count()}")
+for r in VerifierRunLog.objects.order_by("-started_at")[:10]:
+    print(f"  {r.started_at:%Y-%m-%d %H:%M} {r.command:18s} n={r.total_examined:3d} dry={r.dry_run}")
+    print(f"    {r.counts_by_outcome}")
+'
+```
+
+---
+
 ## Quick links
 
 - Spec 001 (verifier): [specs/001-linkedin-job-verifier/](../specs/001-linkedin-job-verifier/)
 - Spec 002 (date extraction): [specs/002-job-date-posted-extraction/](../specs/002-job-date-posted-extraction/)
+- Spec 003 (dashboard v2): [specs/003-admin-dashboard-v2/](../specs/003-admin-dashboard-v2/)
 - Verifier source: [backend/ml_service/verifier/](../backend/ml_service/verifier/)
 - Crawler source: [backend/ml_service/crawler/](../backend/ml_service/crawler/)
+- Dashboard backend: [backend/apps/admin_dashboard/](../backend/apps/admin_dashboard/)
+- Dashboard frontend: [admin/src/components/dashboard/](../admin/src/components/dashboard/)
