@@ -54,7 +54,7 @@ class DjangoJobLifecycleRepository(JobLifecycleRepository):
 
         qs = (
             Job.objects
-            .filter(platform__name=platform)
+            .filter(platform__name__iexact=platform)
             .filter(lifecycle__in=[Job.LIFECYCLE_ACTIVE, Job.LIFECYCLE_STALE])
             .filter(Q(verification_backoff_until__isnull=True) | Q(verification_backoff_until__lte=now))
             .extra(select={"_lifecycle_order": "CASE WHEN lifecycle='stale' THEN 0 ELSE 1 END"})
