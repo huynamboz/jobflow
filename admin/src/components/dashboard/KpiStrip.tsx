@@ -71,7 +71,7 @@ function Tile({
       style={{
         background: "#ffffff",
         border: "1px solid var(--line)",
-        borderRadius: 16,
+        borderRadius: 24,
         boxShadow: "var(--shadow-card)",
         padding: 16,
         display: "flex",
@@ -147,7 +147,7 @@ function TileSkeleton() {
       style={{
         background: "#ffffff",
         border: "1px solid var(--line)",
-        borderRadius: 16,
+        borderRadius: 24,
         boxShadow: "var(--shadow-card)",
         height: 104,
       }}

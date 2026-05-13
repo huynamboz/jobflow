@@ -30,7 +30,7 @@ export default function AuthStateBanner({ refreshKey }: Props) {
       style={{
         background: "rgba(254,89,56,0.06)",
         border: "1px solid rgba(254,89,56,0.20)",
-        borderRadius: 16,
+        borderRadius: 24,
         padding: 16,
         boxShadow: "var(--shadow-card)",
       }}

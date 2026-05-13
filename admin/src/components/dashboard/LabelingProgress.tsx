@@ -16,7 +16,7 @@ function MiniStat({
       style={{
         background: "#ffffff",
         border: "1px solid var(--line)",
-        borderRadius: 12,
+        borderRadius: 16,
         boxShadow: "var(--shadow-card)",
         padding: 12,
         display: "flex",

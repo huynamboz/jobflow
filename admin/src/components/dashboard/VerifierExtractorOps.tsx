@@ -54,7 +54,7 @@ function CoverageCard({
       style={{
         background: "#ffffff",
         border: "1px solid var(--line)",
-        borderRadius: 16,
+        borderRadius: 20,
         boxShadow: "var(--shadow-card)",
         padding: 16,
         display: "flex",
