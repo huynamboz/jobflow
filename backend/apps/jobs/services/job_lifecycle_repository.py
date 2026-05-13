@@ -40,6 +40,15 @@ class JobLifecycleRepository(ABC):
     @abstractmethod
     def apply_aging(self, *, now: datetime, threshold_days: int = 14) -> int: ...
 
+    # Spec: 002-job-date-posted-extraction (US2).
+    @abstractmethod
+    def find_to_backfill_dates(
+        self, *, platform: str, batch: int, now: datetime
+    ) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def apply_date(self, job_id: int, date: datetime, *, now: datetime) -> None: ...
+
 
 class DjangoJobLifecycleRepository(JobLifecycleRepository):
     """ORM-backed implementation. Imports Django models lazily so the module
@@ -119,3 +128,32 @@ class DjangoJobLifecycleRepository(JobLifecycleRepository):
         if promoted:
             logger.info("apply_aging: promoted %d job(s) active → stale", promoted)
         return int(promoted or 0)
+
+    # ── Spec 002 — date backfill ────────────────────────────────────────
+
+    def find_to_backfill_dates(
+        self, *, platform: str, batch: int, now: datetime
+    ) -> list[dict[str, Any]]:
+        from django.db.models import Q
+        from apps.jobs.models import Job
+
+        qs = (
+            Job.objects
+            .filter(platform__name__iexact=platform)
+            .filter(date_posted__isnull=True)
+            .filter(lifecycle__in=[Job.LIFECYCLE_ACTIVE, Job.LIFECYCLE_STALE])
+            .filter(Q(verification_backoff_until__isnull=True) | Q(verification_backoff_until__lte=now))
+            .order_by("-last_seen_at")
+            .values("id", "source_url", "lifecycle", "date_posted")[:batch]
+        )
+        return list(qs)
+
+    def apply_date(self, job_id: int, date: datetime, *, now: datetime) -> None:
+        from apps.jobs.models import Job
+        try:
+            job = Job.objects.get(pk=job_id)
+        except Job.DoesNotExist:
+            logger.warning("apply_date: Job id=%s not found; skipping", job_id)
+            return
+        job.date_posted = date
+        job.save(update_fields=["date_posted", "updated_at"])
