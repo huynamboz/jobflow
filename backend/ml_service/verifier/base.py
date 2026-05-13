@@ -61,9 +61,25 @@ class JobStatusVerifier(ABC):
         ``verify_batch([url])[0]``.
         """
 
-    def verify_batch(self, urls: list[str]) -> list[VerifyResult]:
+    def verify_batch(
+        self,
+        urls: list[str],
+        *,
+        progress_callback=None,
+    ) -> list[VerifyResult]:
         """Default batch impl loops over ``verify``. Subclasses SHOULD
         override when reusing a resource (browser context, HTTP session)
         yields material savings.
+
+        ``progress_callback`` (optional): called as
+        ``cb(index, total, url, result)`` immediately after each URL's
+        result is produced. Use this for live observation during long
+        batches.
         """
-        return [self.verify(u) for u in urls]
+        results: list[VerifyResult] = []
+        for i, u in enumerate(urls):
+            r = self.verify(u)
+            results.append(r)
+            if progress_callback is not None:
+                progress_callback(i, len(urls), u, r)
+        return results

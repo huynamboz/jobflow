@@ -87,7 +87,12 @@ class LinkedInVerifier(JobStatusVerifier):
     def verify(self, url: str) -> VerifyResult:
         return self.verify_batch([url])[0]
 
-    def verify_batch(self, urls: list[str]) -> list[VerifyResult]:
+    def verify_batch(
+        self,
+        urls: list[str],
+        *,
+        progress_callback=None,
+    ) -> list[VerifyResult]:
         if not urls:
             return []
 
@@ -109,6 +114,8 @@ class LinkedInVerifier(JobStatusVerifier):
                         time.sleep(self._delay_s + random.uniform(0.0, self._jitter_s))
                     result = self._check_one(page, linkedin_clean_url(url), selectors)
                     results.append(result)
+                    if progress_callback is not None:
+                        progress_callback(i, len(urls), url, result)
                     # Note: LinkedIn often invalidates li_at after the first
                     # request from a re-opened browser instance, but continues
                     # to serve the guest layout. We do NOT bail on li_at loss

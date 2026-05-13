@@ -32,6 +32,33 @@ class LifecycleRepository(Protocol):
 # ─── Report dataclass ────────────────────────────────────────────────────
 
 
+def _log_verify_progress(
+    i: int,
+    total: int,
+    job_id: int,
+    url: str,
+    result: VerifyResult,
+) -> None:
+    """Print a single line per URL — flushed immediately for live observation.
+
+    Mirrors the format used by ``extract_job_dates``:
+        [  1/200] job=11510   ACTIVE                                         url=...
+        [  4/200] job=11507   EXPIRED  reason=text=No longer accepting...    url=...
+        [  9/200] job=11200   UNKNOWN                                        url=...
+        [ 12/200] job=10500   SESSION_EXPIRED                                url=...
+        [ 27/200] job=10800   ERROR    TimeoutError                          url=...
+    """
+    prefix = f"[{i:>3d}/{total:<3d}] job={job_id:<6d}"
+    status = result.status.value.upper()
+    if result.status is JobStatus.ERROR:
+        tag = f"ERROR    {(result.reason or 'unknown')[:40]}"
+    elif result.reason and result.status is JobStatus.EXPIRED:
+        tag = f"EXPIRED  reason={result.reason[:40]}"
+    else:
+        tag = f"{status:<8s}"
+    print(f"{prefix}  {tag:<60s}  url={url[:80]}", flush=True)
+
+
 @dataclass
 class StatusCheckReport:
     platform: str
@@ -141,8 +168,18 @@ class StatusCheckService:
             return report
 
         # Run verifier on the supported URLs.
+        # Build a per-URL progress callback so operators watching long
+        # batches can see results as they come in (same UX as
+        # `extract_job_dates`).
+        def _on_progress(i: int, total: int, _url: str, result: VerifyResult) -> None:
+            job_id, _ = supported[i]
+            _log_verify_progress(i + 1, total, job_id, _url, result)
+
         try:
-            results = verifier.verify_batch([u for _, u in supported])
+            results = verifier.verify_batch(
+                [u for _, u in supported],
+                progress_callback=_on_progress,
+            )
         except Exception as exc:  # whole-batch failure
             logger.exception("verifier.verify_batch raised; treating all as ERROR")
             results = [
