@@ -10,8 +10,13 @@
     "expired_url_patterns": ["login", "authwall", "checkpoint"]
   },
 
-  "expired_markers_doc": "Page elements observed on closed/expired LinkedIn job listings; first match wins. Tested against a sample of known-closed jobs on 2026-05-13.",
+  "expired_url_patterns_doc": "Substrings in the final URL that indicate the JOB (not the session) has expired. LinkedIn redirects requests for deleted/closed job IDs to a generic 'similar jobs' search page with trk=expired_jd_redirect appended.",
+  "expired_url_patterns": ["trk=expired_jd_redirect"],
+
+  "expired_markers_doc": "Page elements observed on closed/expired or 404'd LinkedIn job listings. First match wins. 404 markers come first to handle the case where LinkedIn returns 200 OK on a deleted job_id but renders a 'Page not found' template in many locales.",
   "expired_markers": [
+    "h1:has-text('Page not found')",
+    "h1:has-text('not found')",
     "text=No longer accepting applications",
     "text=This job is no longer available",
     "text=Position has been filled",
@@ -19,10 +24,16 @@
     "div.artdeco-inline-feedback--error"
   ],
 
-  "active_markers_doc": "Page elements present on listings that are still accepting applications; checked only after expired_markers misses.",
+  "active_markers_doc": "Page elements present on listings that are still accepting applications. LinkedIn serves two layouts depending on auth state: (1) authenticated 'jobs-*' classes when the saved session works, (2) 'top-card-layout__*' / 'apply-button' / 'description__text' classes on the public/guest view. Both layouts indicate an active listing — only the apply path differs. Checked only after expired_markers misses.",
   "active_markers": [
-    "button[aria-label*='Apply' i]",
+    "button.jobs-apply-button",
     "button:has-text('Easy Apply')",
-    "button.jobs-apply-button"
+    "button[aria-label*='Apply' i]",
+    "div.jobs-description__content",
+    "div.job-details-jobs-unified-top-card__job-title h1",
+    ".apply-button",
+    ".top-card-layout__title",
+    "div.description__text",
+    "section.description"
   ]
 }
