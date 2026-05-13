@@ -408,20 +408,25 @@ def test_backfill_candidate_selection_skips_filled():
     assert job_ids_visited == {1, 3}
 
 
-def test_backfill_session_expired_stops_batch():
-    """T035 — combined with C1: mid-navigation li_at loss stops the loop."""
+def test_backfill_continues_when_li_at_lost_mid_batch():
+    """Updated semantic (post-investigation 2026-05-13): when LinkedIn drops
+    li_at mid-batch, the verifier/extractor downgrades to guest layout but
+    keeps walking URLs. The extractor's URL-pattern + guest-marker checks
+    handle both layouts. We do NOT bail.
+    """
     rows = [
         {"id": i, "source_url": f"https://www.linkedin.com/jobs/view/{i}/", "date_posted": None}
         for i in range(1, 6)
     ]
     page = FakePageWithGoto()
-    visit_count = {"n": 0}
 
-    # Custom ctx that drops li_at after the 3rd visit
     class DroppingCtx:
+        def __init__(self):
+            self.visits = 0
+
         def cookies(self):
-            visit_count["n"] += 1
-            if visit_count["n"] >= 3:
+            self.visits += 1
+            if self.visits >= 3:
                 return [{"name": "lidc", "domain": ".linkedin.com"}]
             return [{"name": "li_at", "domain": ".linkedin.com"}]
 
@@ -445,9 +450,10 @@ def test_backfill_session_expired_stops_batch():
         per_url_jitter_s=0,
     )
     report = svc.run(platform="linkedin", batch=10, dry_run=False)
-    # 2 succeed (visits 1, 2 — cookies have li_at), 3rd visit triggers loss.
-    assert report.session_expired_count >= 1
-    assert report.populated_count == 2
+    # All 5 walked; no bail. li_at loss is a debug-log signal only.
+    assert report.total_examined == 5
+    assert report.populated_count == 5
+    assert report.session_expired_count == 0
 
 
 def test_backfill_service_isolates_per_url_exceptions():

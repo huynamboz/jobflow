@@ -109,19 +109,19 @@ class LinkedInVerifier(JobStatusVerifier):
                         time.sleep(self._delay_s + random.uniform(0.0, self._jitter_s))
                     result = self._check_one(page, linkedin_clean_url(url), selectors)
                     results.append(result)
-                    # Mid-batch auth-loss detection (FR-014). If li_at is gone,
-                    # fill remaining URLs with SESSION_EXPIRED and stop.
+                    # Note: LinkedIn often invalidates li_at after the first
+                    # request from a re-opened browser instance, but continues
+                    # to serve the guest layout. We do NOT bail on li_at loss
+                    # — the per-URL detection priority (login URL pattern →
+                    # expired URL pattern → expired markers → active markers)
+                    # handles both authenticated and guest layouts. Only a
+                    # final_url matching ``auth_check.expired_url_patterns``
+                    # is treated as a true SESSION_EXPIRED outcome.
                     if not cookies_have_li_at(ctx):
-                        logger.warning(
-                            "li_at cookie lost during batch — stopping after URL %d/%d",
+                        logger.debug(
+                            "li_at not present after URL %d/%d — continuing in guest mode",
                             i + 1, len(urls),
                         )
-                        while len(results) < len(urls):
-                            results.append(VerifyResult(
-                                JobStatus.SESSION_EXPIRED,
-                                reason="li_at lost mid-navigation",
-                            ))
-                        break
         except AuthStateMissingError as exc:
             # Auth state file invalid at start — every URL is session_expired.
             return [

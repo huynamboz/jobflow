@@ -131,7 +131,13 @@ class DateBackfillService:
             report.finished_at = self._clock()
             return report
 
-        # Open browser context and walk URLs.
+        # Open browser context and walk URLs. Collect outcomes in memory;
+        # apply DB writes only AFTER the browser context exits — Playwright's
+        # sync_playwright spins an event loop that makes Django ORM calls
+        # raise SynchronousOnlyOperation if invoked while the context is
+        # still open.
+        outcomes: list[tuple[int, DateExtractionResult | None, bool]] = []
+        # bool flag: True iff the URL raised an exception during extraction
         with self._browser_factory() as (page, ctx):
             for i, (job_id, url) in enumerate(supported):
                 if i > 0:
@@ -140,27 +146,32 @@ class DateBackfillService:
                 # Per-URL try/except — FR-015 isolation.
                 try:
                     self._navigate(page, url)
-                    # FR-014 mid-batch session detection.
+                    # Note: do not bail on li_at loss — LinkedIn often
+                    # downgrades to guest layout after the first request, but
+                    # the page still loads with usable content. The
+                    # extractor's expired-redirect URL check and guest-layout
+                    # selectors handle both cases.
                     if not _ctx_has_li_at(ctx):
-                        logger.warning(
-                            "li_at lost during batch; stopping after URL %d/%d",
+                        logger.debug(
+                            "li_at not present after URL %d/%d — continuing in guest mode",
                             i + 1, len(supported),
                         )
-                        report.session_expired_count += len(supported) - i
-                        report.total_examined += 1
-                        break
 
                     result = self._extractor(page, now=self._clock())
-                except Exception as exc:  # noqa: BLE001
+                    outcomes.append((job_id, result, False))
+                except Exception:  # noqa: BLE001
                     logger.exception("extract failed for job %s", job_id)
-                    report.total_examined += 1
-                    report.error_count += 1
-                    if not dry_run:
-                        self._apply_error(job_id)
-                    continue
+                    outcomes.append((job_id, None, True))
 
-                report.total_examined += 1
-                self._apply_outcome(job_id, result, report=report, dry_run=dry_run)
+        # Browser context closed — safe to hit the ORM now.
+        for job_id, result, errored in outcomes:
+            report.total_examined += 1
+            if errored:
+                report.error_count += 1
+                if not dry_run:
+                    self._apply_error(job_id)
+                continue
+            self._apply_outcome(job_id, result, report=report, dry_run=dry_run)
 
         report.finished_at = self._clock()
         return report
