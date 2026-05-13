@@ -89,6 +89,32 @@ class Command(BaseCommand):
         if json_report:
             self._print_json_report(report)
 
+        # Persist run log for the admin dashboard (spec 003). Failure is
+        # logged but does not block exit code.
+        try:
+            from apps.jobs.models import VerifierRunLog
+            VerifierRunLog.objects.create(
+                command=VerifierRunLog.COMMAND_EXTRACT,
+                platform=platform,
+                started_at=report.started_at,
+                finished_at=report.finished_at,
+                batch_size_requested=report.batch_size_requested,
+                total_examined=report.total_examined,
+                skipped_unsupported_url=report.skipped_unsupported_url,
+                counts_by_outcome={
+                    "populated": report.populated_count,
+                    "expired_marked": report.expired_marked_count,
+                    "none": report.none_count,
+                    "error": report.error_count,
+                    "session_expired": report.session_expired_count,
+                },
+                session_expired_count=report.session_expired_count,
+                error_count=report.error_count,
+                dry_run=report.dry_run,
+            )
+        except Exception:
+            logger.exception("Failed to persist VerifierRunLog — continuing")
+
         if (
             report.total_examined > 0
             and report.session_expired_count >= report.total_examined

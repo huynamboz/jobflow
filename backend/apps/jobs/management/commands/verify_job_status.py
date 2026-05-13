@@ -94,6 +94,26 @@ class Command(BaseCommand):
         if json_report:
             self._print_json_report(report)
 
+        # Persist run log for the admin dashboard (spec 003). Never block exit
+        # code on persistence failure — observability MUST NOT break ops.
+        try:
+            from apps.jobs.models import VerifierRunLog
+            VerifierRunLog.objects.create(
+                command=VerifierRunLog.COMMAND_VERIFY,
+                platform=platform,
+                started_at=report.started_at,
+                finished_at=report.finished_at,
+                batch_size_requested=report.batch_size_requested,
+                total_examined=report.total_examined,
+                skipped_unsupported_url=report.skipped_unsupported_url,
+                counts_by_outcome={s.value: report.counts_by_outcome.get(s, 0) for s in JobStatus},
+                session_expired_count=report.session_expired_count,
+                error_count=report.counts_by_outcome.get(JobStatus.ERROR, 0),
+                dry_run=report.dry_run,
+            )
+        except Exception:
+            logger.exception("Failed to persist VerifierRunLog — continuing")
+
         # Exit code policy (contracts/management_command.md)
         if (
             report.total_examined > 0

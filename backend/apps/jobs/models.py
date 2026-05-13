@@ -217,3 +217,46 @@ class JDExtractionRecord(models.Model):
     class Meta:
         db_table = "jd_extraction_records"
         ordering = ["index"]
+
+
+class VerifierRunLog(models.Model):
+    """One row per `verify_job_status` / `extract_job_dates` invocation.
+
+    Powers the recent-runs table and per-day outcomes stacked-bar chart
+    on the admin dashboard. See specs/003-admin-dashboard-v2/data-model.md.
+    """
+
+    COMMAND_VERIFY = "verify_job_status"
+    COMMAND_EXTRACT = "extract_job_dates"
+    COMMAND_CHOICES = [
+        (COMMAND_VERIFY, "verify_job_status"),
+        (COMMAND_EXTRACT, "extract_job_dates"),
+    ]
+
+    command = models.CharField(max_length=32, choices=COMMAND_CHOICES, db_index=True)
+    platform = models.CharField(max_length=32, db_index=True)
+    started_at = models.DateTimeField(db_index=True)
+    finished_at = models.DateTimeField()
+    batch_size_requested = models.IntegerField()
+    total_examined = models.IntegerField()
+    skipped_unsupported_url = models.IntegerField(default=0)
+    counts_by_outcome = models.JSONField(default=dict)
+    session_expired_count = models.IntegerField(default=0)
+    error_count = models.IntegerField(default=0)
+    dry_run = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "verifier_run_logs"
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["command", "started_at"], name="verifier_run_cmd_time_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.command}@{self.started_at:%Y-%m-%d %H:%M} n={self.total_examined}"
+
+    @property
+    def wall_clock_seconds(self) -> float:
+        if self.started_at and self.finished_at:
+            return (self.finished_at - self.started_at).total_seconds()
+        return 0.0
