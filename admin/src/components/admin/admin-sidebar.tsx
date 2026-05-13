@@ -7,19 +7,20 @@ import { adminConfig } from "@/config/admin";
 
 const SIDEBAR_WIDTH = 272;
 
-// Design tokens matching the batch page
+// Dark sidebar palette — sits against the soft-grey app body.
+// Anchored on NODE --c8/--c9 inks; tinted whites for foreground tiers.
 const T = {
-  bg:        "oklch(0.985 0.004 85)",
-  surface:   "#ffffff",
-  surface2:  "oklch(0.97 0.005 85)",
-  line:      "oklch(0.92 0.006 85)",
-  ink:       "oklch(0.18 0.02 265)",
-  ink2:      "oklch(0.38 0.015 265)",
-  ink3:      "oklch(0.56 0.012 265)",
-  ink4:      "oklch(0.72 0.008 265)",
-  accent:    "oklch(0.55 0.20 240)",
-  accent600: "oklch(0.48 0.20 240)",
-  accent50:  "oklch(0.97 0.03 240)",
+  bg:        "#121212",                    // var(--c9) NODE ink — primary sidebar surface
+  surface:   "#1a1a1a",                    // slightly lifted
+  surface2:  "rgba(255,255,255,0.06)",     // hover surface on dark
+  line:      "rgba(255,255,255,0.08)",     // subtle separator
+  ink:       "#ffffff",                    // active text / strongest
+  ink2:      "rgba(255,255,255,0.78)",     // default nav text
+  ink3:      "rgba(255,255,255,0.60)",     // icon / close button
+  ink4:      "rgba(255,255,255,0.45)",     // section caps / very muted
+  accent:    "#3582ff",                    // var(--blue)
+  accent600: "#1e6cf0",
+  accent50:  "rgba(53,130,255,0.12)",      // accent tint for active state
 };
 
 
@@ -73,7 +74,7 @@ export function AdminSidebar({ isOpen = true, onClose }: AdminSidebarProps) {
           <NavLink to="/admin" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: T.ink }}>
             <div style={{
               width: 30, height: 30, borderRadius: 10,
-              background: T.ink, color: "#fff",
+              background: "#1a1a1a", color: "#fff",
               display: "grid", placeItems: "center",
               fontWeight: 800, fontSize: 14,
               position: "relative", overflow: "hidden",
@@ -146,14 +147,14 @@ export function AdminSidebar({ isOpen = true, onClose }: AdminSidebarProps) {
                         display: "flex", alignItems: "center", gap: 10,
                         padding: "8px 10px", borderRadius: 12,
                         color: active ? T.ink : T.ink2,
-                        background: active ? "rgba(0,0,0,0.07)" : "transparent",
+                        background: active ? "rgba(255,255,255,0.10)" : "transparent",
                         fontWeight: active ? 600 : 500, fontSize: 13.5,
                         textDecoration: "none",
                         transition: "background 0.14s, color 0.14s",
                       }}
                       onMouseEnter={(e) => {
                         if (!active) {
-                          e.currentTarget.style.background = "rgba(0,0,0,0.04)";
+                          e.currentTarget.style.background = "rgba(255,255,255,0.06)";
                           e.currentTarget.style.color = T.ink;
                         }
                       }}
