@@ -58,14 +58,30 @@ class FakeLocator:
 
 
 class FakePage:
-    """Routes locator(selector) calls to a pre-built mapping."""
+    """Routes locator(selector) calls to a pre-built mapping.
 
-    def __init__(self, *, url: str = "https://www.linkedin.com/jobs/view/1/", routes: dict | None = None):
+    ``evaluate(js)`` always returns ``treewalker_results`` (a list of text
+    strings) so tests can simulate the TreeWalker fallback path without
+    parsing JS. Defaults to an empty list — backward-compatible with
+    existing tests.
+    """
+
+    def __init__(
+        self,
+        *,
+        url: str = "https://www.linkedin.com/jobs/view/1/",
+        routes: dict | None = None,
+        treewalker_results: list[str] | None = None,
+    ):
         self.url = url
         self._routes = routes or {}
+        self._treewalker_results = treewalker_results or []
 
     def locator(self, selector: str) -> FakeLocator:
         return FakeLocator(self._routes.get(selector, []))
+
+    def evaluate(self, js: str) -> list[str]:
+        return self._treewalker_results
 
 
 def _now():
@@ -259,6 +275,21 @@ def test_extract_returns_none_when_no_source_available():
     page = FakePage(routes={})
     result = extract_date_posted(page, now=_now())
     assert result == DateExtractionResult(date=None, source="none")
+
+
+def test_extract_falls_back_to_treewalker_text():
+    """When obfuscated CSS classes hide the date from scoped selectors, the
+    TreeWalker fallback finds it inside <main>. This is the path LinkedIn's
+    authenticated layout requires (class names like _47c88858).
+    """
+    page = FakePage(
+        routes={},  # No scoped match
+        treewalker_results=["Some unrelated text", "Reposted 6 days ago", "Singapore, Singapore"],
+    )
+    result = extract_date_posted(page, now=_now())
+    assert result.source == "relative-text"
+    expected = _now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=6)
+    assert result.date == expected
 
 
 # ─── Backfill orchestrator tests (US2) ────────────────────────────────────

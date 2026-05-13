@@ -197,7 +197,16 @@ def _extract_from_datetime_attribute(page, now: datetime) -> datetime | None:
 
 
 def _extract_from_relative_text(page, now: datetime) -> datetime | None:
-    """Read text from the scoped containers; pass through parse_relative."""
+    """Find relative-time text anywhere in the main content area.
+
+    Two strategies, in order:
+      1. Layout-stable named containers (work for guest layouts where
+         LinkedIn still uses semantic class names).
+      2. TreeWalker scan inside ``<main>`` — survives the obfuscated
+         class names LinkedIn ships on authenticated job pages
+         (``_47c88858``, ``_695e006d``, etc.).
+    """
+    # Strategy 1 — try named scoped containers first (fast).
     for selector in _SCOPED_TEXT_SELECTORS:
         try:
             loc = page.locator(selector)
@@ -212,6 +221,31 @@ def _extract_from_relative_text(page, now: datetime) -> datetime | None:
             parsed = parse_relative(text, now)
             if parsed:
                 return parsed
+
+    # Strategy 2 — TreeWalker fallback for obfuscated-class layouts.
+    js = r"""() => {
+      const re = /(?:posted|reposted)?\s*(?:(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago|today|yesterday|just\s+now)/i;
+      const root = document.querySelector('main') || document.body;
+      const out = [];
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      let node;
+      while ((node = walker.nextNode())) {
+        const t = (node.textContent || '').trim();
+        if (t && t.length < 80 && re.test(t)) {
+          out.push(t);
+          if (out.length >= 20) break;
+        }
+      }
+      return out;
+    }"""
+    try:
+        texts = page.evaluate(js)
+    except Exception:
+        return None
+    for text in texts or []:
+        parsed = parse_relative(text, now)
+        if parsed:
+            return parsed
     return None
 
 
