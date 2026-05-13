@@ -1,0 +1,160 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * Copied verbatim from NODE · Economy V1 Design System
+ *   source: /Users/huynam/Documents/WORK/UPWORK/NODE · Economy V1 Design System/colors_and_type.css
+ *   copied: 2026-05-13
+ *   spec:   specs/004-node-design-tokens/
+ *
+ * To re-sync: replace this file with the latest upstream + re-prepend
+ * this header. Tokens are then auto-exposed via the @theme block in
+ * globals.css.
+ * ───────────────────────────────────────────────────────────────────── */
+
+/* NODE · Economy V1 — Colors & Type tokens
+ * Source of truth for both base styles and semantic CSS vars.
+ * Mirrors the values in /Design System.html so this file can be used standalone. */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  /* ── Shades · cool greys ──────────────────────────────────── */
+  --c1: #fcfcfc;     /* shade 1 — primary surface */
+  --c2: #f8f7f7;     /* shade 2 — raised */
+  --c3: #f1f1f1;     /* shade 3 — sunken / chip / track */
+  --c4: #ececec;     /* shade 4 — line */
+  --c5: #e2e2e2;     /* shade 5 — line-strong */
+  --c6: #7b7b7b;     /* shade 6 — muted */
+  --c7: #323232;     /* shade 7 — ink-soft */
+  --c8: #222222;     /* shade 8 */
+  --c9: #121212;     /* shade 9 — ink */
+
+  /* ── Accents (single-purpose, oklch-tuned) ────────────────── */
+  --blue:   #3582ff;
+  --orange: #e36323;
+  --yellow: #ffb73a;
+  --red:    #fe5938;
+  --purple: #8755e9;
+  --green:  #49ba61;
+
+  /* ── Semantic surfaces ────────────────────────────────────── */
+  --bg:        var(--c1);
+  --surface:   var(--c1);
+  --raised:    var(--c2);
+  --sunken:    var(--c3);
+  --board:     #444444;
+  --board-hi:  #525252;
+  --line:      var(--c4);
+  --line-2:    var(--c5);
+  --ink:       var(--c9);
+  --ink-soft:  var(--c7);
+  --muted:     var(--c6);
+
+  /* ── Radii (Figma scale) ──────────────────────────────────── */
+  --r-2:  2px;     /* dot/dash */
+  --r-4:  4px;     /* play/pause */
+  --r-5:  5px;     /* small chip */
+  --r-6:  6px;     /* shortcut, micro btn */
+  --r-8:  8px;     /* toolbar btn */
+  --r-10: 10px;    /* small button, asset card */
+  --r-12: 12px;    /* default button, input */
+  --r-16: 16px;    /* card inner */
+  --r-20: 20px;    /* card outer, modal small */
+  --r-24: 24px;    /* large card, settings tab */
+  --r-28: 28px;    /* share modal */
+  --r-32: 32px;    /* big modal, pill */
+
+  /* aliases */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-2xl: 20px;
+
+  /* ── Shadows (1:1 from Figma /Depth frames) ───────────────── */
+  --shadow-1:        0px 2px 8px -4px rgba(0,0,0,0.25);
+  --shadow-btn:      0px 0px 0px 1px rgb(212,212,212), inset 0px 1px 0px 0px rgba(255,255,255,0.33), 0px 3px 4px -1px rgba(0,0,0,0.15);
+  --shadow-btn-hover:0px 0px 0px 1px rgb(196,196,196), inset 0px 1px 0px 0px rgba(255,255,255,0.4),  0px 4px 8px -1px rgba(0,0,0,0.18);
+  --shadow-input:    0px 8px 16px -12px rgba(0,0,0,0.075), inset 0px 2px 0px 0px rgb(255,255,255), 0px 18px 24px -20px rgba(0,0,0,0.125);
+  --shadow-card:     0px 1px 1px 0px rgba(0,0,0,0.02), 0px 3px 3px 0px rgba(0,0,0,0.02), 0px 6px 3px 0px rgba(0,0,0,0.01), 0px 10px 4px 0px rgba(0,0,0,0), 0px 16px 4px 0px rgba(0,0,0,0);
+  --shadow-pop:      0px 16px 32px -24px rgba(0,0,0,0.62), 0px 80px 64px -64px rgba(0,0,0,0.2),    0px 12px 11px -12px rgba(0,0,0,0.15);
+  --shadow-modal:    0px 10px 21px 0px rgba(0,0,0,0.07), 0px 38px 38px 0px rgba(0,0,0,0.06), 0px 86px 52px 0px rgba(0,0,0,0.04), 0px 153px 61px 0px rgba(0,0,0,0.01);
+
+  /* ── Spacing scale ────────────────────────────────────────── */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  20px;
+  --s-6:  24px;
+  --s-8:  32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+
+  /* ── Type families ────────────────────────────────────────── */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── Type tokens (size / line / tracking / weight) ────────── */
+  /* Headlines — Inter, −3% tracking, light/regular weight */
+  --t-h1-size: 48px; --t-h1-line: 115%;  --t-h1-track: -0.03em; --t-h1-weight: 400;
+  --t-h2-size: 40px; --t-h2-line: 48px;  --t-h2-track: -0.03em; --t-h2-weight: 400;
+  --t-h3-size: 32px; --t-h3-line: 40px;  --t-h3-track: -0.03em; --t-h3-weight: 400;
+  --t-h4-size: 28px; --t-h4-line: 36px;  --t-h4-track: -0.03em; --t-h4-weight: 400;
+  --t-h5-size: 24px; --t-h5-line: 32px;  --t-h5-track: -0.03em; --t-h5-weight: 500;
+  --t-h6-size: 20px; --t-h6-line: 28px;  --t-h6-track: -0.03em; --t-h6-weight: 500;
+
+  /* Title / paragraph */
+  --t-title-size: 15px;       --t-title-line: 24px;     --t-title-track: -0.02em;
+  --t-title-lg-size: 18px;    --t-title-lg-line: 150%;  --t-title-lg-track: -0.02em;
+  --t-para-size: 15px;        --t-para-line: 150%;      --t-para-track: -0.01em;
+
+  /* Body */
+  --t-body-xs-size: 10px;     --t-body-xs-line: 16px;
+  --t-body-sm-size: 11px;     --t-body-sm-line: 16px;
+  --t-body-md-size: 12px;     --t-body-md-line: 16px;
+  --t-body-lg-size: 13px;     --t-body-lg-line: 16px;
+  --t-body-track:   -0.01em;
+
+  /* Mono */
+  --t-mono-size: 11.5px;      --t-mono-line: 16px;      --t-mono-track: 0;
+
+  /* eyebrow / overline (mono, uppercase) */
+  --t-eyebrow-size: 11px; --t-eyebrow-track: 0.06em;
+}
+
+/* ── Base ─────────────────────────────────────────────────────── */
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Semantic typography classes ──────────────────────────────── */
+.h1 { font: var(--t-h1-weight) var(--t-h1-size)/var(--t-h1-line) var(--font-sans); letter-spacing: var(--t-h1-track); margin: 0; color: var(--ink); }
+.h2 { font: var(--t-h2-weight) var(--t-h2-size)/var(--t-h2-line) var(--font-sans); letter-spacing: var(--t-h2-track); margin: 0; color: var(--ink); }
+.h3 { font: var(--t-h3-weight) var(--t-h3-size)/var(--t-h3-line) var(--font-sans); letter-spacing: var(--t-h3-track); margin: 0; color: var(--ink); }
+.h4 { font: var(--t-h4-weight) var(--t-h4-size)/var(--t-h4-line) var(--font-sans); letter-spacing: var(--t-h4-track); margin: 0; color: var(--ink); }
+.h5 { font: var(--t-h5-weight) var(--t-h5-size)/var(--t-h5-line) var(--font-sans); letter-spacing: var(--t-h5-track); margin: 0; color: var(--ink); }
+.h6 { font: var(--t-h6-weight) var(--t-h6-size)/var(--t-h6-line) var(--font-sans); letter-spacing: var(--t-h6-track); margin: 0; color: var(--ink); }
+
+.title          { font: 400 var(--t-title-size)/var(--t-title-line) var(--font-sans); letter-spacing: var(--t-title-track); }
+.title-strong   { font: 600 var(--t-title-size)/var(--t-title-line) var(--font-sans); letter-spacing: var(--t-title-track); }
+.title-lg       { font: 400 var(--t-title-lg-size)/var(--t-title-lg-line) var(--font-sans); letter-spacing: var(--t-title-lg-track); }
+.paragraph      { font: 400 var(--t-para-size)/var(--t-para-line) var(--font-sans); letter-spacing: var(--t-para-track); color: var(--ink-soft); }
+
+.body-xs        { font: 400 var(--t-body-xs-size)/var(--t-body-xs-line) var(--font-sans); letter-spacing: var(--t-body-track); }
+.body-sm        { font: 500 var(--t-body-sm-size)/var(--t-body-sm-line) var(--font-sans); letter-spacing: var(--t-body-track); }
+.body-md        { font: 500 var(--t-body-md-size)/var(--t-body-md-line) var(--font-sans); letter-spacing: var(--t-body-track); }
+.body-strong    { font: 600 var(--t-body-md-size)/var(--t-body-md-line) var(--font-sans); letter-spacing: var(--t-body-track); }
+.body-lg        { font: 400 var(--t-body-lg-size)/var(--t-body-lg-line) var(--font-sans); letter-spacing: var(--t-body-track); }
+
+.mono           { font: 400 var(--t-mono-size)/var(--t-mono-line) var(--font-mono); letter-spacing: 0; }
+.eyebrow        { font: 500 var(--t-eyebrow-size)/16px var(--font-mono); letter-spacing: var(--t-eyebrow-track); text-transform: uppercase; color: var(--muted); }
+
+code, kbd, samp { font-family: var(--font-mono); font-size: var(--t-mono-size); letter-spacing: 0; }

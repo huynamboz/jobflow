@@ -356,6 +356,47 @@ for r in VerifierRunLog.objects.order_by("-started_at")[:10]:
 
 ---
 
+## 13. Admin design tokens (NODE — spec 004)
+
+The admin app's visual identity ports the **NODE · Economy V1** design
+system. Tokens are loaded from
+[`admin/src/styles/node-tokens.css`](../admin/src/styles/node-tokens.css)
+(copied verbatim from upstream) and exposed via the `@theme` block in
+[`admin/src/styles/globals.css`](../admin/src/styles/globals.css).
+
+Available Tailwind utilities (light mode only):
+
+```html
+<!-- Colors -->
+<div class="bg-node-surface text-node-ink">…</div>
+<div class="bg-node-raised border border-node-line">…</div>
+<span class="text-node-muted">subdued copy</span>
+<span class="text-node-blue">primary accent</span>
+
+<!-- Radii (NODE Figma scale) -->
+<div class="rounded-node-12">default card</div>
+<div class="rounded-node-20">card outer / modal</div>
+<button class="rounded-node-10">small button</button>
+
+<!-- Shadows -->
+<div class="shadow-node-card">card surface</div>
+<div class="shadow-node-pop">popover</div>
+<div class="shadow-node-modal">modal</div>
+
+<!-- Fonts -->
+<p class="font-node-sans">Inter body text</p>
+<p class="font-node-mono">123,456 sats</p>
+```
+
+HeroUI semantic colors are also overridden to NODE values, so existing
+`<Button color="primary">` etc. pick up NODE blue automatically — no
+component change needed.
+
+To re-sync tokens from upstream, replace `node-tokens.css` with the
+latest version of the source file and re-add the copy-attribution header.
+
+---
+
 ## Quick links
 
 - Spec 001 (verifier): [specs/001-linkedin-job-verifier/](../specs/001-linkedin-job-verifier/)

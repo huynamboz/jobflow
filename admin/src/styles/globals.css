@@ -1,8 +1,96 @@
+/* NODE design-system token source (:root variables + Google Fonts import).
+ * Imported BEFORE Tailwind so the variables are available to every layer.
+ * See specs/004-node-design-tokens/.
+ */
+@import "./node-tokens.css";
+
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
 
+/* ─────────────────────────────────────────────────────────────────────
+ * NODE theme — exposes the CSS variables from node-tokens.css as
+ * Tailwind utilities under the `node-*` namespace.
+ *   bg-node-surface, bg-node-raised, bg-node-sunken
+ *   text-node-ink, text-node-ink-soft, text-node-muted
+ *   border-node-line, border-node-line-2
+ *   rounded-node-{2,4,5,6,8,10,12,16,20,24,28,32,xs,sm,md,lg,xl,2xl,full}
+ *   shadow-node-{1,btn,btn-h,input,card,pop,modal}
+ *   font-node-sans, font-node-mono
+ * ───────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-node-c1:        var(--c1);
+  --color-node-c2:        var(--c2);
+  --color-node-c3:        var(--c3);
+  --color-node-c4:        var(--c4);
+  --color-node-c5:        var(--c5);
+  --color-node-c6:        var(--c6);
+  --color-node-c7:        var(--c7);
+  --color-node-c8:        var(--c8);
+  --color-node-c9:        var(--c9);
+
+  --color-node-blue:      var(--blue);
+  --color-node-orange:    var(--orange);
+  --color-node-yellow:    var(--yellow);
+  --color-node-red:       var(--red);
+  --color-node-purple:    var(--purple);
+  --color-node-green:     var(--green);
+
+  --color-node-bg:        var(--bg);
+  --color-node-surface:   var(--surface);
+  --color-node-raised:    var(--raised);
+  --color-node-sunken:    var(--sunken);
+  --color-node-line:      var(--line);
+  --color-node-line-2:    var(--line-2);
+  --color-node-ink:       var(--ink);
+  --color-node-ink-soft:  var(--ink-soft);
+  --color-node-muted:     var(--muted);
+
+  --radius-node-2:        var(--r-2);
+  --radius-node-4:        var(--r-4);
+  --radius-node-5:        var(--r-5);
+  --radius-node-6:        var(--r-6);
+  --radius-node-8:        var(--r-8);
+  --radius-node-10:       var(--r-10);
+  --radius-node-12:       var(--r-12);
+  --radius-node-16:       var(--r-16);
+  --radius-node-20:       var(--r-20);
+  --radius-node-24:       var(--r-24);
+  --radius-node-28:       var(--r-28);
+  --radius-node-32:       var(--r-32);
+  --radius-node-xs:       var(--r-xs);
+  --radius-node-sm:       var(--r-sm);
+  --radius-node-md:       var(--r-md);
+  --radius-node-lg:       var(--r-lg);
+  --radius-node-xl:       var(--r-xl);
+  --radius-node-2xl:      var(--r-2xl);
+
+  --shadow-node-1:        var(--shadow-1);
+  --shadow-node-btn:      var(--shadow-btn);
+  --shadow-node-btn-h:    var(--shadow-btn-hover);
+  --shadow-node-input:    var(--shadow-input);
+  --shadow-node-card:     var(--shadow-card);
+  --shadow-node-pop:      var(--shadow-pop);
+  --shadow-node-modal:    var(--shadow-modal);
+
+  --font-node-sans:       "Inter", system-ui, sans-serif;
+  --font-node-mono:       "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* Apply the NODE typeface stack project-wide. Components can still opt
+ * out with `font-node-mono` (numbers, code) or any explicit class. */
+html, body {
+  font-family: var(--font-node-sans);
+  color: var(--ink);
+  background: var(--bg);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Legacy `jb-*` tokens — still consumed by 9 files under
+ * pages/admin/{jd-batch,cv-batch,label-batch}. Kept until those pages
+ * migrate to `node-*`. Do not add new consumers.
+ * ───────────────────────────────────────────────────────────────────── */
 @theme {
   --color-jb-accent:       oklch(0.55 0.20 240);
   --color-jb-accent600:    oklch(0.48 0.20 240);
@@ -23,12 +111,10 @@
   --color-jb-surface3:     oklch(0.945 0.006 85);
   --color-jb-line:         oklch(0.92 0.006 85);
   --color-jb-linestrong:   oklch(0.86 0.008 85);
-  /* Badge / status colors */
   --color-jb-run-bg:       oklch(0.93 0.05 240);
   --color-jb-run-text:     oklch(0.42 0.16 240);
   --color-jb-cancel-bg:    oklch(0.94 0.03 60);
   --color-jb-cancel-text:  oklch(0.52 0.12 60);
-  /* Dark terminal / code block */
   --color-jb-dark:         oklch(0.2 0.02 265);
   --color-jb-dark-text:    oklch(0.9 0.01 85);
   --color-jb-dark-text2:   oklch(0.94 0.008 85);
