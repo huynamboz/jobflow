@@ -1,0 +1,28 @@
+{
+  "_meta": {
+    "description": "Selectors for the LinkedIn job-status verifier. Update when LinkedIn changes its DOM.",
+    "last_updated": "2026-05-13",
+    "spec_ref": "specs/001-linkedin-job-verifier"
+  },
+
+  "auth_check": {
+    "expired_url_patterns_doc": "Substrings in the final URL that indicate the saved session is no longer valid; LinkedIn redirects unauthenticated requests to one of these paths.",
+    "expired_url_patterns": ["login", "authwall", "checkpoint"]
+  },
+
+  "expired_markers_doc": "Page elements observed on closed/expired LinkedIn job listings; first match wins. Tested against a sample of known-closed jobs on 2026-05-13.",
+  "expired_markers": [
+    "text=No longer accepting applications",
+    "text=This job is no longer available",
+    "text=Position has been filled",
+    "div.jobs-details-top-card__job-state >> text=Closed",
+    "div.artdeco-inline-feedback--error"
+  ],
+
+  "active_markers_doc": "Page elements present on listings that are still accepting applications; checked only after expired_markers misses.",
+  "active_markers": [
+    "button[aria-label*='Apply' i]",
+    "button:has-text('Easy Apply')",
+    "button.jobs-apply-button"
+  ]
+}

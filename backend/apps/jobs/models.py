@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class Platform(models.Model):
@@ -106,8 +107,27 @@ class Job(models.Model):
     # Skills (M2M through JobSkill)
     skills = models.ManyToManyField("skills.Skill", through="JobSkill", blank=True)
 
-    # Status
+    # Status (legacy — kept for v1 backward compat; new code reads `lifecycle`)
     is_active = models.BooleanField(default=True)
+
+    # Lifecycle tracking (spec 001-linkedin-job-verifier)
+    LIFECYCLE_ACTIVE = "active"
+    LIFECYCLE_STALE = "stale"
+    LIFECYCLE_EXPIRED = "expired"
+    LIFECYCLE_UNVERIFIED = "unverified"
+    LIFECYCLE_CHOICES = [
+        (LIFECYCLE_ACTIVE, "Active"),
+        (LIFECYCLE_STALE, "Stale"),
+        (LIFECYCLE_EXPIRED, "Expired"),
+        (LIFECYCLE_UNVERIFIED, "Unverified"),
+    ]
+    lifecycle = models.CharField(
+        max_length=20, choices=LIFECYCLE_CHOICES, default=LIFECYCLE_ACTIVE, db_index=True
+    )
+    last_seen_at = models.DateTimeField(default=timezone.now, db_index=True)
+    last_verified_at = models.DateTimeField(null=True, blank=True)
+    verification_attempts = models.IntegerField(default=0)
+    verification_backoff_until = models.DateTimeField(null=True, blank=True, db_index=True)
 
     # Timestamps
     date_posted = models.DateTimeField(null=True, blank=True)
@@ -119,6 +139,9 @@ class Job(models.Model):
         ordering = ["-created_at"]
         # Dedup per platform (same fingerprint on same platform = duplicate)
         unique_together = ("platform", "fingerprint")
+        indexes = [
+            models.Index(fields=["platform", "lifecycle"], name="jobs_platform_lifecycle_idx"),
+        ]
 
     def __str__(self):
         company_name = self.company.name if self.company else "Unknown"
