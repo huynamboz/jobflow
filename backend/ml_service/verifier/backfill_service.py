@@ -138,6 +138,7 @@ class DateBackfillService:
         # still open.
         outcomes: list[tuple[int, DateExtractionResult | None, bool]] = []
         # bool flag: True iff the URL raised an exception during extraction
+        total = len(supported)
         with self._browser_factory() as (page, ctx):
             for i, (job_id, url) in enumerate(supported):
                 if i > 0:
@@ -154,14 +155,16 @@ class DateBackfillService:
                     if not _ctx_has_li_at(ctx):
                         logger.debug(
                             "li_at not present after URL %d/%d — continuing in guest mode",
-                            i + 1, len(supported),
+                            i + 1, total,
                         )
 
                     result = self._extractor(page, now=self._clock())
                     outcomes.append((job_id, result, False))
-                except Exception:  # noqa: BLE001
+                    self._log_progress(i + 1, total, job_id, url, result, errored=False)
+                except Exception as exc:  # noqa: BLE001
                     logger.exception("extract failed for job %s", job_id)
                     outcomes.append((job_id, None, True))
+                    self._log_progress(i + 1, total, job_id, url, None, errored=True, exc=exc)
 
         # Browser context closed — safe to hit the ORM now.
         for job_id, result, errored in outcomes:
@@ -217,6 +220,38 @@ class DateBackfillService:
             VerifyResult(JobStatus.ERROR, reason="exception during date extraction"),
             now=self._clock(),
         )
+
+    @staticmethod
+    def _log_progress(
+        i: int,
+        total: int,
+        job_id: int,
+        url: str,
+        result: DateExtractionResult | None,
+        *,
+        errored: bool,
+        exc: Exception | None = None,
+    ) -> None:
+        """Print a single line per URL — flushed immediately for live observation.
+
+        Format chosen to be greppable and human-readable at once:
+            [3/200] job=11514 OK     date=2026-05-08 source=relative-text  url=...
+            [4/200] job=11520 EXPIRED                                       url=...
+            [5/200] job=11519 NONE                                          url=...
+            [6/200] job=11517 ERR    TimeoutError                          url=...
+        """
+        prefix = f"[{i:>3d}/{total:<3d}] job={job_id:<6d}"
+        if errored:
+            tag = f"ERR    {type(exc).__name__ if exc else 'Exception'}"
+        elif result is None:
+            tag = "NONE"
+        elif result.source == "expired-redirect":
+            tag = "EXPIRED"
+        elif result.date is not None:
+            tag = f"OK     date={result.date.date().isoformat()} source={result.source}"
+        else:
+            tag = f"NONE   source={result.source}"
+        print(f"{prefix}  {tag:<60s}  url={url[:80]}", flush=True)
 
 
 def _ctx_has_li_at(ctx) -> bool:
