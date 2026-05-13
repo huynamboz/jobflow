@@ -10,10 +10,10 @@ import { useDashboardSection } from "./useDashboardSection";
 interface Props { refreshKey: number }
 
 const FRESHNESS_LABEL: Record<Freshness, string> = {
-  fresh:      "Fresh · ≤24h",
-  stale:      "Stale · ≤72h",
-  very_stale: "Stale · >72h",
-  never:      "Never run",
+  fresh:      "fresh · ≤24h",
+  stale:      "stale · ≤72h",
+  very_stale: "stale · >72h",
+  never:      "never run",
 };
 
 const FRESHNESS_DOT: Record<Freshness, string> = {
@@ -42,48 +42,56 @@ function fmtPct(n: number | null | undefined, digits = 1) {
   return `${(n * 100).toFixed(digits)}%`;
 }
 
-/* ─── NODE Tile (KPI card) ──────────────────────────────────────────── */
-
+/* ─── NODE canonical card — KPI tile ─────────────────────────────────
+ * Mirrors preview/components-cards.html .card shell exactly:
+ *   bg c1, 1px line, radius 16, shadow-card, padding 16, gap 8.
+ *   title: 600 13px/18px sans -0.01em
+ *   display number: 500 28px/1 sans -0.03em
+ *   meta: 400 11px/16px mono muted
+ */
 function Tile({
   icon: Icon,
-  label,
+  title,
   value,
-  sub,
+  meta,
   dotColor,
   iconColor,
   iconBg,
-  valueMono = true,
 }: {
   icon: React.ElementType;
-  label: string;
+  title: string;
   value: string;
-  sub?: string;
+  meta?: string;
   dotColor?: string;
   iconColor?: string;
   iconBg?: string;
-  valueMono?: boolean;
 }) {
   return (
     <div
-      className="rounded-node-20"
       style={{
-        background: "var(--surface)",
+        background: "var(--c1)",
         border: "1px solid var(--line)",
+        borderRadius: 16,
         boxShadow: "var(--shadow-card)",
         padding: 16,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
       }}
     >
       <div className="flex items-center gap-2">
         <span
-          className="font-node-mono text-node-muted"
-          style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}
+          style={{
+            font: "600 13px/18px var(--font-node-sans)",
+            letterSpacing: "-0.01em",
+            color: "var(--ink)",
+          }}
         >
-          {label}
+          {title}
         </span>
         {dotColor && (
           <span
             aria-hidden
-            className="inline-block"
             style={{ width: 6, height: 6, borderRadius: 999, background: dotColor }}
           />
         )}
@@ -91,9 +99,9 @@ function Tile({
         <span
           className="inline-flex items-center justify-center shrink-0"
           style={{
-            width: 28,
-            height: 28,
-            borderRadius: "var(--r-8)",
+            width: 24,
+            height: 24,
+            borderRadius: 6,
             background: iconBg ?? "var(--c3)",
             color: iconColor ?? "var(--ink-soft)",
           }}
@@ -102,16 +110,13 @@ function Tile({
         </span>
       </div>
 
-      <div className="mt-3 flex items-baseline gap-2">
+      <div className="flex items-baseline gap-1.5">
         <span
           className="truncate"
           style={{
-            fontFamily: valueMono ? "var(--font-node-mono)" : "var(--font-node-sans)",
-            fontSize: 26,
-            fontWeight: 500,
+            font: "500 28px/1 var(--font-node-sans)",
             letterSpacing: "-0.03em",
             color: "var(--ink)",
-            lineHeight: 1.05,
           }}
           title={value}
         >
@@ -119,12 +124,16 @@ function Tile({
         </span>
       </div>
 
-      {sub && (
+      {meta && (
         <p
-          className="font-node-sans text-node-muted mt-1 truncate"
-          style={{ fontSize: 11.5, letterSpacing: "-0.005em" }}
+          style={{
+            font: "400 11px/16px var(--font-node-mono)",
+            color: "var(--muted)",
+            margin: 0,
+          }}
+          className="truncate"
         >
-          {sub}
+          {meta}
         </p>
       )}
     </div>
@@ -134,8 +143,14 @@ function Tile({
 function TileSkeleton() {
   return (
     <div
-      className="rounded-node-20 animate-pulse"
-      style={{ background: "var(--surface)", border: "1px solid var(--line)", height: 116 }}
+      className="animate-pulse"
+      style={{
+        background: "var(--c1)",
+        border: "1px solid var(--line)",
+        borderRadius: 16,
+        boxShadow: "var(--shadow-card)",
+        height: 104,
+      }}
     />
   );
 }
@@ -163,56 +178,54 @@ export default function KpiStrip({ refreshKey }: Props) {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       <Tile
         icon={Briefcase}
-        label="Jobs"
+        title="Jobs"
         value={fmtNumber(jobs_total)}
-        sub={`${fmtNumber(jobs_by_lifecycle.active)} active · ${fmtNumber(jobs_by_lifecycle.expired)} expired`}
+        meta={`${fmtNumber(jobs_by_lifecycle.active)} active · ${fmtNumber(jobs_by_lifecycle.expired)} expired`}
         iconBg="rgba(53,130,255,0.10)"
         iconColor="var(--blue)"
       />
       <Tile
         icon={FileText}
-        label="CVs"
+        title="CVs"
         value={fmtNumber(cv_total)}
-        sub={`+${fmtNumber(cv_uploads_last_7d)} last 7d`}
+        meta={`+${fmtNumber(cv_uploads_last_7d)} last 7d`}
         iconBg="rgba(73,186,97,0.10)"
         iconColor="var(--green)"
       />
       <Tile
         icon={CheckCircle2}
-        label="Verifier"
+        title="Verifier"
         value={timeAgo(verifier_last_run.started_at)}
-        sub={FRESHNESS_LABEL[verifier_last_run.freshness]}
+        meta={FRESHNESS_LABEL[verifier_last_run.freshness]}
         dotColor={FRESHNESS_DOT[verifier_last_run.freshness]}
         iconBg="rgba(73,186,97,0.10)"
         iconColor="var(--green)"
       />
       <Tile
         icon={Clock}
-        label="Extractor"
+        title="Extractor"
         value={timeAgo(extractor_last_run.started_at)}
-        sub={FRESHNESS_LABEL[extractor_last_run.freshness]}
+        meta={FRESHNESS_LABEL[extractor_last_run.freshness]}
         dotColor={FRESHNESS_DOT[extractor_last_run.freshness]}
         iconBg="rgba(227,99,35,0.10)"
         iconColor="var(--orange)"
       />
       <Tile
         icon={auth_state.has_li_at ? KeyRound : ShieldAlert}
-        label="Auth state"
+        title="Auth"
         value={auth_state.has_li_at ? "Valid" : "Missing"}
-        sub={auth_state.has_li_at ? "li_at present" : "run linkedin_auth.py"}
+        meta={auth_state.has_li_at ? "li_at present" : "run linkedin_auth.py"}
         dotColor={auth_state.has_li_at ? "var(--green)" : "var(--red)"}
         iconBg={auth_state.has_li_at ? "rgba(73,186,97,0.10)" : "rgba(254,89,56,0.10)"}
         iconColor={auth_state.has_li_at ? "var(--green)" : "var(--red)"}
-        valueMono={false}
       />
       <Tile
         icon={Cpu}
-        label="Model"
+        title="Model"
         value={model.checkpoint_name ?? "—"}
-        sub={model.metrics.test_auc_roc != null ? `AUC ${model.metrics.test_auc_roc.toFixed(3)}` : "no metrics"}
+        meta={model.metrics.test_auc_roc != null ? `auc ${model.metrics.test_auc_roc.toFixed(3)}` : "no metrics"}
         iconBg="rgba(135,85,233,0.10)"
         iconColor="var(--purple)"
-        valueMono={false}
       />
     </div>
   );

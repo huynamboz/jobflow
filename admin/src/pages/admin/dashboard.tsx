@@ -10,38 +10,46 @@ import ModelStatus from "@/components/dashboard/ModelStatus";
 import VerifierExtractorOps from "@/components/dashboard/VerifierExtractorOps";
 
 export default function DashboardPage() {
-  // Bumping refreshKey re-fetches every section in parallel.
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   return (
-    <div className="space-y-5">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <header className="flex items-end justify-between gap-3">
         <div>
           <h1
-            className="font-node-sans text-node-ink"
-            style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.025em", lineHeight: 1.05, margin: 0 }}
+            style={{
+              font: "600 24px/1.1 var(--font-node-sans)",
+              letterSpacing: "-0.025em",
+              color: "var(--ink)",
+              margin: 0,
+            }}
           >
             Dashboard
           </h1>
           <p
-            className="font-node-mono text-node-muted mt-1.5"
-            style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}
+            style={{
+              font: "400 13px/18px var(--font-node-sans)",
+              letterSpacing: "-0.01em",
+              color: "var(--muted)",
+              margin: "4px 0 0",
+            }}
           >
-            System health · Catalog · Ops
+            System health, catalog and ops at a glance.
           </p>
         </div>
         <button
           type="button"
           onClick={refresh}
-          className="inline-flex items-center gap-2 rounded-node-10 px-3 py-2 font-node-sans transition-colors hover:bg-node-c3"
+          className="inline-flex items-center gap-2"
           style={{
-            background: "var(--surface)",
-            border: "1px solid var(--line-2)",
-            boxShadow: "var(--shadow-btn)",
-            fontSize: 12.5,
-            fontWeight: 600,
+            font: "600 12.5px/16px var(--font-node-sans)",
             color: "var(--ink)",
+            background: "var(--c1)",
+            border: "1px solid var(--line-2)",
+            borderRadius: 10,
+            padding: "6px 12px",
+            boxShadow: "var(--shadow-btn)",
           }}
         >
           <RefreshCcw className="size-3.5" strokeWidth={1.75} />

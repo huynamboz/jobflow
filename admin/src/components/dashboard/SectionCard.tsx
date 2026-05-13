@@ -10,23 +10,22 @@ interface SectionCardProps {
   emptyMessage?: string;
   onRetry?: () => void;
   children: ReactNode;
-  /** Extra action element rendered in the header right side (e.g. filter chip). */
   action?: ReactNode;
 }
 
 /**
- * NODE-styled section shell.
+ * NODE canonical card shell — matches preview/components-cards.html:
+ *   background: var(--c1)
+ *   border: 1px solid var(--line)
+ *   border-radius: 16px
+ *   box-shadow: var(--shadow-card)
+ *   padding: 16px
+ *   gap: 8px
  *
- *   ┌──────────────────────────────────────────────────┐
- *   │  TITLE in dark ink, eyebrow caption in mono caps │
- *   │  ── thin --line divider ────                      │
- *   │  content                                          │
- *   └──────────────────────────────────────────────────┘
- *
- * Background: var(--surface) (cool white)
- * Border: 1px var(--line)
- * Radius: var(--r-20)
- * Shadow: var(--shadow-card)
+ * Typography:
+ *   title  → 600 13px/18px sans, letter-spacing: -0.01em
+ *   desc   → 400 12px/16px sans muted, letter-spacing: -0.01em
+ *   meta   → 400 11px/16px mono muted (used inside content)
  */
 export default function SectionCard({
   title,
@@ -41,25 +40,37 @@ export default function SectionCard({
 }: SectionCardProps) {
   return (
     <section
-      className="rounded-node-20"
       style={{
-        background: "var(--surface)",
+        background: "var(--c1)",
         border: "1px solid var(--line)",
+        borderRadius: 16,
         boxShadow: "var(--shadow-card)",
+        padding: 16,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
       }}
     >
-      <header className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
-        <div>
+      <header className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
           <h2
-            className="font-node-sans text-node-ink"
-            style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.015em", margin: 0 }}
+            style={{
+              font: "600 13px/18px var(--font-node-sans)",
+              letterSpacing: "-0.01em",
+              color: "var(--ink)",
+              margin: 0,
+            }}
           >
             {title}
           </h2>
           {description && (
             <p
-              className="font-node-mono text-node-muted mt-1"
-              style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}
+              style={{
+                font: "400 12px/16px var(--font-node-sans)",
+                letterSpacing: "-0.01em",
+                color: "var(--muted)",
+                margin: 0,
+              }}
             >
               {description}
             </p>
@@ -68,41 +79,49 @@ export default function SectionCard({
         {action}
       </header>
 
-      <div className="px-5 pb-5">
+      <div style={{ marginTop: 8 }}>
         {loading && (
           <div
-            className="flex items-center gap-2 text-node-muted"
-            style={{ fontSize: 12 }}
+            className="flex items-center gap-2"
+            style={{ font: "400 12px/16px var(--font-node-sans)", color: "var(--muted)" }}
             aria-live="polite"
           >
-            <span className="inline-block size-2.5 animate-pulse rounded-full bg-node-c5" />
+            <span className="inline-block animate-pulse" style={{ width: 8, height: 8, borderRadius: 999, background: "var(--c5)" }} />
             Loading…
           </div>
         )}
 
         {!loading && error && (
           <div
-            className="flex flex-col gap-2 rounded-node-12 p-3"
-            style={{ background: "rgba(254,89,56,0.06)", border: "1px solid rgba(254,89,56,0.18)" }}
+            style={{
+              background: "rgba(254,89,56,0.06)",
+              border: "1px solid rgba(254,89,56,0.18)",
+              borderRadius: 12,
+              padding: 12,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
           >
-            <div className="flex items-center gap-2 text-node-red" style={{ fontSize: 12.5 }}>
+            <div className="flex items-center gap-2" style={{ font: "600 12.5px/16px var(--font-node-sans)", color: "var(--red)" }}>
               <AlertCircle className="size-4" />
-              <span style={{ fontWeight: 600 }}>Failed to load</span>
+              <span>Failed to load</span>
             </div>
-            <p className="text-node-ink-soft" style={{ fontSize: 11.5 }}>
+            <p style={{ font: "400 11.5px/16px var(--font-node-sans)", color: "var(--ink-soft)", letterSpacing: "-0.01em", margin: 0 }}>
               {error.message}
             </p>
             {onRetry && (
               <button
                 type="button"
                 onClick={onRetry}
-                className="inline-flex items-center gap-1.5 self-start rounded-node-8 px-2.5 py-1 font-node-sans"
+                className="inline-flex items-center gap-1.5 self-start"
                 style={{
-                  fontSize: 11.5,
-                  fontWeight: 600,
+                  font: "600 11.5px/16px var(--font-node-sans)",
                   color: "var(--ink)",
                   background: "var(--c1)",
                   border: "1px solid var(--line-2)",
+                  borderRadius: 8,
+                  padding: "4px 10px",
                   boxShadow: "var(--shadow-btn)",
                 }}
               >
@@ -114,8 +133,8 @@ export default function SectionCard({
 
         {!loading && !error && empty && (
           <div
-            className="flex flex-col items-center gap-2 py-10 text-node-muted"
-            style={{ fontSize: 12.5 }}
+            className="flex flex-col items-center gap-2"
+            style={{ font: "400 12.5px/18px var(--font-node-sans)", color: "var(--muted)", padding: "40px 0" }}
           >
             <Inbox className="size-6" strokeWidth={1.5} />
             <span>{emptyMessage}</span>
@@ -128,19 +147,31 @@ export default function SectionCard({
   );
 }
 
-/* Reusable typography utilities for sections to consume. */
-export const NODE_LABEL_STYLE: React.CSSProperties = {
-  fontSize: 10.5,
-  fontWeight: 600,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  color: "var(--muted)",
-  fontFamily: "var(--font-node-mono)",
+/* Shared typography styles used by section internals. */
+export const NODE_TITLE: React.CSSProperties = {
+  font: "600 13px/18px var(--font-node-sans)",
+  letterSpacing: "-0.01em",
+  color: "var(--ink)",
+  margin: 0,
 };
 
-export const NODE_NUMBER_STYLE: React.CSSProperties = {
-  fontFamily: "var(--font-node-mono)",
-  fontWeight: 500,
+export const NODE_DESC: React.CSSProperties = {
+  font: "400 12px/16px var(--font-node-sans)",
+  letterSpacing: "-0.01em",
+  color: "var(--muted)",
+  margin: 0,
+};
+
+export const NODE_META: React.CSSProperties = {
+  font: "400 11px/16px var(--font-node-mono)",
+  color: "var(--muted)",
+  margin: 0,
+};
+
+/** Big display number used inside Wallet/KPI hero contexts.
+ *  Sans-serif, 500 weight, tight negative tracking. */
+export const NODE_DISPLAY_NUMBER: React.CSSProperties = {
+  font: "500 28px/1 var(--font-node-sans)",
   letterSpacing: "-0.03em",
   color: "var(--ink)",
 };

@@ -3,7 +3,7 @@ import type { FreshnessActivity as Payload } from "@/types/dashboard.types";
 
 import AreaSeries from "./charts/AreaSeries";
 import StackedBar from "./charts/StackedBar";
-import SectionCard, { NODE_LABEL_STYLE } from "./SectionCard";
+import SectionCard, { NODE_DESC } from "./SectionCard";
 import { useDashboardSection } from "./useDashboardSection";
 
 interface Props { refreshKey: number }
@@ -27,27 +27,27 @@ export default function FreshnessActivity({ refreshKey }: Props) {
   return (
     <SectionCard
       title="Freshness & activity"
-      description="Inflow · verifier outcomes"
+      description="Catalog inflow and verifier outcomes over time"
       loading={loading} error={error} empty={empty}
       onRetry={reload}
     >
       {data && (
-        <div className="space-y-5">
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <p style={NODE_LABEL_STYLE} className="mb-2">Jobs added per day · 30d</p>
-            <AreaSeries
-              data={data.jobs_added_per_day}
-              ariaLabel="Jobs added per day"
-              color="#3582ff"
-            />
+            <p style={NODE_DESC}>Jobs added per day, last 30 days</p>
+            <div style={{ marginTop: 8 }}>
+              <AreaSeries data={data.jobs_added_per_day} ariaLabel="Jobs added per day" color="#3582ff" />
+            </div>
           </div>
           <div>
-            <p style={NODE_LABEL_STYLE} className="mb-2">Verifier outcomes per day · 14d</p>
-            <StackedBar
-              data={data.verifier_outcomes_per_day}
-              series={VERIFIER_SERIES}
-              ariaLabel="Verifier outcomes per day"
-            />
+            <p style={NODE_DESC}>Verifier outcomes per day, last 14 days</p>
+            <div style={{ marginTop: 8 }}>
+              <StackedBar
+                data={data.verifier_outcomes_per_day}
+                series={VERIFIER_SERIES}
+                ariaLabel="Verifier outcomes per day"
+              />
+            </div>
           </div>
         </div>
       )}

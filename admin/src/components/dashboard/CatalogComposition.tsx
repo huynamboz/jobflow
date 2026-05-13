@@ -3,20 +3,13 @@ import type { CatalogComposition as Payload } from "@/types/dashboard.types";
 
 import BarH from "./charts/BarH";
 import Donut from "./charts/Donut";
-import SectionCard, { NODE_LABEL_STYLE } from "./SectionCard";
+import SectionCard, { NODE_DESC } from "./SectionCard";
 import { useDashboardSection } from "./useDashboardSection";
 
 interface Props { refreshKey: number }
 
 const NODE_PALETTE = [
-  "#3582ff", // blue
-  "#49ba61", // green
-  "#e36323", // orange
-  "#ffb73a", // yellow
-  "#8755e9", // purple
-  "#fe5938", // red
-  "#7b7b7b", // muted
-  "#323232", // ink-soft
+  "#3582ff", "#49ba61", "#e36323", "#ffb73a", "#8755e9", "#fe5938", "#7b7b7b", "#323232",
 ];
 
 const LIFECYCLE_COLOR_MAP: Record<string, string> = {
@@ -29,8 +22,8 @@ const LIFECYCLE_COLOR_MAP: Record<string, string> = {
 function Pane({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p style={NODE_LABEL_STYLE} className="mb-2">{label}</p>
-      {children}
+      <p style={NODE_DESC}>{label}</p>
+      <div style={{ marginTop: 8 }}>{children}</div>
     </div>
   );
 }
@@ -46,7 +39,7 @@ export default function CatalogComposition({ refreshKey }: Props) {
   return (
     <SectionCard
       title="Catalog composition"
-      description="Platform · lifecycle · role · seniority"
+      description="Platform, lifecycle, role and seniority breakdown"
       loading={loading} error={error} empty={empty}
       onRetry={reload}
     >
