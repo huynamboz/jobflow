@@ -82,7 +82,7 @@ class LinkedInProvider(CrawlProvider):
             )
             return []
 
-        from playwright.sync_api import sync_playwright
+        from patchright.sync_api import sync_playwright
 
         jobs: list[RawJob] = []
 

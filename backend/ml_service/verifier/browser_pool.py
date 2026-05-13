@@ -56,7 +56,9 @@ def open_browser_page(
             "`python -m ml_service.crawler.providers.linkedin_auth`"
         )
 
-    from playwright.sync_api import sync_playwright
+    # Use patchright (stealth Playwright fork) to bypass Google/LinkedIn
+    # anti-automation detection. API is identical to playwright.sync_api.
+    from patchright.sync_api import sync_playwright
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
