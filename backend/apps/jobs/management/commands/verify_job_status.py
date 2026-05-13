@@ -81,6 +81,11 @@ class Command(BaseCommand):
                 platform=platform, batch=batch, dry_run=dry_run
             )
         except Exception as exc:
+            # Auth-state missing: special exit code so cron can alert.
+            from ml_service.verifier.browser_pool import AuthStateMissingError
+            if isinstance(exc, AuthStateMissingError):
+                self.stderr.write(self.style.ERROR(str(exc)))
+                sys.exit(2)
             logger.exception("StatusCheckService failed")
             self.stderr.write(self.style.ERROR(f"Run aborted: {exc!r}"))
             sys.exit(3)

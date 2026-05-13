@@ -23,7 +23,11 @@ from pathlib import Path
 
 from ml_service.crawler.providers.linkedin_auth import load_state_path
 from ml_service.verifier.base import JobStatus, JobStatusVerifier, VerifyResult
-from ml_service.verifier.browser_pool import open_browser_page
+from ml_service.verifier.browser_pool import (
+    AuthStateMissingError,
+    cookies_have_li_at,
+    open_browser_page,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,14 +103,33 @@ class LinkedInVerifier(JobStatusVerifier):
         results: list[VerifyResult] = []
 
         try:
-            with open_browser_page(state_path, headless=self._headless) as page:
+            with open_browser_page(state_path, headless=self._headless) as (page, ctx):
                 for i, url in enumerate(urls):
                     if i > 0:
                         time.sleep(self._delay_s + random.uniform(0.0, self._jitter_s))
-                    results.append(self._check_one(page, linkedin_clean_url(url), selectors))
+                    result = self._check_one(page, linkedin_clean_url(url), selectors)
+                    results.append(result)
+                    # Mid-batch auth-loss detection (FR-014). If li_at is gone,
+                    # fill remaining URLs with SESSION_EXPIRED and stop.
+                    if not cookies_have_li_at(ctx):
+                        logger.warning(
+                            "li_at cookie lost during batch — stopping after URL %d/%d",
+                            i + 1, len(urls),
+                        )
+                        while len(results) < len(urls):
+                            results.append(VerifyResult(
+                                JobStatus.SESSION_EXPIRED,
+                                reason="li_at lost mid-navigation",
+                            ))
+                        break
+        except AuthStateMissingError as exc:
+            # Auth state file invalid at start — every URL is session_expired.
+            return [
+                VerifyResult(JobStatus.SESSION_EXPIRED, reason=str(exc))
+                for _ in urls
+            ]
         except Exception as exc:
             logger.exception("LinkedIn browser session failed mid-batch")
-            # Fill remaining results so the service can still apply outcomes.
             while len(results) < len(urls):
                 results.append(
                     VerifyResult(JobStatus.ERROR, reason=f"browser failure: {exc!r}")

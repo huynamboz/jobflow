@@ -54,10 +54,18 @@ def login_and_save() -> None:
 
 
 def load_state_path() -> str | None:
-    """Return path to saved auth state, or None if not exists."""
-    if STATE_FILE.exists():
-        return str(STATE_FILE)
-    return None
+    """Return path to saved auth state, or None if it doesn't exist OR
+    fails the auth invariant (no li_at cookie).
+
+    Delegates to ml_service.verifier.auth_guard.read_state — see spec
+    002-job-date-posted-extraction (US3, FR-013).
+    """
+    if not STATE_FILE.exists():
+        return None
+    from ml_service.verifier.auth_guard import read_state
+    if read_state(STATE_FILE) is None:
+        return None
+    return str(STATE_FILE)
 
 
 if __name__ == "__main__":
