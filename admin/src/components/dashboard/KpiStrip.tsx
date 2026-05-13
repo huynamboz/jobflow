@@ -1,4 +1,3 @@
-import { Card, CardBody } from "@heroui/card";
 import {
   Briefcase, CheckCircle2, Clock, Cpu, FileText, KeyRound, ShieldAlert,
 } from "lucide-react";
@@ -10,28 +9,28 @@ import { useDashboardSection } from "./useDashboardSection";
 
 interface Props { refreshKey: number }
 
-const FRESHNESS_COLORS: Record<Freshness, string> = {
-  fresh: "bg-success-500",
-  stale: "bg-warning-500",
-  very_stale: "bg-danger-500",
-  never: "bg-default-300",
+const FRESHNESS_LABEL: Record<Freshness, string> = {
+  fresh:      "Fresh · ≤24h",
+  stale:      "Stale · ≤72h",
+  very_stale: "Stale · >72h",
+  never:      "Never run",
 };
 
-const FRESHNESS_LABEL: Record<Freshness, string> = {
-  fresh: "Fresh (≤24h)",
-  stale: "Stale (≤72h)",
-  very_stale: "Very stale (>72h)",
-  never: "Never run",
+const FRESHNESS_DOT: Record<Freshness, string> = {
+  fresh:      "var(--green)",
+  stale:      "var(--yellow)",
+  very_stale: "var(--red)",
+  never:      "var(--c5)",
 };
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "never";
   const d = new Date(iso);
   const sec = (Date.now() - d.getTime()) / 1000;
-  if (sec < 60) return `${Math.round(sec)}s ago`;
-  if (sec < 3600) return `${Math.round(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.round(sec / 3600)}h ago`;
-  return `${Math.round(sec / 86400)}d ago`;
+  if (sec < 60) return `${Math.round(sec)}s`;
+  if (sec < 3600) return `${Math.round(sec / 60)}m`;
+  if (sec < 86400) return `${Math.round(sec / 3600)}h`;
+  return `${Math.round(sec / 86400)}d`;
 }
 
 function fmtNumber(n: number) {
@@ -43,41 +42,101 @@ function fmtPct(n: number | null | undefined, digits = 1) {
   return `${(n * 100).toFixed(digits)}%`;
 }
 
-function Kpi({
-  icon: Icon, label, value, sub, accent, tone = "default",
+/* ─── NODE Tile (KPI card) ──────────────────────────────────────────── */
+
+function Tile({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  dotColor,
+  iconColor,
+  iconBg,
+  valueMono = true,
 }: {
   icon: React.ElementType;
   label: string;
   value: string;
   sub?: string;
-  accent?: string;
-  tone?: "default" | "ok" | "warn" | "danger";
+  dotColor?: string;
+  iconColor?: string;
+  iconBg?: string;
+  valueMono?: boolean;
 }) {
-  const toneRing = {
-    default: "bg-default-100 text-default-600",
-    ok: "bg-success-100 text-success-700",
-    warn: "bg-warning-100 text-warning-700",
-    danger: "bg-danger-100 text-danger-700",
-  }[tone];
   return (
-    <Card className="shadow-sm">
-      <CardBody className="flex flex-col gap-1 p-4">
-        <div className="flex items-center gap-3">
-          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${toneRing}`}>
-            <Icon className="size-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs uppercase tracking-wide text-default-500">{label}</p>
-            <p className="truncate text-xl font-semibold text-default-900">{value}</p>
-          </div>
-        </div>
-        {sub && (
-          <p className="ml-12 truncate text-xs text-default-500" title={accent}>
-            {sub}
-          </p>
+    <div
+      className="rounded-node-20"
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        boxShadow: "var(--shadow-card)",
+        padding: 16,
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="font-node-mono text-node-muted"
+          style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}
+        >
+          {label}
+        </span>
+        {dotColor && (
+          <span
+            aria-hidden
+            className="inline-block"
+            style={{ width: 6, height: 6, borderRadius: 999, background: dotColor }}
+          />
         )}
-      </CardBody>
-    </Card>
+        <div className="flex-1" />
+        <span
+          className="inline-flex items-center justify-center shrink-0"
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "var(--r-8)",
+            background: iconBg ?? "var(--c3)",
+            color: iconColor ?? "var(--ink-soft)",
+          }}
+        >
+          <Icon className="size-3.5" strokeWidth={1.75} />
+        </span>
+      </div>
+
+      <div className="mt-3 flex items-baseline gap-2">
+        <span
+          className="truncate"
+          style={{
+            fontFamily: valueMono ? "var(--font-node-mono)" : "var(--font-node-sans)",
+            fontSize: 26,
+            fontWeight: 500,
+            letterSpacing: "-0.03em",
+            color: "var(--ink)",
+            lineHeight: 1.05,
+          }}
+          title={value}
+        >
+          {value}
+        </span>
+      </div>
+
+      {sub && (
+        <p
+          className="font-node-sans text-node-muted mt-1 truncate"
+          style={{ fontSize: 11.5, letterSpacing: "-0.005em" }}
+        >
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function TileSkeleton() {
+  return (
+    <div
+      className="rounded-node-20 animate-pulse"
+      style={{ background: "var(--surface)", border: "1px solid var(--line)", height: 116 }}
+    />
   );
 }
 
@@ -90,44 +149,73 @@ export default function KpiStrip({ refreshKey }: Props) {
   if (loading || !data) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i} className="shadow-sm"><CardBody className="h-20 animate-pulse" /></Card>
-        ))}
+        {Array.from({ length: 6 }).map((_, i) => <TileSkeleton key={i} />)}
       </div>
     );
   }
 
-  const { jobs_total, jobs_by_lifecycle, cv_total, cv_uploads_last_7d,
-          verifier_last_run, extractor_last_run, auth_state, model } = data;
-
-  const verifierTone: "ok" | "warn" | "danger" | "default" = {
-    fresh: "ok", stale: "warn", very_stale: "danger", never: "default",
-  }[verifier_last_run.freshness] as any;
-  const extractorTone = {
-    fresh: "ok", stale: "warn", very_stale: "danger", never: "default",
-  }[extractor_last_run.freshness] as any;
-  const authTone = auth_state.has_li_at ? "ok" : "danger";
+  const {
+    jobs_total, jobs_by_lifecycle, cv_total, cv_uploads_last_7d,
+    verifier_last_run, extractor_last_run, auth_state, model,
+  } = data;
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-      <Kpi icon={Briefcase} label="Jobs" value={fmtNumber(jobs_total)}
-           sub={`${fmtNumber(jobs_by_lifecycle.active)} active · ${fmtNumber(jobs_by_lifecycle.expired)} expired`} />
-      <Kpi icon={FileText}  label="CVs" value={fmtNumber(cv_total)}
-           sub={`+${fmtNumber(cv_uploads_last_7d)} last 7d`} />
-      <Kpi icon={CheckCircle2} label="Verifier" value={timeAgo(verifier_last_run.started_at)}
-           sub={FRESHNESS_LABEL[verifier_last_run.freshness]} accent={verifier_last_run.started_at ?? undefined} tone={verifierTone} />
-      <Kpi icon={Clock} label="Extractor" value={timeAgo(extractor_last_run.started_at)}
-           sub={FRESHNESS_LABEL[extractor_last_run.freshness]} accent={extractor_last_run.started_at ?? undefined} tone={extractorTone} />
-      <Kpi icon={auth_state.has_li_at ? KeyRound : ShieldAlert}
-           label="Auth state"
-           value={auth_state.has_li_at ? "Valid" : "Missing li_at"}
-           sub={auth_state.file_exists ? "state file present" : "no state file"}
-           tone={authTone} />
-      <Kpi icon={Cpu} label="Model"
-           value={model.checkpoint_name ?? "—"}
-           sub={model.metrics.test_auc_roc != null ? `AUC ${model.metrics.test_auc_roc.toFixed(3)}` : "no metrics"} />
+      <Tile
+        icon={Briefcase}
+        label="Jobs"
+        value={fmtNumber(jobs_total)}
+        sub={`${fmtNumber(jobs_by_lifecycle.active)} active · ${fmtNumber(jobs_by_lifecycle.expired)} expired`}
+        iconBg="rgba(53,130,255,0.10)"
+        iconColor="var(--blue)"
+      />
+      <Tile
+        icon={FileText}
+        label="CVs"
+        value={fmtNumber(cv_total)}
+        sub={`+${fmtNumber(cv_uploads_last_7d)} last 7d`}
+        iconBg="rgba(73,186,97,0.10)"
+        iconColor="var(--green)"
+      />
+      <Tile
+        icon={CheckCircle2}
+        label="Verifier"
+        value={timeAgo(verifier_last_run.started_at)}
+        sub={FRESHNESS_LABEL[verifier_last_run.freshness]}
+        dotColor={FRESHNESS_DOT[verifier_last_run.freshness]}
+        iconBg="rgba(73,186,97,0.10)"
+        iconColor="var(--green)"
+      />
+      <Tile
+        icon={Clock}
+        label="Extractor"
+        value={timeAgo(extractor_last_run.started_at)}
+        sub={FRESHNESS_LABEL[extractor_last_run.freshness]}
+        dotColor={FRESHNESS_DOT[extractor_last_run.freshness]}
+        iconBg="rgba(227,99,35,0.10)"
+        iconColor="var(--orange)"
+      />
+      <Tile
+        icon={auth_state.has_li_at ? KeyRound : ShieldAlert}
+        label="Auth state"
+        value={auth_state.has_li_at ? "Valid" : "Missing"}
+        sub={auth_state.has_li_at ? "li_at present" : "run linkedin_auth.py"}
+        dotColor={auth_state.has_li_at ? "var(--green)" : "var(--red)"}
+        iconBg={auth_state.has_li_at ? "rgba(73,186,97,0.10)" : "rgba(254,89,56,0.10)"}
+        iconColor={auth_state.has_li_at ? "var(--green)" : "var(--red)"}
+        valueMono={false}
+      />
+      <Tile
+        icon={Cpu}
+        label="Model"
+        value={model.checkpoint_name ?? "—"}
+        sub={model.metrics.test_auc_roc != null ? `AUC ${model.metrics.test_auc_roc.toFixed(3)}` : "no metrics"}
+        iconBg="rgba(135,85,233,0.10)"
+        iconColor="var(--purple)"
+        valueMono={false}
+      />
     </div>
   );
 }
 
-export { FRESHNESS_COLORS, fmtNumber, fmtPct, timeAgo };
+export { fmtNumber, fmtPct, timeAgo };

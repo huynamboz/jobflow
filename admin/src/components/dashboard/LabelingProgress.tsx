@@ -2,16 +2,30 @@ import { dashboardService } from "@/services/dashboard.service";
 import type { LabelingSnapshot } from "@/types/dashboard.types";
 
 import { fmtNumber } from "./KpiStrip";
-import SectionCard from "./SectionCard";
+import SectionCard, { NODE_LABEL_STYLE, NODE_NUMBER_STYLE } from "./SectionCard";
 import { useDashboardSection } from "./useDashboardSection";
 
 interface Props { refreshKey: number }
 
-function MiniStat({ label, value, color }: { label: string; value: number; color: string }) {
+function MiniStat({
+  label, value, accent,
+}: { label: string; value: number; accent: string }) {
   return (
-    <div className={`rounded-md px-3 py-2 ${color}`}>
-      <p className="text-[10px] uppercase tracking-wide opacity-75">{label}</p>
-      <p className="text-base font-semibold">{fmtNumber(value)}</p>
+    <div
+      className="rounded-node-12"
+      style={{
+        background: "var(--c2)",
+        border: "1px solid var(--line)",
+        padding: "10px 12px",
+      }}
+    >
+      <div className="flex items-center gap-1.5">
+        <span aria-hidden style={{ width: 5, height: 5, borderRadius: 999, background: accent }} />
+        <span style={NODE_LABEL_STYLE}>{label}</span>
+      </div>
+      <p className="mt-1" style={{ ...NODE_NUMBER_STYLE, fontSize: 20, lineHeight: 1 }}>
+        {fmtNumber(value)}
+      </p>
     </div>
   );
 }
@@ -27,38 +41,42 @@ export default function LabelingProgress({ refreshKey }: Props) {
   return (
     <SectionCard
       title="Labeling progress"
-      description="Pair queue + selection breakdown"
+      description="Pairs · by reason · by split"
       loading={loading} error={error} empty={empty}
       onRetry={reload}
     >
       {data && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <MiniStat label="Total"   value={data.total_pairs} color="bg-default-100 text-default-700" />
-            <MiniStat label="Labeled" value={data.labeled}     color="bg-success-100 text-success-700" />
-            <MiniStat label="Skipped" value={data.skipped}     color="bg-warning-100 text-warning-700" />
-            <MiniStat label="Pending" value={data.pending}     color="bg-primary-100 text-primary-700" />
+            <MiniStat label="Total"   value={data.total_pairs} accent="var(--ink-soft)" />
+            <MiniStat label="Labeled" value={data.labeled}     accent="var(--green)" />
+            <MiniStat label="Skipped" value={data.skipped}     accent="var(--yellow)" />
+            <MiniStat label="Pending" value={data.pending}     accent="var(--blue)" />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-default-500">By reason</p>
-              <ul className="space-y-1 text-xs">
+              <p style={NODE_LABEL_STYLE} className="mb-2">By reason</p>
+              <ul className="space-y-1.5">
                 {Object.entries(data.by_reason).map(([k, v]) => (
-                  <li key={k} className="flex items-center justify-between">
-                    <span className="capitalize text-default-600">{k.replace(/_/g, " ")}</span>
-                    <span className="font-medium text-default-800">{fmtNumber(v.labeled)} / {fmtNumber(v.total)}</span>
+                  <li key={k} className="flex items-center justify-between" style={{ fontSize: 12 }}>
+                    <span className="capitalize text-node-ink-soft">{k.replace(/_/g, " ")}</span>
+                    <span className="font-node-mono text-node-ink" style={{ fontWeight: 500 }}>
+                      {fmtNumber(v.labeled)} / {fmtNumber(v.total)}
+                    </span>
                   </li>
                 ))}
               </ul>
             </div>
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-default-500">By split</p>
-              <ul className="space-y-1 text-xs">
+              <p style={NODE_LABEL_STYLE} className="mb-2">By split</p>
+              <ul className="space-y-1.5">
                 {Object.entries(data.by_split).map(([k, v]) => (
-                  <li key={k} className="flex items-center justify-between">
-                    <span className="capitalize text-default-600">{k}</span>
-                    <span className="font-medium text-default-800">{fmtNumber(v.labeled)} / {fmtNumber(v.total)}</span>
+                  <li key={k} className="flex items-center justify-between" style={{ fontSize: 12 }}>
+                    <span className="capitalize text-node-ink-soft">{k}</span>
+                    <span className="font-node-mono text-node-ink" style={{ fontWeight: 500 }}>
+                      {fmtNumber(v.labeled)} / {fmtNumber(v.total)}
+                    </span>
                   </li>
                 ))}
               </ul>

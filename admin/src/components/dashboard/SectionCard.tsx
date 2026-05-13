@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { Card, CardBody } from "@heroui/card";
 import { AlertCircle, Inbox, RefreshCcw } from "lucide-react";
 
 interface SectionCardProps {
@@ -15,6 +14,20 @@ interface SectionCardProps {
   action?: ReactNode;
 }
 
+/**
+ * NODE-styled section shell.
+ *
+ *   ┌──────────────────────────────────────────────────┐
+ *   │  TITLE in dark ink, eyebrow caption in mono caps │
+ *   │  ── thin --line divider ────                      │
+ *   │  content                                          │
+ *   └──────────────────────────────────────────────────┘
+ *
+ * Background: var(--surface) (cool white)
+ * Border: 1px var(--line)
+ * Radius: var(--r-20)
+ * Shadow: var(--shadow-card)
+ */
 export default function SectionCard({
   title,
   description,
@@ -27,37 +40,71 @@ export default function SectionCard({
   action,
 }: SectionCardProps) {
   return (
-    <Card className="shadow-sm">
-      <CardBody className="p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-default-900">{title}</h2>
-            {description && (
-              <p className="mt-0.5 text-xs text-default-500">{description}</p>
-            )}
-          </div>
-          {action}
+    <section
+      className="rounded-node-20"
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--line)",
+        boxShadow: "var(--shadow-card)",
+      }}
+    >
+      <header className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
+        <div>
+          <h2
+            className="font-node-sans text-node-ink"
+            style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.015em", margin: 0 }}
+          >
+            {title}
+          </h2>
+          {description && (
+            <p
+              className="font-node-mono text-node-muted mt-1"
+              style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}
+            >
+              {description}
+            </p>
+          )}
         </div>
+        {action}
+      </header>
 
+      <div className="px-5 pb-5">
         {loading && (
-          <div className="flex items-center gap-2 text-sm text-default-400" aria-live="polite">
-            <span className="inline-block size-3 animate-pulse rounded-full bg-default-300" />
+          <div
+            className="flex items-center gap-2 text-node-muted"
+            style={{ fontSize: 12 }}
+            aria-live="polite"
+          >
+            <span className="inline-block size-2.5 animate-pulse rounded-full bg-node-c5" />
             Loading…
           </div>
         )}
 
         {!loading && error && (
-          <div className="flex flex-col gap-2 rounded-lg border border-danger-100 bg-danger-50 p-3 text-sm text-danger-700">
-            <div className="flex items-center gap-2">
+          <div
+            className="flex flex-col gap-2 rounded-node-12 p-3"
+            style={{ background: "rgba(254,89,56,0.06)", border: "1px solid rgba(254,89,56,0.18)" }}
+          >
+            <div className="flex items-center gap-2 text-node-red" style={{ fontSize: 12.5 }}>
               <AlertCircle className="size-4" />
-              <span className="font-medium">Failed to load</span>
+              <span style={{ fontWeight: 600 }}>Failed to load</span>
             </div>
-            <p className="text-xs text-danger-600">{error.message}</p>
+            <p className="text-node-ink-soft" style={{ fontSize: 11.5 }}>
+              {error.message}
+            </p>
             {onRetry && (
               <button
                 type="button"
                 onClick={onRetry}
-                className="inline-flex items-center gap-1 self-start rounded-md border border-danger-200 bg-white px-2 py-1 text-xs font-medium text-danger-700 hover:bg-danger-100"
+                className="inline-flex items-center gap-1.5 self-start rounded-node-8 px-2.5 py-1 font-node-sans"
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: "var(--ink)",
+                  background: "var(--c1)",
+                  border: "1px solid var(--line-2)",
+                  boxShadow: "var(--shadow-btn)",
+                }}
               >
                 <RefreshCcw className="size-3" /> Retry
               </button>
@@ -66,14 +113,34 @@ export default function SectionCard({
         )}
 
         {!loading && !error && empty && (
-          <div className="flex flex-col items-center gap-2 py-8 text-sm text-default-400">
-            <Inbox className="size-6" />
+          <div
+            className="flex flex-col items-center gap-2 py-10 text-node-muted"
+            style={{ fontSize: 12.5 }}
+          >
+            <Inbox className="size-6" strokeWidth={1.5} />
             <span>{emptyMessage}</span>
           </div>
         )}
 
         {!loading && !error && !empty && children}
-      </CardBody>
-    </Card>
+      </div>
+    </section>
   );
 }
+
+/* Reusable typography utilities for sections to consume. */
+export const NODE_LABEL_STYLE: React.CSSProperties = {
+  fontSize: 10.5,
+  fontWeight: 600,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "var(--muted)",
+  fontFamily: "var(--font-node-mono)",
+};
+
+export const NODE_NUMBER_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-node-mono)",
+  fontWeight: 500,
+  letterSpacing: "-0.03em",
+  color: "var(--ink)",
+};
