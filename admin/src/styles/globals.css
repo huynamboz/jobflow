@@ -79,11 +79,15 @@
 }
 
 /* Apply the NODE typeface stack project-wide. Components can still opt
- * out with `font-node-mono` (numbers, code) or any explicit class. */
+ * out with `font-node-mono` (numbers, code) or any explicit class.
+ *
+ * Page background: var(--c2) (soft grey) so cards (white) stand out.
+ * This diverges from the NODE source where both page and card use --c1,
+ * matching the operator's preference for higher card/page contrast. */
 html, body {
   font-family: var(--font-node-sans);
   color: var(--ink);
-  background: var(--bg);
+  background: var(--c2);
 }
 
 /* ─────────────────────────────────────────────────────────────────────

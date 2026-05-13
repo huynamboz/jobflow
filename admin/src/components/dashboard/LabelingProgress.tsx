@@ -14,7 +14,7 @@ function MiniStat({
   return (
     <div
       style={{
-        background: "var(--c1)",
+        background: "#ffffff",
         border: "1px solid var(--line)",
         borderRadius: 12,
         boxShadow: "var(--shadow-card)",

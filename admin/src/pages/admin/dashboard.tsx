@@ -45,7 +45,7 @@ export default function DashboardPage() {
           style={{
             font: "600 12.5px/16px var(--font-node-sans)",
             color: "var(--ink)",
-            background: "var(--c1)",
+            background: "#ffffff",
             border: "1px solid var(--line-2)",
             borderRadius: 10,
             padding: "6px 12px",

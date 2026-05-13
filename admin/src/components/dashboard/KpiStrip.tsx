@@ -69,7 +69,7 @@ function Tile({
   return (
     <div
       style={{
-        background: "var(--c1)",
+        background: "#ffffff",
         border: "1px solid var(--line)",
         borderRadius: 16,
         boxShadow: "var(--shadow-card)",
@@ -145,7 +145,7 @@ function TileSkeleton() {
     <div
       className="animate-pulse"
       style={{
-        background: "var(--c1)",
+        background: "#ffffff",
         border: "1px solid var(--line)",
         borderRadius: 16,
         boxShadow: "var(--shadow-card)",
