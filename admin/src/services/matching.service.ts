@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api-client";
-import type { CVMatchData, MatchResponse } from "@/types/matching.types";
+import type { CVMatchData, JobDetail, MatchResponse } from "@/types/matching.types";
 
 const MATCH_TIMEOUT = 180_000; // engine cold-start can take ~2 min
 
@@ -14,6 +14,11 @@ class MatchingService {
     form.append("file", file);
     form.append("top_k", String(topK));
     const res = await apiClient.post<MatchResponse>("/matching/cv/upload/", form, { timeout: MATCH_TIMEOUT });
+    return res.data.data;
+  }
+
+  async getJobInfo(jdId: number): Promise<JobDetail> {
+    const res = await apiClient.get<{ success: boolean; data: JobDetail }>(`/matching/job-info/${jdId}/`);
     return res.data.data;
   }
 }

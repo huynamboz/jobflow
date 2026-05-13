@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Briefcase, ExternalLink, Loader2, MapPin, Search, Upload, X } from "lucide-react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerBody } from "@heroui/drawer";
 
 import { matchingService } from "@/services/matching.service";
-import type { CVInfo, CVMatchData, JobMatchResult } from "@/types/matching.types";
+import type { CVInfo, CVMatchData, JobDetail, JobMatchResult } from "@/types/matching.types";
 
 const JOB_TYPE_LABEL: Record<string, string> = {
   "full-time": "Full-time", "part-time": "Part-time",
@@ -191,7 +191,33 @@ function ScoreBar({ score, eligible }: { score: number; eligible: boolean }) {
 }
 
 // ── Job Detail Drawer ───────────────────────────────────────────────────────
+const IMPORTANCE_LABEL: Record<number, { label: string; cls: string }> = {
+  5: { label: "Must-have", cls: "border-red-200 bg-red-50 text-red-700" },
+  4: { label: "Required",  cls: "border-orange-200 bg-orange-50 text-orange-700" },
+  3: { label: "Preferred", cls: "border-yellow-200 bg-yellow-50 text-yellow-700" },
+  2: { label: "Nice",      cls: "border-default-200 bg-default-50 text-default-500" },
+  1: { label: "Bonus",     cls: "border-default-200 bg-default-50 text-default-400" },
+};
+
+const DEGREE_LABEL: Record<number, string> = {
+  0: "None required", 1: "High School", 2: "Associate / Diploma",
+  3: "Bachelor's", 4: "Master's / MBA", 5: "PhD",
+};
+
 function JobDetailDrawer({ job, onClose }: { job: JobMatchResult | null; onClose: () => void }) {
+  const [detail, setDetail] = useState<JobDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  useEffect(() => {
+    if (!job) { setDetail(null); return; }
+    setDetail(null);
+    setLoadingDetail(true);
+    matchingService.getJobInfo(job.job_id)
+      .then((d) => setDetail(d))
+      .catch(() => setDetail(null))
+      .finally(() => setLoadingDetail(false));
+  }, [job?.job_id]);
+
   const salary = job ? fmtSalary(job.salary_min, job.salary_max, job.salary_currency) : null;
   const exp = job ? fmtExp(job.experience_min, job.experience_max) : null;
   const isWorkMode = job ? ["remote", "hybrid", "on-site"].includes(job.job_type) : false;
@@ -257,6 +283,11 @@ function JobDetailDrawer({ job, onClose }: { job: JobMatchResult | null; onClose
                     {salary}
                   </span>
                 )}
+                {detail?.degree_requirement != null && detail.degree_requirement > 0 && (
+                  <span className="rounded-full border border-default-200 bg-default-50 px-3 py-1 text-[12px] text-default-600">
+                    {DEGREE_LABEL[detail.degree_requirement]}
+                  </span>
+                )}
                 {!job.seniority_match && (
                   <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[12px] text-amber-600">
                     Seniority mismatch
@@ -297,6 +328,57 @@ function JobDetailDrawer({ job, onClose }: { job: JobMatchResult | null; onClose
                         {s}
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* All JD skills with importance */}
+              {loadingDetail && (
+                <div className="flex items-center gap-2 text-[12px] text-default-400">
+                  <Loader2 className="size-3.5 animate-spin" /> Loading job details…
+                </div>
+              )}
+
+              {detail && detail.skills.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.07em] text-default-500">
+                    Required skills ({detail.skills.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {detail.skills
+                      .slice()
+                      .sort((a, b) => b.importance - a.importance)
+                      .map((s) => {
+                        const imp = IMPORTANCE_LABEL[s.importance] ?? IMPORTANCE_LABEL[2];
+                        return (
+                          <span
+                            key={s.name}
+                            title={imp.label}
+                            className={`rounded-full border px-2.5 py-0.5 text-[12px] font-medium ${imp.cls}`}
+                          >
+                            {s.name}
+                          </span>
+                        );
+                      })}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {Object.entries(IMPORTANCE_LABEL).reverse().map(([k, v]) => (
+                      <span key={k} className={`rounded-full border px-2 py-0.5 text-[10px] ${v.cls}`}>
+                        {v.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Job description */}
+              {detail?.description && (
+                <div>
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.07em] text-default-500">
+                    Job description
+                  </p>
+                  <div className="max-h-72 overflow-y-auto rounded-xl border border-default-100 bg-default-50 p-4 text-[13px] leading-relaxed text-default-700 whitespace-pre-wrap">
+                    {detail.description}
                   </div>
                 </div>
               )}

@@ -289,11 +289,17 @@ class InferenceEngine:
 
             display_score = float(raw_score)
 
-            # Experience gate: recruiters reject under-experienced candidates outright.
+            # Experience gate
+            _EXP_OVERQUAL_GAP    = 3.0   # cv_exp - job_exp_min > 3yr → overqualified
+            _EXP_OVERQUAL_FACTOR = 0.85  # mild overqual penalty
             _exp_weak = False
             if job.experience_min and job.experience_min > 0:
-                if cv.experience_years / job.experience_min < _EXP_PENALTY_THRESHOLD:
+                gap = cv.experience_years - job.experience_min
+                if gap < 0:                        # underqualified → heavy penalty
                     display_score *= _EXP_PENALTY_FACTOR
+                    _exp_weak = True
+                elif gap > _EXP_OVERQUAL_GAP:      # overqualified → mild penalty
+                    display_score *= _EXP_OVERQUAL_FACTOR
                     _exp_weak = True
 
             # Seniority gate: senior/lead roles for junior/mid CVs.

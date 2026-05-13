@@ -126,10 +126,19 @@ Trong đó:
 **Trọng số `0.55/0.30/0.15` là hardcode (heuristic)**, không học từ data.
 Chỉ để lọc sơ top 50 candidates, không phải kết quả cuối.
 
-**Penalties áp dụng thêm:**
-- Role mismatch penalty (nếu cv_role ≠ job_role)
-- Must-have penalty (thiếu skill có importance ≥ 4)
-- Edge case penalties: CV < 4 skills, Senior CV → Junior/Intern job, intersection chỉ toàn tools
+**Penalties áp dụng thêm (sau khi có reranker score):**
+
+| Tình huống | Multiplier | Label |
+|------------|-----------|-------|
+| `cv_exp < job_exp_min` (thiếu năm kinh nghiệm) | ×0.40 | `experience_fit=weak` |
+| `cv_exp − job_exp_min > 3yr` (overqualified về năm) | ×0.85 | `experience_fit=weak` |
+| `job_seniority − cv_seniority ≥ 2` hoặc job Senior+ mà CV ≤ Mid | ×0.70 | `seniority_fit=weak` |
+| `cv_seniority − job_seniority ≥ 2` (overqualified về seniority) | ×0.75 | `seniority_fit=weak` |
+| Role mismatch (cv_role ≠ job_role) | giảm nhẹ | — |
+| Must-have skill thiếu (importance ≥ 4) | giảm theo số thiếu | — |
+| Edge case: CV < 4 skills / intersection toàn tools | ×penalty | — |
+
+`experience_fit` và `seniority_fit` là hai gate độc lập — có thể cùng bị weak một lúc.
 
 ### Stage 2 — Rerank (learned, top 50 → top K)
 

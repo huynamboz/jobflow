@@ -41,3 +41,24 @@ export interface MatchResponse {
   success: boolean;
   data: CVMatchData;
 }
+
+export interface JobDetail {
+  jd_id: number;
+  title: string;
+  company: string;
+  location: string;
+  is_remote: boolean;
+  job_type: string;
+  seniority: number | null;
+  role_category: string;
+  experience_min: number | null;
+  experience_max: number | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string;
+  salary_type: string;
+  degree_requirement: number | null;
+  skills: { name: string; importance: number }[];
+  description: string;
+  source_url: string;
+}

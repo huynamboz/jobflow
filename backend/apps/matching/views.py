@@ -4,7 +4,7 @@ from pathlib import Path
 from drf_spectacular.utils import OpenApiTypes, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -148,3 +148,45 @@ class ParseCVUploadView(APIView):
             Path(tmp_path).unlink(missing_ok=True)
 
         return Response({"success": True, "data": CVParseResponse(result).data})
+
+
+class JobInfoView(APIView):
+    """GET /api/matching/job-info/<jd_id>/ — Full job details for the drawer.
+
+    jd_id is JDExtractionRecord.id (what the matching engine uses as job_id).
+    Returns description + all structured fields from the extraction result.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, jd_id: int):
+        from apps.jobs.models import JDExtractionRecord
+        try:
+            record = JDExtractionRecord.objects.get(pk=jd_id)
+        except JDExtractionRecord.DoesNotExist:
+            return Response(
+                {"success": False, "error": {"code": "NOT_FOUND", "message": "Job not found.", "status": 404}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        result = record.result or {}
+        data = {
+            "jd_id": jd_id,
+            "title": result.get("title", ""),
+            "company": result.get("company", ""),
+            "location": result.get("location", ""),
+            "is_remote": result.get("is_remote", False),
+            "job_type": result.get("job_type", ""),
+            "seniority": result.get("seniority"),
+            "role_category": result.get("role_category", ""),
+            "experience_min": result.get("experience_min"),
+            "experience_max": result.get("experience_max"),
+            "salary_min": result.get("salary_min"),
+            "salary_max": result.get("salary_max"),
+            "salary_currency": result.get("salary_currency", "USD"),
+            "salary_type": result.get("salary_type", ""),
+            "degree_requirement": result.get("degree_requirement"),
+            "skills": result.get("skills", []),
+            "description": record.combined_text or "",
+            "source_url": record.source_url or "",
+        }
+        return Response({"success": True, "data": data})
