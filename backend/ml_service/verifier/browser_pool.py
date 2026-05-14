@@ -136,9 +136,10 @@ def open_browser_page(
                     yield page, ctx
                 finally:
                     # ── 5. Conditional persist back to source path ──────
-                    # Skip if no source path (no-auth-check path) — there's
-                    # no operator state to update.
-                    if storage_state_path:
+                    # Skip if no source path OR if no-auth-check is active
+                    # (running a fresh empty profile, no operator state to
+                    # write back).
+                    if storage_state_path and require_li_at:
                         try:
                             current = ctx.storage_state()
                             persist_state(storage_state_path, current)
