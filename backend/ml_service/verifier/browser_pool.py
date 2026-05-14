@@ -46,16 +46,18 @@ def _resolve_user_data_dir(storage_state_path: str) -> Path:
 
 @contextmanager
 def open_browser_page(
-    storage_state_path: str,
+    storage_state_path: str | None,
     *,
     headless: bool = True,
     viewport: tuple[int, int] | None = None,
+    require_li_at: bool = True,
 ) -> Iterator:
     """Yield ``(page, ctx)`` so callers can both navigate and re-check cookies.
 
     Lifecycle:
         1. Validate the saved auth state has ``li_at`` (raise
-           :class:`AuthStateMissingError` if not).
+           :class:`AuthStateMissingError` if not) — skipped when
+           ``require_li_at=False``.
         2. Copy ``backend/auth/chromium_profile/`` to a temp dir so the
            operator's source profile is untouchable by the batch.
         3. Launch a *persistent context* against the copy (patchright
@@ -65,27 +67,47 @@ def open_browser_page(
            on-disk file — but only if ``li_at`` survived; if it didn't, the
            on-disk file is preserved untouched.
         6. Delete the temp profile.
-    """
-    # ── 1. Auth invariant ────────────────────────────────────────────────
-    state = read_state(storage_state_path)
-    if state is None:
-        raise AuthStateMissingError(
-            "Auth state missing li_at — re-run "
-            "`python -m ml_service.crawler.providers.linkedin_auth`"
-        )
 
-    source_profile = _resolve_user_data_dir(storage_state_path)
-    if not source_profile.exists():
-        raise AuthStateMissingError(
-            f"Persistent profile not found at {source_profile} — "
-            "re-run `python -m ml_service.crawler.providers.linkedin_auth`"
+    ``require_li_at=False`` is the "no auth check" path used for testing
+    against pages that render usable content in LinkedIn's guest layout.
+    The batch will likely produce SESSION_EXPIRED + guest-marker
+    outcomes; that's intentional.
+    """
+    # ── 1. Auth invariant (conditional) ─────────────────────────────────
+    if require_li_at:
+        state = read_state(storage_state_path) if storage_state_path else None
+        if state is None:
+            raise AuthStateMissingError(
+                "Auth state missing li_at — re-run "
+                "`python -m ml_service.crawler.providers.linkedin_auth`"
+            )
+        source_profile: Path | None = _resolve_user_data_dir(storage_state_path) if storage_state_path else None
+        if source_profile and not source_profile.exists():
+            source_profile = None
+        if source_profile is None:
+            raise AuthStateMissingError(
+                "Persistent profile not found — re-run "
+                "`python -m ml_service.crawler.providers.linkedin_auth`"
+            )
+    else:
+        # No-auth-check: ALWAYS use a fresh empty profile.
+        # Reusing the operator's profile here would auto-login via cached
+        # Google session — defeats the purpose of testing unauthenticated.
+        logger.warning(
+            "open_browser_page: --no-auth-check active; running unauthenticated "
+            "with a fresh empty profile (existing profile, if any, is not reused)"
         )
+        source_profile = None
 
     # ── 2. Disposable copy of the profile ────────────────────────────────
     tmp_root = Path(tempfile.mkdtemp(prefix="linkedin_batch_"))
     tmp_profile = tmp_root / "profile"
     try:
-        shutil.copytree(source_profile, tmp_profile)
+        if source_profile is not None:
+            shutil.copytree(source_profile, tmp_profile)
+        else:
+            # --no-auth-check path: fresh empty profile dir
+            tmp_profile.mkdir(parents=True, exist_ok=True)
     except Exception:
         shutil.rmtree(tmp_root, ignore_errors=True)
         raise
@@ -114,13 +136,16 @@ def open_browser_page(
                     yield page, ctx
                 finally:
                     # ── 5. Conditional persist back to source path ──────
-                    try:
-                        current = ctx.storage_state()
-                        persist_state(storage_state_path, current)
-                    except Exception:
-                        logger.exception(
-                            "Failed to evaluate storage state at exit; on-disk file unchanged"
-                        )
+                    # Skip if no source path (no-auth-check path) — there's
+                    # no operator state to update.
+                    if storage_state_path:
+                        try:
+                            current = ctx.storage_state()
+                            persist_state(storage_state_path, current)
+                        except Exception:
+                            logger.exception(
+                                "Failed to evaluate storage state at exit; on-disk file unchanged"
+                            )
             finally:
                 ctx.close()
     finally:

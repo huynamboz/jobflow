@@ -41,12 +41,22 @@ class Command(BaseCommand):
         parser.add_argument("--batch", type=int, default=100)
         parser.add_argument("--dry-run", action="store_true")
         parser.add_argument("--json-report", action="store_true")
+        parser.add_argument(
+            "--no-auth-check",
+            action="store_true",
+            help=(
+                "Skip the li_at auth-state precondition. Extractor launches "
+                "Chromium with whatever (or no) state file is present and "
+                "relies on LinkedIn's guest layout."
+            ),
+        )
 
     def handle(self, *args, **opts):
         platform = opts["platform"]
         batch = int(opts["batch"])
         dry_run = bool(opts["dry_run"])
         json_report = bool(opts["json_report"])
+        no_auth_check = bool(opts["no_auth_check"])
 
         if platform != "linkedin":
             raise CommandError(f"v1 supports only --platform linkedin (got {platform!r}).")
@@ -56,16 +66,19 @@ class Command(BaseCommand):
             )
 
         state_path = load_state_path()
-        if not state_path:
+        if not state_path and not no_auth_check:
             self.stderr.write(self.style.ERROR(
                 "Auth state missing or invalid — run "
-                "`python -m ml_service.crawler.providers.linkedin_auth`"
+                "`python -m ml_service.crawler.providers.linkedin_auth` "
+                "(or pass --no-auth-check to try guest-layout mode)"
             ))
             sys.exit(2)
 
         @contextmanager
         def browser_factory():
-            with open_browser_page(state_path, headless=True) as (page, ctx):
+            with open_browser_page(
+                state_path, headless=True, require_li_at=not no_auth_check,
+            ) as (page, ctx):
                 yield page, ctx
 
         service = DateBackfillService(

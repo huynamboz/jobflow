@@ -64,15 +64,17 @@ class LinkedInVerifier(JobStatusVerifier):
         *,
         delay_s: float = _DEFAULT_DELAY_S,
         jitter_s: float = _DEFAULT_JITTER_S,
-        headless: bool = True,
+        headless: bool = False,
         storage_state_path: str | None = None,
         selectors: dict | None = None,
+        require_li_at: bool = True,
     ) -> None:
         self._delay_s = delay_s
         self._jitter_s = jitter_s
         self._headless = headless
         self._storage_state_path = storage_state_path
         self._selectors = selectors  # lazy-loaded on first use
+        self._require_li_at = require_li_at
 
     @property
     def name(self) -> str:
@@ -97,7 +99,7 @@ class LinkedInVerifier(JobStatusVerifier):
             return []
 
         state_path = self._storage_state_path or load_state_path()
-        if not state_path:
+        if not state_path and self._require_li_at:
             msg = (
                 "LinkedIn auth state not found. Run: "
                 "python -m ml_service.crawler.providers.linkedin_auth"
@@ -108,7 +110,9 @@ class LinkedInVerifier(JobStatusVerifier):
         results: list[VerifyResult] = []
 
         try:
-            with open_browser_page(state_path, headless=self._headless) as (page, ctx):
+            with open_browser_page(
+                state_path, headless=self._headless, require_li_at=self._require_li_at,
+            ) as (page, ctx):
                 for i, url in enumerate(urls):
                     if i > 0:
                         time.sleep(self._delay_s + random.uniform(0.0, self._jitter_s))
@@ -193,7 +197,7 @@ class LinkedInVerifier(JobStatusVerifier):
         # 4. Active markers.
         for sel in selectors.get("active_markers", []):
             try:
-                if page.locator(sel).first.is_visible(timeout=500):
+                if page.locator(sel).first.is_visible(timeout=1000):
                     return VerifyResult(
                         JobStatus.ACTIVE,
                         reason=f"matched active marker: {sel}",

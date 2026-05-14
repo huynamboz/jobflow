@@ -53,12 +53,22 @@ class Command(BaseCommand):
             action="store_true",
             help="Emit the run report as a single-line JSON object on stdout",
         )
+        parser.add_argument(
+            "--no-auth-check",
+            action="store_true",
+            help=(
+                "Skip the li_at auth-state precondition. Verifier launches "
+                "Chromium with whatever (or no) state file is present and "
+                "relies on LinkedIn's guest layout. Useful for ad-hoc testing."
+            ),
+        )
 
     def handle(self, *args, **opts):
         platform = opts["platform"]
         batch = int(opts["batch"])
         dry_run = bool(opts["dry_run"])
         json_report = bool(opts["json_report"])
+        no_auth_check = bool(opts["no_auth_check"])
 
         if not (_MIN_BATCH <= batch <= _MAX_BATCH):
             raise CommandError(
@@ -66,7 +76,9 @@ class Command(BaseCommand):
             )
 
         try:
-            verifier = verifier_factory.get_verifier(platform)
+            verifier = verifier_factory.get_verifier(
+                platform, require_li_at=not no_auth_check,
+            )
         except ValueError as e:
             raise CommandError(str(e)) from e
 
