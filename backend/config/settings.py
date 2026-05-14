@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.labeling",
     "apps.llm",
     "apps.admin_dashboard",
+    "apps.schedule",
 ]
 
 # ---------------------------------------------------------------------------

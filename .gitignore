@@ -52,3 +52,6 @@ Dataset/
 # LinkedIn auth — operator-private, never commit
 backend/auth/linkedin_state.json
 backend/auth/chromium_profile/
+
+# Schedule run logs (live tail files)
+backend/logs/runs/
