@@ -2,7 +2,8 @@
   "_meta": {
     "description": "Selectors for the LinkedIn job-status verifier. Update when LinkedIn changes its DOM.",
     "last_updated": "2026-05-13",
-    "spec_ref": "specs/001-linkedin-job-verifier"
+    "spec_ref": "specs/001-linkedin-job-verifier",
+    "layout_note": "As of May 2026 LinkedIn ships a new SDUI-based job layout with hashed CSS class names (e.g. `_946213aa`). Anchor on aria-label, h2 text, [componentkey^=...] and [data-sdui-component*=...] rather than class names. Legacy selectors are kept below for graceful fallback."
   },
 
   "auth_check": {
@@ -24,8 +25,15 @@
     "div.artdeco-inline-feedback--error"
   ],
 
-  "active_markers_doc": "Page elements present on listings that are still accepting applications. LinkedIn serves two layouts depending on auth state: (1) authenticated 'jobs-*' classes when the saved session works, (2) 'top-card-layout__*' / 'apply-button' / 'description__text' classes on the public/guest view. Both layouts indicate an active listing — only the apply path differs. Checked only after expired_markers misses.",
+  "active_markers_doc": "Page elements present on listings that are still accepting applications. Anchored on aria-label / h2 text / componentkey / data-sdui-component so we don't depend on hashed class names. First group: 2026-05 SDUI layout. Second group: legacy layouts (kept as fallback during rollout / A-B tests). Checked only after expired_markers misses.",
   "active_markers": [
+    "[aria-label='Save the job']",
+    "a[aria-label*='Apply on company website' i]",
+    "[aria-label*='Easy Apply' i]",
+    "a[aria-label*='Apply' i]",
+    "h2:has-text('About the job')",
+    "[componentkey^='JobDetails_AboutTheJob_']",
+    "[data-sdui-component*='aboutTheJob']",
     "button.jobs-apply-button",
     "button:has-text('Easy Apply')",
     "button[aria-label*='Apply' i]",
