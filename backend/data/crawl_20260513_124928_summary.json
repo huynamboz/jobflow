@@ -1,0 +1,33 @@
+{
+  "timestamp": "20260513_124928",
+  "total_raw": 650,
+  "total_unique": 564,
+  "by_provider": {
+    "indeed": 423,
+    "remoteok": 141
+  },
+  "by_query": {
+    "backend engineer": 50,
+    "backend developer": 31,
+    "python developer": 38,
+    "golang developer": 48,
+    "ios developer": 50,
+    "android developer": 42,
+    "react native developer": 40,
+    "data engineer": 91,
+    "machine learning engineer": 85,
+    "devops engineer": 89
+  },
+  "quality": {
+    "desc_gt_500_chars": 564,
+    "has_salary": 337,
+    "has_specific_location": 501,
+    "unknown_company": 16,
+    "avg_desc_length": 5630
+  },
+  "salary_by_provider": {
+    "indeed": 319,
+    "remoteok": 18
+  },
+  "output_path": "/Users/huynam/Documents/PROJECT/jobflow-gnn/backend/data/crawl_20260513_124928.jsonl"
+}

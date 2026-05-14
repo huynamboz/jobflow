@@ -1,92 +1,76 @@
-import { useEffect, useState } from "react";
-import { Card, CardBody } from "@heroui/card";
-import { Tags, CheckCircle, SkipForward, Clock } from "lucide-react";
+import { useCallback, useState } from "react";
+import { RefreshCcw } from "lucide-react";
 
-import { labelingService } from "@/services/labeling.service";
-import type { LabelingStats } from "@/types/labeling.types";
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <Card className="shadow-sm">
-      <CardBody className="flex flex-row items-center gap-4 p-4">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-          <Icon className="size-5 text-white" />
-        </div>
-        <div>
-          <p className="text-2xl font-bold text-default-900">{value}</p>
-          <p className="text-sm text-default-500">{label}</p>
-        </div>
-      </CardBody>
-    </Card>
-  );
-}
+import AuthStateBanner from "@/components/dashboard/AuthStateBanner";
+import CatalogComposition from "@/components/dashboard/CatalogComposition";
+import FreshnessActivity from "@/components/dashboard/FreshnessActivity";
+import KpiStrip from "@/components/dashboard/KpiStrip";
+import LabelingProgress from "@/components/dashboard/LabelingProgress";
+import ModelStatus from "@/components/dashboard/ModelStatus";
+import VerifierExtractorOps from "@/components/dashboard/VerifierExtractorOps";
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<LabelingStats | null>(null);
-
-  useEffect(() => {
-    labelingService.getStats().then(setStats).catch(console.error);
-  }, []);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-default-900">Dashboard</h1>
-        <p className="text-default-500">Overview of labeling progress</p>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <header className="flex items-end justify-between gap-3">
+        <div>
+          <h1
+            style={{
+              font: "600 24px/1.1 var(--font-node-sans)",
+              letterSpacing: "-0.025em",
+              color: "var(--ink)",
+              margin: 0,
+            }}
+          >
+            Dashboard
+          </h1>
+          <p
+            style={{
+              font: "400 13px/18px var(--font-node-sans)",
+              letterSpacing: "-0.01em",
+              color: "var(--muted)",
+              margin: "4px 0 0",
+            }}
+          >
+            System health, catalog and ops at a glance.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={refresh}
+          className="inline-flex items-center gap-2"
+          style={{
+            font: "600 12.5px/16px var(--font-node-sans)",
+            color: "var(--ink)",
+            background: "#ffffff",
+            border: "1px solid var(--line-2)",
+            borderRadius: 10,
+            padding: "6px 12px",
+            boxShadow: "var(--shadow-btn)",
+          }}
+        >
+          <RefreshCcw className="size-3.5" strokeWidth={1.75} />
+          Refresh
+        </button>
+      </header>
+
+      <AuthStateBanner refreshKey={refreshKey} />
+      <KpiStrip refreshKey={refreshKey} />
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <CatalogComposition refreshKey={refreshKey} />
+        <FreshnessActivity refreshKey={refreshKey} />
       </div>
 
-      {stats && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard icon={Tags}        label="Total Pairs"  value={stats.total_pairs} color="bg-blue-500" />
-          <StatCard icon={CheckCircle} label="Labeled"      value={stats.labeled}     color="bg-green-500" />
-          <StatCard icon={SkipForward} label="Skipped"      value={stats.skipped}     color="bg-yellow-500" />
-          <StatCard icon={Clock}       label="Pending"      value={stats.pending}     color="bg-gray-400" />
-        </div>
-      )}
+      <VerifierExtractorOps refreshKey={refreshKey} />
 
-      {stats && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {/* By Reason */}
-          <Card className="shadow-sm">
-            <CardBody className="p-4">
-              <h2 className="mb-3 font-semibold text-default-800">By Selection Reason</h2>
-              <div className="space-y-2">
-                {Object.entries(stats.by_reason).map(([reason, { labeled, total }]) => (
-                  <div key={reason} className="flex items-center justify-between text-sm">
-                    <span className="capitalize text-default-600">{reason.replace(/_/g, " ")}</span>
-                    <span className="font-medium text-default-800">{labeled} / {total}</span>
-                  </div>
-                ))}
-              </div>
-            </CardBody>
-          </Card>
-
-          {/* By Split */}
-          <Card className="shadow-sm">
-            <CardBody className="p-4">
-              <h2 className="mb-3 font-semibold text-default-800">By Split</h2>
-              <div className="space-y-2">
-                {Object.entries(stats.by_split).map(([split, { labeled, total }]) => (
-                  <div key={split} className="flex items-center justify-between text-sm">
-                    <span className="capitalize text-default-600">{split}</span>
-                    <span className="font-medium text-default-800">{labeled} / {total}</span>
-                  </div>
-                ))}
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <LabelingProgress refreshKey={refreshKey} />
+        <ModelStatus refreshKey={refreshKey} />
+      </div>
     </div>
   );
 }

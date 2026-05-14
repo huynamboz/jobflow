@@ -82,7 +82,7 @@ class LinkedInProvider(CrawlProvider):
             )
             return []
 
-        from playwright.sync_api import sync_playwright
+        from patchright.sync_api import sync_playwright
 
         jobs: list[RawJob] = []
 
@@ -281,16 +281,19 @@ class LinkedInProvider(CrawlProvider):
             company_url = href
 
         # --- Date posted + applicant count ---
-        date_posted_text = ""
+        # Date is extracted by the shared extractor — same function the
+        # backfill command uses. See spec 002-job-date-posted-extraction.
+        from ml_service.verifier.date_extractor import extract_date_posted
+        date_result = extract_date_posted(page)
+        date_posted = date_result.date  # datetime | None
+
         applicant_count = ""
         tertiary_el = _query_first(page, sel["detail_panel"]["tertiary_info"])
         if tertiary_el:
             spans = tertiary_el.query_selector_all(sel["detail_panel"]["tertiary_spans"][0])
             for span in spans:
                 text = span.inner_text().strip()
-                if any(w in text for w in ("ago", "hour", "day", "week", "month")):
-                    date_posted_text = text
-                elif "applicant" in text.lower():
+                if "applicant" in text.lower():
                     applicant_count = text
 
         # --- Salary ---
@@ -343,7 +346,7 @@ class LinkedInProvider(CrawlProvider):
             salary_min=salary_min,
             salary_max=salary_max,
             salary_currency=salary_currency,
-            seniority_hint=date_posted_text,
+            date_posted=date_posted,
             company_logo_url=company_logo_url,
             company_url=company_url,
             job_type=job_type,

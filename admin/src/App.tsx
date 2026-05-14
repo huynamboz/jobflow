@@ -24,6 +24,8 @@ import CVBatchDetail from "@/pages/admin/cv-batch/detail";
 import LabelBatchLayout from "@/pages/admin/label-batch";
 import LabelBatchOverview from "@/pages/admin/label-batch/overview";
 import LabelBatchDetail from "@/pages/admin/label-batch/detail";
+import VerifySchedulePage from "@/pages/admin/schedule/verify";
+import ExtractSchedulePage from "@/pages/admin/schedule/extract";
 
 function App() {
   return (
@@ -52,6 +54,8 @@ function App() {
           <Route index element={<LabelBatchOverview />} />
           <Route path=":id" element={<LabelBatchDetail />} />
         </Route>
+        <Route path="schedule/verify" element={<VerifySchedulePage />} />
+        <Route path="schedule/extract" element={<ExtractSchedulePage />} />
       </Route>
 
       <Route element={<PublicRoute />}>

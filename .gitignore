@@ -48,3 +48,10 @@ www.linkedin.com_30-03-2026.json
 
 # Dataset (large PDF files)
 Dataset/
+
+# LinkedIn auth — operator-private, never commit
+backend/auth/linkedin_state.json
+backend/auth/chromium_profile/
+
+# Schedule run logs (live tail files)
+backend/logs/runs/

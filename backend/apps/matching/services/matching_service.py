@@ -99,6 +99,42 @@ def _filter_soft_skills(skills: list[str]) -> list[str]:
     return [s for s in skills if s not in _SOFT_SKILLS]
 
 
+# Re-export for callers that already imported from this module.
+from apps.matching.lifecycle_filter import filter_active_jobs as _filter_active_jobs  # noqa: E402, F401
+
+
+def _build_lifecycle_map(jd_ids: list[int]) -> dict[int, str]:
+    """Build {jd_id: lifecycle} by joining JDExtractionRecord.source_url with
+    Job.source_url. Falls back to 'unverified' on missing matches.
+
+    Returns an empty dict if anything in the lookup chain fails; the caller
+    treats this as "everything stays".
+    """
+    try:
+        from apps.jobs.models import JDExtractionRecord, Job
+        jd_rows = list(
+            JDExtractionRecord.objects.filter(id__in=jd_ids).values("id", "source_url")
+        )
+        url_to_jd_ids: dict[str, list[int]] = {}
+        for r in jd_rows:
+            url = (r["source_url"] or "").strip()
+            if url:
+                url_to_jd_ids.setdefault(url, []).append(r["id"])
+        if not url_to_jd_ids:
+            return {}
+        job_rows = Job.objects.filter(source_url__in=url_to_jd_ids.keys()).values(
+            "source_url", "lifecycle"
+        )
+        lifecycle_map: dict[int, str] = {}
+        for row in job_rows:
+            for jd_id in url_to_jd_ids.get(row["source_url"], ()):
+                lifecycle_map[jd_id] = row["lifecycle"]
+        return lifecycle_map
+    except Exception:
+        logger.exception("Failed to build lifecycle map; matching results will not be filtered")
+        return {}
+
+
 def _enrich(results) -> list[dict]:
     """Enrich raw match results with metadata from JDExtractionRecord + LabelingJob.
 
@@ -166,13 +202,27 @@ def _cv_info(cv_data) -> dict:
     }
 
 
+def _apply_lifecycle_filter(results):
+    """Drop expired jobs (lifecycle filter). Preserves original ranking order."""
+    jd_ids = [r.job_id for r in results]
+    if not jd_ids:
+        return results
+    lifecycle_map = _build_lifecycle_map(jd_ids)
+    if not lifecycle_map:  # build failed or no DB rows — keep all
+        return results
+    keep_ids = set(_filter_active_jobs(jd_ids, lifecycle_map=lifecycle_map))
+    return [r for r in results if r.job_id in keep_ids]
+
+
 def match_cv_text(cv_text: str, top_k: int = 10) -> dict:
     """Match CV text against all jobs. Returns {cv_info, jobs}."""
     parser = _get_parser()
     cv_data = parser.parse_text(cv_text, cv_id=-1)
     engine = _get_engine()
-    results = engine.match_cv(cv_data, top_k=top_k)
-    return {"cv_info": _cv_info(cv_data), "jobs": _enrich(results)}
+    # Over-fetch so the lifecycle filter doesn't shrink the response below top_k.
+    raw = engine.match_cv(cv_data, top_k=top_k * 2)
+    filtered = _apply_lifecycle_filter(raw)[:top_k]
+    return {"cv_info": _cv_info(cv_data), "jobs": _enrich(filtered)}
 
 
 def match_cv_file(file_path: str, top_k: int = 10) -> dict:
@@ -183,8 +233,9 @@ def match_cv_file(file_path: str, top_k: int = 10) -> dict:
         return {"cv_info": _cv_info(cv_data), "jobs": []}
 
     engine = _get_engine()
-    results = engine.match_cv(cv_data, top_k=top_k)
-    return {"cv_info": _cv_info(cv_data), "jobs": _enrich(results)}
+    raw = engine.match_cv(cv_data, top_k=top_k * 2)
+    filtered = _apply_lifecycle_filter(raw)[:top_k]
+    return {"cv_info": _cv_info(cv_data), "jobs": _enrich(filtered)}
 
 
 def parse_cv_file(file_path: str) -> dict:

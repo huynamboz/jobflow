@@ -1,0 +1,47 @@
+{
+  "_meta": {
+    "description": "Selectors for the LinkedIn job-status verifier. Update when LinkedIn changes its DOM.",
+    "last_updated": "2026-05-13",
+    "spec_ref": "specs/001-linkedin-job-verifier",
+    "layout_note": "As of May 2026 LinkedIn ships a new SDUI-based job layout with hashed CSS class names (e.g. `_946213aa`). Anchor on aria-label, h2 text, [componentkey^=...] and [data-sdui-component*=...] rather than class names. Legacy selectors are kept below for graceful fallback."
+  },
+
+  "auth_check": {
+    "expired_url_patterns_doc": "Substrings in the final URL that indicate the saved session is no longer valid; LinkedIn redirects unauthenticated requests to one of these paths.",
+    "expired_url_patterns": ["login", "authwall", "checkpoint"]
+  },
+
+  "expired_url_patterns_doc": "Substrings in the final URL that indicate the JOB (not the session) has expired. LinkedIn redirects requests for deleted/closed job IDs to a generic 'similar jobs' search page with trk=expired_jd_redirect appended.",
+  "expired_url_patterns": ["trk=expired_jd_redirect"],
+
+  "expired_markers_doc": "Page elements observed on closed/expired or 404'd LinkedIn job listings. First match wins. 404 markers come first to handle the case where LinkedIn returns 200 OK on a deleted job_id but renders a 'Page not found' template in many locales.",
+  "expired_markers": [
+    "h1:has-text('Page not found')",
+    "h1:has-text('not found')",
+    "text=No longer accepting applications",
+    "text=This job is no longer available",
+    "text=Position has been filled",
+    "div.jobs-details-top-card__job-state >> text=Closed",
+    "div.artdeco-inline-feedback--error"
+  ],
+
+  "active_markers_doc": "Page elements present on listings that are still accepting applications. Anchored on aria-label / h2 text / componentkey / data-sdui-component so we don't depend on hashed class names. First group: 2026-05 SDUI layout. Second group: legacy layouts (kept as fallback during rollout / A-B tests). Checked only after expired_markers misses.",
+  "active_markers": [
+    "[aria-label='Save the job']",
+    "a[aria-label*='Apply on company website' i]",
+    "[aria-label*='Easy Apply' i]",
+    "a[aria-label*='Apply' i]",
+    "h2:has-text('About the job')",
+    "[componentkey^='JobDetails_AboutTheJob_']",
+    "[data-sdui-component*='aboutTheJob']",
+    "button.jobs-apply-button",
+    "button:has-text('Easy Apply')",
+    "button[aria-label*='Apply' i]",
+    "div.jobs-description__content",
+    "div.job-details-jobs-unified-top-card__job-title h1",
+    ".apply-button",
+    ".top-card-layout__title",
+    "div.description__text",
+    "section.description"
+  ]
+}

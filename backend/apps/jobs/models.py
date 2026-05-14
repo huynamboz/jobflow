@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class Platform(models.Model):
@@ -106,8 +107,27 @@ class Job(models.Model):
     # Skills (M2M through JobSkill)
     skills = models.ManyToManyField("skills.Skill", through="JobSkill", blank=True)
 
-    # Status
+    # Status (legacy — kept for v1 backward compat; new code reads `lifecycle`)
     is_active = models.BooleanField(default=True)
+
+    # Lifecycle tracking (spec 001-linkedin-job-verifier)
+    LIFECYCLE_ACTIVE = "active"
+    LIFECYCLE_STALE = "stale"
+    LIFECYCLE_EXPIRED = "expired"
+    LIFECYCLE_UNVERIFIED = "unverified"
+    LIFECYCLE_CHOICES = [
+        (LIFECYCLE_ACTIVE, "Active"),
+        (LIFECYCLE_STALE, "Stale"),
+        (LIFECYCLE_EXPIRED, "Expired"),
+        (LIFECYCLE_UNVERIFIED, "Unverified"),
+    ]
+    lifecycle = models.CharField(
+        max_length=20, choices=LIFECYCLE_CHOICES, default=LIFECYCLE_ACTIVE, db_index=True
+    )
+    last_seen_at = models.DateTimeField(default=timezone.now, db_index=True)
+    last_verified_at = models.DateTimeField(null=True, blank=True)
+    verification_attempts = models.IntegerField(default=0)
+    verification_backoff_until = models.DateTimeField(null=True, blank=True, db_index=True)
 
     # Timestamps
     date_posted = models.DateTimeField(null=True, blank=True)
@@ -119,6 +139,9 @@ class Job(models.Model):
         ordering = ["-created_at"]
         # Dedup per platform (same fingerprint on same platform = duplicate)
         unique_together = ("platform", "fingerprint")
+        indexes = [
+            models.Index(fields=["platform", "lifecycle"], name="jobs_platform_lifecycle_idx"),
+        ]
 
     def __str__(self):
         company_name = self.company.name if self.company else "Unknown"
@@ -194,3 +217,46 @@ class JDExtractionRecord(models.Model):
     class Meta:
         db_table = "jd_extraction_records"
         ordering = ["index"]
+
+
+class VerifierRunLog(models.Model):
+    """One row per `verify_job_status` / `extract_job_dates` invocation.
+
+    Powers the recent-runs table and per-day outcomes stacked-bar chart
+    on the admin dashboard. See specs/003-admin-dashboard-v2/data-model.md.
+    """
+
+    COMMAND_VERIFY = "verify_job_status"
+    COMMAND_EXTRACT = "extract_job_dates"
+    COMMAND_CHOICES = [
+        (COMMAND_VERIFY, "verify_job_status"),
+        (COMMAND_EXTRACT, "extract_job_dates"),
+    ]
+
+    command = models.CharField(max_length=32, choices=COMMAND_CHOICES, db_index=True)
+    platform = models.CharField(max_length=32, db_index=True)
+    started_at = models.DateTimeField(db_index=True)
+    finished_at = models.DateTimeField()
+    batch_size_requested = models.IntegerField()
+    total_examined = models.IntegerField()
+    skipped_unsupported_url = models.IntegerField(default=0)
+    counts_by_outcome = models.JSONField(default=dict)
+    session_expired_count = models.IntegerField(default=0)
+    error_count = models.IntegerField(default=0)
+    dry_run = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "verifier_run_logs"
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["command", "started_at"], name="verifier_run_cmd_time_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.command}@{self.started_at:%Y-%m-%d %H:%M} n={self.total_examined}"
+
+    @property
+    def wall_clock_seconds(self) -> float:
+        if self.started_at and self.finished_at:
+            return (self.finished_at - self.started_at).total_seconds()
+        return 0.0

@@ -3,7 +3,9 @@ import type { Icon } from "@tabler/icons-react";
 import {
   IconBrain,
   IconBriefcase,
+  IconCalendarTime,
   IconClipboardList,
+  IconClock,
   IconFiles,
   IconLayoutDashboard,
   IconFileStack,
@@ -59,6 +61,13 @@ export const adminConfig = {
         { label: "JD Batch",     href: "/admin/jd-batch",     icon: IconFileStack },
         { label: "CV Batch",     href: "/admin/cv-batch",     icon: IconUserScan },
         { label: "Label Batch",  href: "/admin/label-batch",  icon: IconTagStarred },
+      ],
+    },
+    {
+      title: "Schedule",
+      items: [
+        { label: "Verify schedule",  href: "/admin/schedule/verify",  icon: IconClock },
+        { label: "Extract schedule", href: "/admin/schedule/extract", icon: IconCalendarTime },
       ],
     },
   ] as AdminNavSection[],
