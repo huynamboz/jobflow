@@ -51,6 +51,11 @@ class BackfillReport:
     error_count: int = 0
     session_expired_count: int = 0
     skipped_unsupported_url: int = 0
+    # Lifecycle outcomes from the bundled verify pass (when enabled).
+    verify_active: int = 0
+    verify_expired: int = 0
+    verify_unknown: int = 0
+    verify_session_expired: int = 0
     started_at: datetime | None = None
     finished_at: datetime | None = None
     dry_run: bool = False
@@ -63,7 +68,13 @@ class BackfillReport:
 
 
 class DateBackfillService:
-    """Orchestrator for the `extract_job_dates` command."""
+    """Orchestrator for the `extract_job_dates` command.
+
+    When ``verifier`` is provided, each page visit ALSO runs a lifecycle
+    check (verify + extract date in one navigation). The same Playwright
+    page is inspected twice (cheap DOM scans), and both outcomes are
+    written: date_posted via apply_date, lifecycle via apply_result.
+    """
 
     def __init__(
         self,
@@ -75,6 +86,7 @@ class DateBackfillService:
         url_supports: Callable[[str], bool] | None = None,
         per_url_delay_s: float = _DEFAULT_DELAY_S,
         per_url_jitter_s: float = _DEFAULT_JITTER_S,
+        verifier: Callable[..., VerifyResult] | None = None,
     ) -> None:
         self._extractor = extractor
         self._repository = repository
@@ -83,6 +95,7 @@ class DateBackfillService:
         self._url_supports = url_supports or (lambda url: True)
         self._delay = per_url_delay_s
         self._jitter = per_url_jitter_s
+        self._verifier = verifier   # fn(page) -> VerifyResult, or None
 
     # ── Public ───────────────────────────────────────────────────────────
 
@@ -136,8 +149,8 @@ class DateBackfillService:
         # sync_playwright spins an event loop that makes Django ORM calls
         # raise SynchronousOnlyOperation if invoked while the context is
         # still open.
-        outcomes: list[tuple[int, DateExtractionResult | None, bool]] = []
-        # bool flag: True iff the URL raised an exception during extraction
+        outcomes: list[tuple[int, DateExtractionResult | None, VerifyResult | None, bool]] = []
+        # tuple: (job_id, date_result_or_None, verify_result_or_None, errored)
         total = len(supported)
         with self._browser_factory() as (page, ctx):
             for i, (job_id, url) in enumerate(supported):
@@ -147,34 +160,32 @@ class DateBackfillService:
                 # Per-URL try/except — FR-015 isolation.
                 try:
                     self._navigate(page, url)
-                    # Note: do not bail on li_at loss — LinkedIn often
-                    # downgrades to guest layout after the first request, but
-                    # the page still loads with usable content. The
-                    # extractor's expired-redirect URL check and guest-layout
-                    # selectors handle both cases.
                     if not _ctx_has_li_at(ctx):
                         logger.debug(
                             "li_at not present after URL %d/%d — continuing in guest mode",
                             i + 1, total,
                         )
 
-                    result = self._extractor(page, now=self._clock())
-                    outcomes.append((job_id, result, False))
-                    self._log_progress(i + 1, total, job_id, url, result, errored=False)
+                    date_result = self._extractor(page, now=self._clock())
+                    verify_result = self._verifier(page) if self._verifier else None
+                    outcomes.append((job_id, date_result, verify_result, False))
+                    self._log_progress(i + 1, total, job_id, url, date_result, verify_result, errored=False)
                 except Exception as exc:  # noqa: BLE001
                     logger.exception("extract failed for job %s", job_id)
-                    outcomes.append((job_id, None, True))
-                    self._log_progress(i + 1, total, job_id, url, None, errored=True, exc=exc)
+                    outcomes.append((job_id, None, None, True))
+                    self._log_progress(i + 1, total, job_id, url, None, None, errored=True, exc=exc)
 
         # Browser context closed — safe to hit the ORM now.
-        for job_id, result, errored in outcomes:
+        for job_id, date_result, verify_result, errored in outcomes:
             report.total_examined += 1
             if errored:
                 report.error_count += 1
                 if not dry_run:
                     self._apply_error(job_id)
                 continue
-            self._apply_outcome(job_id, result, report=report, dry_run=dry_run)
+            self._apply_outcome(job_id, date_result, report=report, dry_run=dry_run)
+            if verify_result is not None:
+                self._apply_verify(job_id, verify_result, report=report, dry_run=dry_run)
 
         report.finished_at = self._clock()
         return report
@@ -221,37 +232,75 @@ class DateBackfillService:
             now=self._clock(),
         )
 
+    def _apply_verify(
+        self,
+        job_id: int,
+        result: VerifyResult,
+        *,
+        report: BackfillReport,
+        dry_run: bool,
+    ) -> None:
+        """Apply a lifecycle verify outcome alongside the date result.
+
+        Skips writing for EXPIRED if _apply_outcome already wrote that
+        (expired-redirect path) — avoids double increment + redundant
+        apply_result call.
+        """
+        if result.status is JobStatus.ACTIVE:
+            report.verify_active += 1
+        elif result.status is JobStatus.EXPIRED:
+            report.verify_expired += 1
+        elif result.status is JobStatus.UNKNOWN:
+            report.verify_unknown += 1
+        elif result.status is JobStatus.SESSION_EXPIRED:
+            report.verify_session_expired += 1
+        else:
+            # ERROR from verifier; subsumed by date error path; skip apply.
+            return
+
+        if dry_run:
+            return
+        # SESSION_EXPIRED is a no-op write per spec 001 — operator alert only.
+        if result.status is JobStatus.SESSION_EXPIRED:
+            return
+        self._repository.apply_result(job_id, result, now=self._clock())
+
     @staticmethod
     def _log_progress(
         i: int,
         total: int,
         job_id: int,
         url: str,
-        result: DateExtractionResult | None,
+        date_result: DateExtractionResult | None,
+        verify_result: VerifyResult | None = None,
         *,
         errored: bool,
         exc: Exception | None = None,
     ) -> None:
         """Print a single line per URL — flushed immediately for live observation.
 
-        Format chosen to be greppable and human-readable at once:
-            [3/200] job=11514 OK     date=2026-05-08 source=relative-text  url=...
-            [4/200] job=11520 EXPIRED                                       url=...
-            [5/200] job=11519 NONE                                          url=...
-            [6/200] job=11517 ERR    TimeoutError                          url=...
+        Format:
+            [3/200] job=11514 OK date=2026-05-08 src=relative-text status=ACTIVE
+            [4/200] job=11520 EXPIRED                              status=EXPIRED
+            [5/200] job=11519 NONE                                 status=UNKNOWN
+            [6/200] job=11517 ERR TimeoutError
         """
         prefix = f"[{i:>3d}/{total:<3d}] job={job_id:<6d}"
         if errored:
             tag = f"ERR    {type(exc).__name__ if exc else 'Exception'}"
-        elif result is None:
+        elif date_result is None:
             tag = "NONE"
-        elif result.source == "expired-redirect":
+        elif date_result.source == "expired-redirect":
             tag = "EXPIRED"
-        elif result.date is not None:
-            tag = f"OK     date={result.date.date().isoformat()} source={result.source}"
+        elif date_result.date is not None:
+            tag = f"OK     date={date_result.date.date().isoformat()} src={date_result.source}"
         else:
-            tag = f"NONE   source={result.source}"
-        print(f"{prefix}  {tag:<60s}  url={url[:80]}", flush=True)
+            tag = f"NONE   src={date_result.source}"
+
+        if verify_result is not None and not errored:
+            tag = f"{tag:<50s} status={verify_result.status.value.upper()}"
+
+        print(f"{prefix}  {tag:<70s}  url={url[:80]}", flush=True)
 
 
 def _ctx_has_li_at(ctx) -> bool:

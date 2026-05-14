@@ -50,6 +50,16 @@ class Command(BaseCommand):
                 "relies on LinkedIn's guest layout."
             ),
         )
+        parser.add_argument(
+            "--no-verify",
+            action="store_true",
+            help=(
+                "Disable the bundled lifecycle verify pass. By default each "
+                "page is also checked for active/expired markers and "
+                "Job.lifecycle is updated. --no-verify keeps the legacy "
+                "extract-only behaviour."
+            ),
+        )
 
     def handle(self, *args, **opts):
         platform = opts["platform"]
@@ -57,6 +67,7 @@ class Command(BaseCommand):
         dry_run = bool(opts["dry_run"])
         json_report = bool(opts["json_report"])
         no_auth_check = bool(opts["no_auth_check"])
+        with_verify = not bool(opts["no_verify"])
 
         if platform != "linkedin":
             raise CommandError(f"v1 supports only --platform linkedin (got {platform!r}).")
@@ -81,11 +92,30 @@ class Command(BaseCommand):
             ) as (page, ctx):
                 yield page, ctx
 
+        # Bundled verifier — inspects each page for active/expired markers
+        # using the same selectors as `verify_job_status`. One navigation
+        # per URL produces both date_posted AND lifecycle.
+        verifier_fn = None
+        if with_verify:
+            import json
+            from pathlib import Path
+            from ml_service.verifier.providers.linkedin_verifier import (
+                inspect_linkedin_lifecycle,
+            )
+            sel_path = (
+                Path(__file__).resolve().parent.parent.parent.parent.parent
+                / "ml_service" / "verifier" / "selectors" / "linkedin.json"
+            )
+            with sel_path.open() as f:
+                selectors = json.load(f)
+            verifier_fn = lambda page: inspect_linkedin_lifecycle(page, selectors)  # noqa: E731
+
         service = DateBackfillService(
             repository=DjangoJobLifecycleRepository(),
             browser_factory=browser_factory,
             clock=lambda: datetime.now(timezone.utc),
             url_supports=_linkedin_supports,
+            verifier=verifier_fn,
         )
 
         try:
@@ -144,12 +174,19 @@ class Command(BaseCommand):
         out(f"  batch requested       : {report.batch_size_requested}")
         out(f"  batch examined        : {report.total_examined}"
             f"          ({report.skipped_unsupported_url} skipped: unsupported url)")
-        out("  outcomes              :")
+        out("  date outcomes         :")
         out(f"                          populated       : {report.populated_count}")
         out(f"                          expired_marked  : {report.expired_marked_count}")
         out(f"                          none            : {report.none_count}")
         out(f"                          error           : {report.error_count}")
         out(f"                          session_expired : {report.session_expired_count}")
+        if (report.verify_active + report.verify_expired
+                + report.verify_unknown + report.verify_session_expired) > 0:
+            out("  verify outcomes       :")
+            out(f"                          active          : {report.verify_active}")
+            out(f"                          expired         : {report.verify_expired}")
+            out(f"                          unknown         : {report.verify_unknown}")
+            out(f"                          session_expired : {report.verify_session_expired}")
         out(f"  wall-clock            : {self._format_wall(report.wall_clock_seconds)}")
         out(f"  dry-run               : {'yes' if report.dry_run else 'no'}")
 
@@ -178,6 +215,10 @@ class Command(BaseCommand):
             "none_count": report.none_count,
             "error_count": report.error_count,
             "session_expired_count": report.session_expired_count,
+            "verify_active": report.verify_active,
+            "verify_expired": report.verify_expired,
+            "verify_unknown": report.verify_unknown,
+            "verify_session_expired": report.verify_session_expired,
             "dry_run": report.dry_run,
         }
         self.stdout.write(json.dumps(payload))

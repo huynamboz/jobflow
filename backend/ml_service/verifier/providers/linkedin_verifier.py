@@ -158,57 +158,70 @@ class LinkedInVerifier(JobStatusVerifier):
                 JobStatus.ERROR, reason=f"goto failed: {exc!r}", final_url=url
             )
 
-        final_url = page.url or url
+        return inspect_linkedin_lifecycle(page, selectors, fallback_url=url)
 
-        # 1. Session-expired check (highest priority — bad sessions corrupt the rest).
-        session_patterns: list[str] = selectors.get("auth_check", {}).get(
-            "expired_url_patterns", []
-        )
-        if any(p in final_url for p in session_patterns):
-            return VerifyResult(
-                JobStatus.SESSION_EXPIRED,
-                reason=f"final_url matched session pattern: {final_url}",
-                final_url=final_url,
-            )
 
-        # 2. Expired-by-URL check — LinkedIn redirects deleted job IDs to a
-        #    search results page with trk=expired_jd_redirect. The page would
-        #    otherwise pass active-marker checks because it shows similar jobs.
-        expired_url_patterns: list[str] = selectors.get("expired_url_patterns", [])
-        if any(p in final_url for p in expired_url_patterns):
-            return VerifyResult(
-                JobStatus.EXPIRED,
-                reason=f"final_url matched expired pattern: {final_url}",
-                final_url=final_url,
-            )
+def inspect_linkedin_lifecycle(page, selectors: dict, *, fallback_url: str | None = None) -> VerifyResult:
+    """Inspect an already-loaded LinkedIn page and return its lifecycle.
 
-        # 3. Expired markers.
-        for sel in selectors.get("expired_markers", []):
-            try:
-                if page.locator(sel).first.is_visible(timeout=500):
-                    return VerifyResult(
-                        JobStatus.EXPIRED,
-                        reason=f"matched expired marker: {sel}",
-                        final_url=final_url,
-                    )
-            except Exception:
-                continue
+    Extracted from ``LinkedInVerifier._check_one`` so the backfill service
+    can reuse the same logic in a single page visit (one navigation,
+    extract date AND verify lifecycle).
 
-        # 4. Active markers.
-        for sel in selectors.get("active_markers", []):
-            try:
-                if page.locator(sel).first.is_visible(timeout=1000):
-                    return VerifyResult(
-                        JobStatus.ACTIVE,
-                        reason=f"matched active marker: {sel}",
-                        final_url=final_url,
-                    )
-            except Exception:
-                continue
+    Detection priority: session-URL → expired-URL → expired-markers →
+    active-markers → UNKNOWN.
+    """
+    final_url = page.url or fallback_url or ""
 
-        # 5. Ambiguous.
+    # 1. Session-expired check (highest priority — bad sessions corrupt the rest).
+    session_patterns: list[str] = selectors.get("auth_check", {}).get(
+        "expired_url_patterns", []
+    )
+    if any(p in final_url for p in session_patterns):
         return VerifyResult(
-            JobStatus.UNKNOWN,
-            reason="no markers matched",
+            JobStatus.SESSION_EXPIRED,
+            reason=f"final_url matched session pattern: {final_url}",
             final_url=final_url,
         )
+
+    # 2. Expired-by-URL check — LinkedIn redirects deleted job IDs to a
+    #    search results page with trk=expired_jd_redirect. The page would
+    #    otherwise pass active-marker checks because it shows similar jobs.
+    expired_url_patterns: list[str] = selectors.get("expired_url_patterns", [])
+    if any(p in final_url for p in expired_url_patterns):
+        return VerifyResult(
+            JobStatus.EXPIRED,
+            reason=f"final_url matched expired pattern: {final_url}",
+            final_url=final_url,
+        )
+
+    # 3. Expired markers.
+    for sel in selectors.get("expired_markers", []):
+        try:
+            if page.locator(sel).first.is_visible(timeout=500):
+                return VerifyResult(
+                    JobStatus.EXPIRED,
+                    reason=f"matched expired marker: {sel}",
+                    final_url=final_url,
+                )
+        except Exception:
+            continue
+
+    # 4. Active markers.
+    for sel in selectors.get("active_markers", []):
+        try:
+            if page.locator(sel).first.is_visible(timeout=1000):
+                return VerifyResult(
+                    JobStatus.ACTIVE,
+                    reason=f"matched active marker: {sel}",
+                    final_url=final_url,
+                )
+        except Exception:
+            continue
+
+    # 5. Ambiguous.
+    return VerifyResult(
+        JobStatus.UNKNOWN,
+        reason="no markers matched",
+        final_url=final_url,
+    )
