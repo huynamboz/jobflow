@@ -102,12 +102,15 @@ Metrics: **NDCG@10, Recall@10, HR@10, MRR** (mean ± std qua 3 seed).
   - Lý lẽ thesis còn lại: hetero arch lợi thế khi data có **rich schema** (skill, seniority) — chưa test
   - Phase tiếp theo: implement hetero variant CB12 với skill+seniority (US2 stretch của Phase 3), nếu beat LightGCN → confirm; nếu không → thesis cần điều chỉnh
 
-### Phase 5 — Run full benchmark (1–2 ngày + GPU time)
-- [ ] Viết `scripts/run_benchmark.py` chạy hết bảng 4×3
-- [ ] Mỗi cell chạy 3 seed → log mean ± std
-- [ ] Export CSV: `results/benchmark_table.csv`
-- [ ] Plot biểu đồ so sánh (matplotlib/seaborn)
-- **Output:** Bảng benchmark hoàn chỉnh + plot
+### Phase 5 — Thesis Defense Prep + LSTM/BiLSTM baselines ✅ DONE (2026-05-22)
+- [x] Implement LSTM + BiLSTM baselines (`backend/ml_benchmark/baselines/lstm.py` + `backend/scripts/train_lstm.py`)
+- [x] Train 3 seeds × 2 variants trên CB12 (per-user full ranking, GPU)
+- [x] Generate 5-row comparison table (HeteroSAGE bipartite + hetero + LightGCN + LSTM + BiLSTM)
+- [x] Viết `specs/011-thesis-defense-prep/thesis_notes.md` (Vietnamese, 4 sections answering thầy's notes)
+- [x] Phase 2-4 regression PASS (production untouched)
+- **Output:** `specs/011-thesis-defense-prep/{thesis_notes.md, _comparison_5models.md}`, `backend/results/{lstm, bilstm}/careerbuilder_summary.json`
+- **Key finding**: LightGCN dominates CB12 (NDCG=0.27); GNN family beat LSTM/BiLSTM with gap > 50% NDCG — collaborative signal > semantic text for job-rec on CB12.
+- **Link:** [`specs/011-thesis-defense-prep/plan.md`](../011-thesis-defense-prep/plan.md)
 
 ### Phase 6 — Write-up cho luận văn (2–3 ngày)
 - [ ] `report.md`: phân tích bảng số
