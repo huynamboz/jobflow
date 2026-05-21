@@ -32,8 +32,8 @@ description: "Task list for feature 007 — Duplicate ML Service for Benchmark"
 
 **Purpose**: Chuẩn bị thư mục script và state baseline trước khi đụng `backend/`.
 
-- [ ] T001 Tạo thư mục `backend/scripts/` nếu chưa tồn tại; nếu đã có, xác nhận không có file cùng tên `duplicate_ml_service.sh` hoặc `smoke_test_benchmark.py`.
-- [ ] T002 Capture baseline state: chạy `git status backend/ml_service backend/ml_benchmark backend/checkpoints` và lưu output vào `specs/007-duplicate-ml-benchmark/_baseline_git_status.txt` (untracked, không commit) — phục vụ đối chiếu sau cùng để chứng minh production không bị động.
+- [x] T001 Tạo thư mục `backend/scripts/` nếu chưa tồn tại; nếu đã có, xác nhận không có file cùng tên `duplicate_ml_service.sh` hoặc `smoke_test_benchmark.py`.
+- [x] T002 Capture baseline state: chạy `git status backend/ml_service backend/ml_benchmark backend/checkpoints` và lưu output vào `specs/007-duplicate-ml-benchmark/_baseline_git_status.txt` (untracked, không commit) — phục vụ đối chiếu sau cùng để chứng minh production không bị động.
 
 ---
 
@@ -43,9 +43,9 @@ description: "Task list for feature 007 — Duplicate ML Service for Benchmark"
 
 **⚠️ CRITICAL**: Không user story nào được bắt đầu trước khi Phase 2 xong.
 
-- [ ] T003 Viết `backend/scripts/duplicate_ml_service.sh` (idempotent, refuse-overwrite theo R7 trong [research.md](research.md#r7-idempotency-của-script-duplicate)). Script PHẢI thực hiện theo đúng thứ tự: (a) abort nếu `backend/ml_benchmark/` đã tồn tại trừ khi pass `--force`; (b) `cp -r backend/ml_service backend/ml_benchmark`; (c) dọn `__pycache__/`, `*.pyc`, `.pytest_cache/` trong sandbox (R4); (d) `rm -rf` các module strip (`api/`, `inference/`, `reranker/`, `verifier/`, `crawler/factory.py`, `crawler/scheduler.py`, `crawler/storage.py`, `crawler/providers/`, `crawler/README.md`) — KHÔNG xóa `crawler/base.py`, `crawler/__init__.py`, `cv_parser/`; (e) rewrite imports bằng `grep -rl --include='*.py' 'ml_service' backend/ml_benchmark | xargs sed -i '' -E 's/(^|[^a-zA-Z_])ml_service([.[:space:]])/\1ml_benchmark\2/g'`; (f) in tóm tắt số file thay đổi và số module còn lại. Script bắt đầu bằng `set -euo pipefail`.
-- [ ] T004 Viết `backend/scripts/smoke_test_benchmark.py` theo R6 trong [research.md](research.md#r6-smoke-test-design). Phải có CLI args `--epochs` (default 5), `--checkpoint-dir` (default `backend/checkpoints_benchmark`), `--dataset` (default trỏ về dataset JobFlow nhỏ nhất hiện có). Script PHẢI import từ `ml_benchmark.*` (không `ml_service.*`), chạy training pipeline ngắn, in metrics `ndcg@10`, `recall@10`, `auc` cuối, exit 0 nếu hoàn tất / exit 1 nếu exception. Confirm tên dataset cụ thể bằng cách `ls backend/data/processed/` trước khi hardcode default. Không gọi script này trong T004 — chỉ viết.
-- [ ] T005 [P] Thêm `backend/checkpoints_benchmark/` vào `.gitignore` (kiểm tra root `.gitignore` và `backend/.gitignore` nếu có; thêm pattern `backend/checkpoints_benchmark/` ở chỗ phù hợp, đặt cạnh pattern `backend/checkpoints/` nếu tồn tại để rõ context).
+- [x] T003 Viết `backend/scripts/duplicate_ml_service.sh` (idempotent, refuse-overwrite theo R7 trong [research.md](research.md#r7-idempotency-của-script-duplicate)). Script PHẢI thực hiện theo đúng thứ tự: (a) abort nếu `backend/ml_benchmark/` đã tồn tại trừ khi pass `--force`; (b) `cp -r backend/ml_service backend/ml_benchmark`; (c) dọn `__pycache__/`, `*.pyc`, `.pytest_cache/` trong sandbox (R4); (d) `rm -rf` các module strip (`api/`, `inference/`, `reranker/`, `verifier/`, `crawler/factory.py`, `crawler/scheduler.py`, `crawler/storage.py`, `crawler/providers/`, `crawler/README.md`) — KHÔNG xóa `crawler/base.py`, `crawler/__init__.py`, `cv_parser/`; (e) rewrite imports bằng `grep -rl --include='*.py' 'ml_service' backend/ml_benchmark | xargs sed -i '' -E 's/(^|[^a-zA-Z_])ml_service([.[:space:]])/\1ml_benchmark\2/g'`; (f) in tóm tắt số file thay đổi và số module còn lại. Script bắt đầu bằng `set -euo pipefail`.
+- [x] T004 Viết `backend/scripts/smoke_test_benchmark.py` theo R6 trong [research.md](research.md#r6-smoke-test-design). Phải có CLI args `--epochs` (default 5), `--checkpoint-dir` (default `backend/checkpoints_benchmark`), `--dataset` (default trỏ về dataset JobFlow nhỏ nhất hiện có). Script PHẢI import từ `ml_benchmark.*` (không `ml_service.*`), chạy training pipeline ngắn, in metrics `ndcg@10`, `recall@10`, `auc` cuối, exit 0 nếu hoàn tất / exit 1 nếu exception. Confirm tên dataset cụ thể bằng cách `ls backend/data/processed/` trước khi hardcode default. Không gọi script này trong T004 — chỉ viết.
+- [x] T005 [P] Thêm `backend/checkpoints_benchmark/` vào `.gitignore` (kiểm tra root `.gitignore` và `backend/.gitignore` nếu có; thêm pattern `backend/checkpoints_benchmark/` ở chỗ phù hợp, đặt cạnh pattern `backend/checkpoints/` nếu tồn tại để rõ context).
 
 **Checkpoint**: Foundation ready — scripts đã có nhưng CHƯA chạy. Sandbox chưa tồn tại. Production còn nguyên.
 
@@ -59,14 +59,14 @@ description: "Task list for feature 007 — Duplicate ML Service for Benchmark"
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Chạy `bash backend/scripts/duplicate_ml_service.sh`. Verify exit code 0, không có error trong stdout/stderr. Verify `backend/ml_benchmark/` đã được tạo. (Tham chiếu bước 1 quickstart)
-- [ ] T007 [US1] Verify cấu trúc thư mục sandbox đúng: `ls backend/ml_benchmark/` ra đúng `__init__.py baselines/ config/ crawler/ cv_parser/ data/ embedding/ evaluation/ graph/ models/ training/ utils/`; `ls backend/ml_benchmark/crawler/` ra đúng `__init__.py base.py`. (Tham chiếu bước 2 quickstart, [data-model.md §E1](data-model.md))
-- [ ] T008 [US1] Verify production nguyên vẹn (R-INV-1): `git diff --stat backend/ml_service/` ra rỗng; `git status backend/ml_service/` không có file modified/untracked nào ngoài state baseline đã capture ở T002. (Tham chiếu bước 3 quickstart)
-- [ ] T009 [US1] Verify 0 reference `ml_service` trong sandbox (R-INV-2, SC-004): `grep -rn "from ml_service\|import ml_service" backend/ml_benchmark --include='*.py'` ra rỗng. Nếu có hit là import statement → mở file, sửa thủ công (hiếm, vì sed regex ở T003 đã catch); nếu hit là string literal trong docstring/comment → review thủ công, đổi sang "ml_benchmark" cho nhất quán. (Tham chiếu bước 4 quickstart)
-- [ ] T010 [US1] Verify cache đã dọn (R-INV-5, SC-007): `find backend/ml_benchmark \( -name __pycache__ -o -name '*.pyc' -o -name .pytest_cache \) -print` ra rỗng. Nếu có hit → xóa.
-- [ ] T011 [US1] Sửa `backend/ml_benchmark/__init__.py` rewrite docstring: bỏ liệt kê module `inference`, `crawler` (chỉ giữ `base`), `cv_parser` (vẫn liệt kê vì giữ lại), `reranker` (bỏ); thêm chú thích ngắn ở đầu docstring nói "benchmark sandbox forked from ml_service for thesis multi-dataset benchmarking — do not import from production". (Tham chiếu [data-model.md §E1](data-model.md))
-- [ ] T012 [US1] Sửa `backend/ml_benchmark/crawler/__init__.py` rút gọn còn `from ml_benchmark.crawler.base import RawJob` + `__all__ = ['RawJob']`; bỏ mọi re-export khác nếu có. (Tham chiếu [data-model.md §E1](data-model.md))
-- [ ] T013 [P] [US1] Verify import standalone (R-INV-3, SC-003): chạy
+- [x] T006 [US1] Chạy `bash backend/scripts/duplicate_ml_service.sh`. Verify exit code 0, không có error trong stdout/stderr. Verify `backend/ml_benchmark/` đã được tạo. (Tham chiếu bước 1 quickstart)
+- [x] T007 [US1] Verify cấu trúc thư mục sandbox đúng: `ls backend/ml_benchmark/` ra đúng `__init__.py baselines/ config/ crawler/ cv_parser/ data/ embedding/ evaluation/ graph/ models/ training/ utils/`; `ls backend/ml_benchmark/crawler/` ra đúng `__init__.py base.py`. (Tham chiếu bước 2 quickstart, [data-model.md §E1](data-model.md))
+- [x] T008 [US1] Verify production nguyên vẹn (R-INV-1): `git diff --stat backend/ml_service/` ra rỗng; `git status backend/ml_service/` không có file modified/untracked nào ngoài state baseline đã capture ở T002. (Tham chiếu bước 3 quickstart)
+- [x] T009 [US1] Verify 0 reference `ml_service` trong sandbox (R-INV-2, SC-004): `grep -rn "from ml_service\|import ml_service" backend/ml_benchmark --include='*.py'` ra rỗng. Nếu có hit là import statement → mở file, sửa thủ công (hiếm, vì sed regex ở T003 đã catch); nếu hit là string literal trong docstring/comment → review thủ công, đổi sang "ml_benchmark" cho nhất quán. (Tham chiếu bước 4 quickstart)
+- [x] T010 [US1] Verify cache đã dọn (R-INV-5, SC-007): `find backend/ml_benchmark \( -name __pycache__ -o -name '*.pyc' -o -name .pytest_cache \) -print` ra rỗng. Nếu có hit → xóa.
+- [x] T011 [US1] Sửa `backend/ml_benchmark/__init__.py` rewrite docstring: bỏ liệt kê module `inference`, `crawler` (chỉ giữ `base`), `cv_parser` (vẫn liệt kê vì giữ lại), `reranker` (bỏ); thêm chú thích ngắn ở đầu docstring nói "benchmark sandbox forked from ml_service for thesis multi-dataset benchmarking — do not import from production". (Tham chiếu [data-model.md §E1](data-model.md))
+- [x] T012 [US1] Sửa `backend/ml_benchmark/crawler/__init__.py` rút gọn còn `from ml_benchmark.crawler.base import RawJob` + `__all__ = ['RawJob']`; bỏ mọi re-export khác nếu có. (Tham chiếu [data-model.md §E1](data-model.md))
+- [x] T013 [P] [US1] Verify import standalone (R-INV-3, SC-003): chạy
   ```bash
   cd backend && python -c "
   import ml_benchmark
@@ -85,7 +85,7 @@ description: "Task list for feature 007 — Duplicate ML Service for Benchmark"
   "
   ```
   Phải in `OK`. Nếu có ImportError → đọc traceback, fix cross-dependency bị sót.
-- [ ] T014 [P] [US1] Verify load đồng thời (R-INV-4, SC-006): chạy
+- [x] T014 [P] [US1] Verify load đồng thời (R-INV-4, SC-006): chạy
   ```bash
   cd backend && python -c "
   import ml_service, ml_benchmark
@@ -95,9 +95,9 @@ description: "Task list for feature 007 — Duplicate ML Service for Benchmark"
   "
   ```
   Phải in `Both loaded independently`.
-- [ ] T015 [US1] Confirm dataset path cho smoke test. Chạy `ls backend/data/processed/` và xác định dataset nhỏ nhất sẵn có. Cập nhật default `--dataset` trong `backend/scripts/smoke_test_benchmark.py` (đã viết ở T004) nếu cần. Document tên dataset chọn vào comment đầu file.
-- [ ] T016 [US1] Chạy smoke test: `cd backend && python scripts/smoke_test_benchmark.py --epochs 5 --checkpoint-dir checkpoints_benchmark`. Yêu cầu: exit 0, không exception, metric không phải NaN, `ndcg@10 > 0.3`. Lưu output console vào `specs/007-duplicate-ml-benchmark/_smoke_test_log.txt` (untracked, không commit). (Tham chiếu bước 8 quickstart, [research.md §R6](research.md#r6-smoke-test-design))
-- [ ] T017 [US1] Verify checkpoint không động production: `git status backend/checkpoints/` không có file mới; `ls backend/checkpoints_benchmark/` có file checkpoint từ smoke test. (Tham chiếu bước 9 quickstart)
+- [x] T015 [US1] Confirm dataset path cho smoke test. Chạy `ls backend/data/processed/` và xác định dataset nhỏ nhất sẵn có. Cập nhật default `--dataset` trong `backend/scripts/smoke_test_benchmark.py` (đã viết ở T004) nếu cần. Document tên dataset chọn vào comment đầu file.
+- [x] T016 [US1] Chạy smoke test: `cd backend && python scripts/smoke_test_benchmark.py --epochs 5 --checkpoint-dir checkpoints_benchmark`. Yêu cầu: exit 0, không exception, metric không phải NaN, `ndcg@10 > 0.3`. Lưu output console vào `specs/007-duplicate-ml-benchmark/_smoke_test_log.txt` (untracked, không commit). (Tham chiếu bước 8 quickstart, [research.md §R6](research.md#r6-smoke-test-design))
+- [x] T017 [US1] Verify checkpoint không động production: `git status backend/checkpoints/` không có file mới; `ls backend/checkpoints_benchmark/` có file checkpoint từ smoke test. (Tham chiếu bước 9 quickstart)
 
 **Checkpoint**: User Story 1 done. Sandbox usable. Mọi invariant R-INV-1..5 đã verify. Smoke test pass. Production chưa bị động.
 
@@ -111,9 +111,9 @@ description: "Task list for feature 007 — Duplicate ML Service for Benchmark"
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] Stage chỉ các artifact của sandbox + script + .gitignore + spec docs: `git add backend/ml_benchmark/ backend/scripts/duplicate_ml_service.sh backend/scripts/smoke_test_benchmark.py .gitignore specs/007-duplicate-ml-benchmark/ CLAUDE.md`. **Tuyệt đối KHÔNG** `git add backend/ml_service/` hoặc `git add -A`. Verify bằng `git diff --cached --stat` không có file nào trong `backend/ml_service/`.
-- [ ] T019 [US2] Verify staged set sạch trước commit: `git status` phải cho thấy chỉ các file ở T018; nếu có file untracked không liên quan (vd `_smoke_test_log.txt`, `_baseline_git_status.txt`) thì giữ untracked.
-- [ ] T020 [US2] Commit bằng heredoc với message theo R8 trong [research.md](research.md#r8-git-commit-message):
+- [x] T018 [US2] Stage chỉ các artifact của sandbox + script + .gitignore + spec docs: `git add backend/ml_benchmark/ backend/scripts/duplicate_ml_service.sh backend/scripts/smoke_test_benchmark.py .gitignore specs/007-duplicate-ml-benchmark/ CLAUDE.md`. **Tuyệt đối KHÔNG** `git add backend/ml_service/` hoặc `git add -A`. Verify bằng `git diff --cached --stat` không có file nào trong `backend/ml_service/`.
+- [x] T019 [US2] Verify staged set sạch trước commit: `git status` phải cho thấy chỉ các file ở T018; nếu có file untracked không liên quan (vd `_smoke_test_log.txt`, `_baseline_git_status.txt`) thì giữ untracked.
+- [x] T020 [US2] Commit bằng heredoc với message theo R8 trong [research.md](research.md#r8-git-commit-message):
   ```bash
   git commit -m "$(cat <<'EOF'
   chore(ml_benchmark): duplicate ml_service for thesis benchmarking
@@ -129,8 +129,8 @@ description: "Task list for feature 007 — Duplicate ML Service for Benchmark"
   EOF
   )"
   ```
-- [ ] T021 [US2] Verify single commit (R-INV-6, SC-005): `git log --oneline -- backend/ml_benchmark/` ra đúng 1 dòng, message chứa "duplicate", "benchmark", "thesis". (Tham chiếu bước 10 quickstart)
-- [ ] T022 [US2] Verify lịch sử production không bị xen lẫn: `git log --oneline -- backend/ml_service/ | head -5` ra đúng 5 commit cũ trước đó, KHÔNG có sha của T020.
+- [x] T021 [US2] Verify single commit (R-INV-6, SC-005): `git log --oneline -- backend/ml_benchmark/` ra đúng 1 dòng, message chứa "duplicate", "benchmark", "thesis". (Tham chiếu bước 10 quickstart)
+- [x] T022 [US2] Verify lịch sử production không bị xen lẫn: `git log --oneline -- backend/ml_service/ | head -5` ra đúng 5 commit cũ trước đó, KHÔNG có sha của T020.
 
 **Checkpoint**: User Story 2 done. Cả 2 user story đã pass. Feature 007 sẵn sàng merge.
 
@@ -140,9 +140,9 @@ description: "Task list for feature 007 — Duplicate ML Service for Benchmark"
 
 **Purpose**: Cập nhật roadmap và đóng phase.
 
-- [ ] T023 [P] Mark Phase 1 trong `specs/006-multi-dataset-benchmark/phases.md` là DONE: tick các checkbox của Phase 1 (Duplicate service); thêm dòng reference tới feature 007 đã hoàn thành (vd "Implemented in: [007-duplicate-ml-benchmark](../007-duplicate-ml-benchmark/)").
-- [ ] T024 [P] Chạy lại [quickstart.md](quickstart.md) bảng tổng hợp PASS/FAIL từ đầu, tick all PASS; ghi tay vào `specs/007-duplicate-ml-benchmark/_quickstart_run.md` (untracked).
-- [ ] T025 Cập nhật CLAUDE.md SPECKIT block: trỏ active feature sang Phase 2 (MovieLens) khi sẵn sàng, hoặc giữ trỏ 007 nếu user muốn pause review. (Quyết định cùng user — đặt task này cuối cùng để hỏi).
+- [x] T023 [P] Mark Phase 1 trong `specs/006-multi-dataset-benchmark/phases.md` là DONE: tick các checkbox của Phase 1 (Duplicate service); thêm dòng reference tới feature 007 đã hoàn thành (vd "Implemented in: [007-duplicate-ml-benchmark](../007-duplicate-ml-benchmark/)").
+- [x] T024 [P] Chạy lại [quickstart.md](quickstart.md) bảng tổng hợp PASS/FAIL từ đầu, tick all PASS; ghi tay vào `specs/007-duplicate-ml-benchmark/_quickstart_run.md` (untracked).
+- [x] T025 Cập nhật CLAUDE.md SPECKIT block: trỏ active feature sang Phase 2 (MovieLens) khi sẵn sàng, hoặc giữ trỏ 007 nếu user muốn pause review. (Quyết định cùng user — đặt task này cuối cùng để hỏi).
 
 ---
 

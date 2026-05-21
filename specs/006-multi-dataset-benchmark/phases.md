@@ -28,13 +28,15 @@ Metrics: **NDCG@10, Recall@10, HR@10, MRR** (mean ± std qua 3 seed).
 - [ ] Viết `plan.md` đầy đủ trong cùng thư mục này
 - **Output:** `specs/006-multi-dataset-benchmark/plan.md`
 
-### Phase 1 — Duplicate service (0.5 ngày)
-- [ ] `cp -r backend/ml_service backend/ml_benchmark`
-- [ ] Xóa module không cần: `verifier/`, `crawler/`, `cv_parser/`, `inference/`, `reranker/`, `api/`
-- [ ] Đổi import `ml_service.*` → `ml_benchmark.*` trong bản copy
-- [ ] Tách checkpoint dir: `backend/checkpoints_benchmark/`
-- [ ] Commit riêng: `chore: duplicate ml_service → ml_benchmark for thesis benchmarking`
-- **Output:** Bản copy chạy được lại trên data hiện tại
+### Phase 1 — Duplicate service (0.5 ngày) ✅ DONE
+- [x] `cp -r backend/ml_service backend/ml_benchmark`
+- [x] Xóa module không cần: `verifier/`, `inference/`, `reranker/`, `api/`, `crawler/{factory,scheduler,storage,providers}`
+- [x] Đổi import `ml_service.*` → `ml_benchmark.*` trong bản copy
+- [x] Tách checkpoint dir: `backend/checkpoints_benchmark/`
+- [x] Commit riêng: `chore(ml_benchmark): duplicate ml_service for thesis benchmarking` (c865c3f)
+- **Output:** Bản copy chạy được lại trên data hiện tại (smoke test NDCG@10=0.9266 trong 94s)
+- **Implementation:** [007-duplicate-ml-benchmark](../007-duplicate-ml-benchmark/) (spec + plan + research + tasks)
+- **Exception ghi nhận:** giữ `crawler/base.py` (chỉ file này) + toàn bộ `cv_parser/` vì `data/skill_extractor.py` và `data/linkedin_cv_loader.py` phụ thuộc cứng — chi tiết ở [007 research §R1](../007-duplicate-ml-benchmark/research.md#r1-cross-module-dependencies-từ-modules-to-keep-sang-modules-to-strip).
 
 ### Phase 2 — MovieLens-1M integration (2–3 ngày) *(song song với Phase 3)*
 - [ ] Script tự download `ml-1m.zip` → `Dataset/movielens-1m/`
