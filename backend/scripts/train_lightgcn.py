@@ -100,6 +100,23 @@ def load_dataset(dataset: str, args):
                 "split": "leave-one-out per user (timestamp)",
             },
         )
+    elif dataset == "jobflow":
+        from ml_benchmark.data.jobflow_loader import load_jobflow
+        ds = load_jobflow(
+            data_dir=_BACKEND_DIR / "data" / "processed" / "b89",
+            min_positives_per_cv=3,
+            hidden_channels=args.hidden,
+            seed=args.seed,
+        )
+        return (
+            ds.split.num_users, ds.split.num_jobs,
+            ds.split.train_pairs, ds.split.val_pairs, ds.split.test_pairs,
+            "JobFlow",
+            {
+                "min_positives_per_cv": 3,
+                "split": "leave-one-out per CV (insertion order)",
+            },
+        )
     else:
         raise ValueError(f"Unknown dataset: {dataset!r}")
 
@@ -191,7 +208,7 @@ def evaluate_lightgcn(
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--dataset", choices=["movielens", "careerbuilder"], required=True)
+    p.add_argument("--dataset", choices=["movielens", "careerbuilder", "jobflow"], required=True)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--max-epochs", type=int, default=500)
     p.add_argument("--patience", type=int, default=50)

@@ -42,7 +42,17 @@ def run_one_seed(
     cmd.extend(extra_args)
     print(f"[seed={seed}] launching: {' '.join(cmd)}", flush=True)
     proc = subprocess.run(cmd, cwd=_BACKEND_DIR)
+    # Some setups (Django + sentence-transformers + torch_geometric) abort during
+    # Python interpreter cleanup with exit -6/-11 even after the script has
+    # already written its JSON output. Treat exit non-zero as success if the
+    # output file exists and parses.
     if proc.returncode != 0:
+        if out_path.exists():
+            try:
+                with open(out_path) as f:
+                    return json.load(f)
+            except Exception:
+                pass
         raise RuntimeError(f"{train_script} seed={seed} failed with exit {proc.returncode}")
     with open(out_path) as f:
         return json.load(f)
