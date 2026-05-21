@@ -24,10 +24,16 @@ _BACKEND_DIR = Path(__file__).resolve().parent.parent
 LIGHTGCN_PAPER_REF = {"ndcg@20": 0.22, "recall@20": 0.26}
 
 
-def run_one_seed(seed: int, out_path: Path, hetero: bool, extra_args: list[str]) -> dict:
+def run_one_seed(
+    seed: int,
+    out_path: Path,
+    hetero: bool,
+    extra_args: list[str],
+    train_script: str = "scripts/train_movielens.py",
+) -> dict:
     cmd = [
         sys.executable,
-        str(_BACKEND_DIR / "scripts" / "train_movielens.py"),
+        str(_BACKEND_DIR / train_script),
         "--seed", str(seed),
         "--output", str(out_path),
     ]
@@ -37,7 +43,7 @@ def run_one_seed(seed: int, out_path: Path, hetero: bool, extra_args: list[str])
     print(f"[seed={seed}] launching: {' '.join(cmd)}", flush=True)
     proc = subprocess.run(cmd, cwd=_BACKEND_DIR)
     if proc.returncode != 0:
-        raise RuntimeError(f"train_movielens.py seed={seed} failed with exit {proc.returncode}")
+        raise RuntimeError(f"{train_script} seed={seed} failed with exit {proc.returncode}")
     with open(out_path) as f:
         return json.load(f)
 
@@ -55,8 +61,10 @@ def main():
     p.add_argument("--seeds", type=int, nargs="+", default=[42, 123, 2024])
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--hetero", action="store_true")
+    p.add_argument("--train-script", default="scripts/train_movielens.py",
+                   help="Relative train script path (e.g. scripts/train_careerbuilder.py)")
     p.add_argument("--extra", nargs=argparse.REMAINDER, default=[],
-                   help="Extra args forwarded to train_movielens.py (e.g. --max-epochs 200)")
+                   help="Extra args forwarded to train script (e.g. --max-epochs 200)")
     args = p.parse_args()
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -65,7 +73,7 @@ def main():
     runs = []
     for seed in args.seeds:
         seed_out = args.output.parent / f"seed{seed}{'_hetero' if args.hetero else ''}.json"
-        result = run_one_seed(seed, seed_out, args.hetero, args.extra or [])
+        result = run_one_seed(seed, seed_out, args.hetero, args.extra or [], train_script=args.train_script)
         runs.append(result)
 
     # Aggregate test metrics across seeds
