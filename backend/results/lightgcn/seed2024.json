@@ -1,0 +1,48 @@
+{
+  "feature": "010-lightgcn-baseline",
+  "dataset": "CareerBuilder12",
+  "variant": "bipartite",
+  "preprocessing": {
+    "subsample_users": 50000,
+    "subsample_seed": 2024,
+    "k_core": 10,
+    "split": "leave-one-out per user (timestamp)"
+  },
+  "model": "LightGCN",
+  "config": {
+    "embedding_dim": 64,
+    "num_layers": 3,
+    "lr": 0.001,
+    "weight_decay": 0.0,
+    "lambda_reg": 0.0001,
+    "max_epochs": 500,
+    "early_stopping_patience": 50,
+    "seed": 2024
+  },
+  "stats": {
+    "num_users": 2860,
+    "num_items": 3034,
+    "num_train_pairs": 50558,
+    "num_val_pairs": 2860,
+    "num_test_pairs": 2860
+  },
+  "training": {
+    "best_epoch": 126,
+    "epochs_run": 177,
+    "final_train_loss": 0.5942771434783936,
+    "wall_time_seconds": 89.9,
+    "device": "cuda"
+  },
+  "test_metrics": {
+    "recall@20": 0.6416083916083916,
+    "ndcg@20": 0.27226382168856533,
+    "hr@20": 0.6416083916083916,
+    "mrr": 0.1799048470450448
+  },
+  "versions": {
+    "python": "3.11.12",
+    "torch": "2.4.1+cu121",
+    "torch_geometric": "2.7.0",
+    "numpy": "1.26.3"
+  }
+}

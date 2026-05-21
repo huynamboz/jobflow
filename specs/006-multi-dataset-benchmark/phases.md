@@ -73,11 +73,34 @@ Metrics: **NDCG@10, Recall@10, HR@10, MRR** (mean ± std qua 3 seed).
   - Wall time per seed: ~2.2 min GPU (RTX 3090) — 50% nhanh hơn MovieLens
 - **Discovery quan trọng**: trên CB12 (cùng domain job-rec), kiến trúc HeteroGraphSAGE WIN paper LightGCN trên Recall@20 mặc dù THUA trên MovieLens. → Argument luận văn: **hetero arch ưu thế khi data ở domain mục tiêu (job-rec)**, kể cả bipartite variant.
 
-### Phase 4 — Implement LightGCN baseline (1 ngày)
-- [ ] Wrap `torch_geometric.nn.models.LightGCN` thành `ml_benchmark/baselines/lightgcn.py`
-- [ ] Tích hợp với trainer chung
-- [ ] Test trên cả 3 dataset
-- **Output:** LightGCN chạy được trên cả 3 dataset
+### Phase 4 — Implement LightGCN baseline ✅ DONE
+- [x] Wrap `torch_geometric.nn.models.LightGCN` thành `ml_benchmark/baselines/lightgcn.py`
+- [x] Train loop riêng (không reuse Trainer.train_generic vì forward signature khác)
+- [x] Test trên 2 dataset: MovieLens-1M + CareerBuilder12 (JobFlow rerun thuộc phase riêng)
+- [x] Multi-seed 3 cho cả 2 dataset
+- **Implementation:** [010-lightgcn-baseline](../010-lightgcn-baseline/)
+- **Output:** Bảng so sánh apples-to-apples — `backend/results/lightgcn/{movielens,careerbuilder}_summary.json`
+
+**Kết quả Phase 4 (LightGCN, 3 seeds mean ± std)**:
+
+| Dataset | NDCG@20 | Recall@20 | HR@20 | MRR | Wall/seed |
+|---|---|---|---|---|---|
+| MovieLens-1M | 0.0258 ± 0.0034 | 0.0707 ± 0.0070 | 0.0707 ± 0.0070 | 0.0195 ± 0.0026 | ~3 min |
+| CareerBuilder12 | **0.2738 ± 0.0011** | **0.6480 ± 0.0046** | **0.6480 ± 0.0046** | **0.1799 ± 0.0003** | ~1.5 min |
+
+**Insight quan trọng đảo ngược story tạm thời**:
+
+| | MovieLens | CB12 |
+|---|---|---|
+| HeteroSAGE (ta) | 0.0272 | 0.1689 |
+| LightGCN (baseline) | 0.0258 | **0.2738 🏆** |
+| Winner | TIE | LightGCN |
+
+- **MovieLens**: 2 model gần TIE (HeteroSAGE = 0.0272 vs LightGCN = 0.0258) — confirm preprocessing/eval setup của ta consistent. Gap với paper LightGCN (0.22) là do preprocessing khác paper, không phải lỗi 1 model nào cụ thể.
+- **CB12**: LightGCN **THẮNG đáng kể** (NDCG 1.62×, Recall 1.45× HeteroSAGE) — challenge thesis claim "model ta tốt cho job-rec". Cần argue lại:
+  - LightGCN bipartite cũng work tốt cho job-rec → hetero arch không phải winning factor mặc định
+  - Lý lẽ thesis còn lại: hetero arch lợi thế khi data có **rich schema** (skill, seniority) — chưa test
+  - Phase tiếp theo: implement hetero variant CB12 với skill+seniority (US2 stretch của Phase 3), nếu beat LightGCN → confirm; nếu không → thesis cần điều chỉnh
 
 ### Phase 5 — Run full benchmark (1–2 ngày + GPU time)
 - [ ] Viết `scripts/run_benchmark.py` chạy hết bảng 4×3
