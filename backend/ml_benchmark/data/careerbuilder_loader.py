@@ -20,7 +20,9 @@ called with src_type="user", dst_type="job".
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 import shutil
 import subprocess
 from collections import Counter
@@ -38,6 +40,75 @@ logger = logging.getLogger(__name__)
 
 KAGGLE_DATASET_ID = "jsrshivam/job-recommendation-case-study"
 REQUIRED_FILES = ("apps.tsv", "users.tsv")    # jobs.tsv (3.4GB) only needed for hetero
+REQUIRED_FILES_HETERO = ("apps.tsv", "users.tsv", "jobs.tsv")
+
+# Seniority levels for hetero variant (mirrors ml_benchmark.graph.schema.SeniorityLevel
+# but kept local to avoid JobFlow-specific enum dependency).
+SENIORITY_LEVELS = ["intern", "junior", "mid", "senior", "lead", "manager"]
+SENIORITY_DEFAULT = "mid"
+_SENIORITY_PATTERNS: list[tuple[str, re.Pattern]] = [
+    ("intern",  re.compile(r"\b(intern|internship|trainee)\b", re.IGNORECASE)),
+    ("manager", re.compile(r"\b(manager|director|vp|head of|chief)\b", re.IGNORECASE)),
+    ("lead",    re.compile(r"\b(lead|principal|staff|architect)\b", re.IGNORECASE)),
+    ("senior",  re.compile(r"\b(senior|sr\.|sr )\b", re.IGNORECASE)),
+    ("junior",  re.compile(r"\b(junior|jr\.|jr |entry[- ]level|entry-level)\b", re.IGNORECASE)),
+]
+
+
+def _parse_seniority_from_title(title: str) -> str:
+    """Return one of SENIORITY_LEVELS based on title regex; default 'mid'."""
+    if not title:
+        return SENIORITY_DEFAULT
+    for level, pat in _SENIORITY_PATTERNS:
+        if pat.search(title):
+            return level
+    return SENIORITY_DEFAULT
+
+
+def _build_skill_keyword_index(skill_alias_path: Path) -> tuple[dict[str, str], list[str]]:
+    """Load skill-alias.json → (alias_lower -> canonical_skill, canonical_list).
+
+    Each alias is matched as a whole-word regex against job description text.
+    Longer aliases are checked first to avoid 'java' matching inside 'javascript'.
+    """
+    with open(skill_alias_path, encoding="utf-8") as f:
+        raw = json.load(f)
+    alias_to_canonical: dict[str, str] = {}
+    for canonical, info in raw["skills"].items():
+        for alias in info.get("aliases", []) + [canonical]:
+            alias_to_canonical[alias.lower()] = canonical
+    canonicals = sorted(set(alias_to_canonical.values()))
+    return alias_to_canonical, canonicals
+
+
+def _extract_skills_from_text(text: str, alias_to_canonical: dict[str, str], compiled_patterns: list[tuple[re.Pattern, str]]) -> set[str]:
+    """Whole-word regex match every alias in text → set of canonical skills."""
+    if not text:
+        return set()
+    text_lower = text.lower()
+    found: set[str] = set()
+    for pat, canonical in compiled_patterns:
+        if pat.search(text_lower):
+            found.add(canonical)
+    return found
+
+
+def _compile_skill_patterns(alias_to_canonical: dict[str, str]) -> list[tuple[re.Pattern, str]]:
+    """Compile one regex per alias, sort by length desc (longest first).
+
+    We use word boundaries (\b) to avoid 'java' matching 'javascript'.
+    """
+    # Sort aliases longest first so 'react native' matches before 'react' would
+    pairs = sorted(alias_to_canonical.items(), key=lambda x: -len(x[0]))
+    compiled = []
+    for alias, canonical in pairs:
+        # Escape special chars; allow word boundary; case insensitive
+        pat_str = r"\b" + re.escape(alias.lower()) + r"\b"
+        try:
+            compiled.append((re.compile(pat_str), canonical))
+        except re.error:
+            continue   # skip malformed
+    return compiled
 
 
 # ---------------------------------------------------------------------------
@@ -211,8 +282,12 @@ def load_careerbuilder_12(
     cache = download_careerbuilder_12(cache_dir)
 
     if include_hetero:
-        # TODO US2: requires jobs.tsv (3.4GB) for skill/seniority extraction
-        raise NotImplementedError("hetero variant (US2) is stretch goal — not implemented in P1")
+        jobs_path = cache / "jobs.tsv"
+        jobs_filtered_path = cache / "jobs_filtered.tsv"
+        if not jobs_path.exists() and not jobs_filtered_path.exists():
+            raise RuntimeError(
+                f"hetero variant requires jobs.tsv (3.4GB) or jobs_filtered.tsv (pre-filtered to kept jobs) in {cache}"
+            )
 
     logger.info("Parsing apps.tsv ...")
     apps_df = _parse_apps(cache / "apps.tsv")
@@ -287,6 +362,94 @@ def load_careerbuilder_12(
         raise RuntimeError("Empty train set after split")
     data["user", "applied", "job"].edge_index = torch.from_numpy(train_arr).long()
 
+    # ---------------------------- Hetero variant: skill + seniority nodes ----------------------------
+    skill_to_idx: dict[str, int] = {}
+    num_skills = 0
+    num_seniority = 0
+    if include_hetero:
+        logger.info("Hetero variant: parsing jobs.tsv for skill + seniority extraction ...")
+        kept_job_ids = set(all_jobs)
+        skill_alias_path = Path(__file__).parent / "skill-alias.json"
+        alias_to_canonical, canonicals = _build_skill_keyword_index(skill_alias_path)
+        compiled_patterns = _compile_skill_patterns(alias_to_canonical)
+        logger.info("  loaded %d canonical skills, %d alias patterns",
+                    len(canonicals), len(compiled_patterns))
+
+        # Stream parse jobs.tsv (or pre-filtered jobs_filtered.tsv) for kept jobs only
+        jobs_file = cache / "jobs_filtered.tsv" if (cache / "jobs_filtered.tsv").exists() else cache / "jobs.tsv"
+        logger.info("  reading job metadata from %s", jobs_file.name)
+        job_skills: dict[int, set[str]] = {}
+        job_seniority: dict[int, str] = {}
+        chunks = pd.read_csv(
+            jobs_file,
+            sep="\t",
+            encoding="ISO-8859-1",
+            usecols=["JobID", "Title", "Description"],
+            on_bad_lines="warn",
+            low_memory=False,
+            chunksize=50_000,
+            dtype={"JobID": "Int64"},
+        )
+        n_processed = 0
+        for chunk in chunks:
+            chunk = chunk.dropna(subset=["JobID"])
+            chunk = chunk[chunk["JobID"].isin(kept_job_ids)]
+            for _, row in chunk.iterrows():
+                jid = int(row["JobID"])
+                title = str(row.get("Title", "")) if pd.notna(row.get("Title")) else ""
+                desc = str(row.get("Description", "")) if pd.notna(row.get("Description")) else ""
+                blob = f"{title} {desc}"
+                skills = _extract_skills_from_text(blob, alias_to_canonical, compiled_patterns)
+                if skills:
+                    job_skills[jid] = skills
+                job_seniority[jid] = _parse_seniority_from_title(title)
+                n_processed += 1
+        logger.info("  parsed %d jobs from jobs.tsv (%d w/ extracted skill)", n_processed, len(job_skills))
+
+        # Build skill node space (only canonicals that actually appear)
+        used_skills = sorted({s for ss in job_skills.values() for s in ss})
+        skill_to_idx = {s: i for i, s in enumerate(used_skills)}
+        num_skills = len(used_skills)
+        num_seniority = len(SENIORITY_LEVELS)
+        logger.info("  hetero nodes: %d skill × %d seniority", num_skills, num_seniority)
+
+        # Skill + Seniority node features (xavier init)
+        if num_skills > 0:
+            skill_x = torch.empty(num_skills, hidden_channels)
+            nn.init.xavier_uniform_(skill_x)
+            data["skill"].x = skill_x
+            data["skill"].num_nodes = num_skills
+        sen_x = torch.empty(num_seniority, hidden_channels)
+        nn.init.xavier_uniform_(sen_x)
+        data["seniority"].x = sen_x
+        data["seniority"].num_nodes = num_seniority
+
+        # job -> skill edges
+        if num_skills > 0:
+            js_pairs: list[tuple[int, int]] = []
+            for jid_raw, skills in job_skills.items():
+                if jid_raw not in job_id_to_idx:
+                    continue
+                jidx = job_id_to_idx[jid_raw]
+                for s in skills:
+                    js_pairs.append((jidx, skill_to_idx[s]))
+            if js_pairs:
+                js_arr = np.asarray(js_pairs, dtype=np.int64).T
+                data["job", "requires_skill", "skill"].edge_index = torch.from_numpy(js_arr).long()
+                logger.info("  job→skill edges: %d", len(js_pairs))
+
+        # job -> seniority edges (1 per job)
+        sen_to_idx = {lvl: i for i, lvl in enumerate(SENIORITY_LEVELS)}
+        jsen_pairs: list[tuple[int, int]] = []
+        for jid_raw, lvl in job_seniority.items():
+            if jid_raw not in job_id_to_idx:
+                continue
+            jsen_pairs.append((job_id_to_idx[jid_raw], sen_to_idx[lvl]))
+        if jsen_pairs:
+            jsen_arr = np.asarray(jsen_pairs, dtype=np.int64).T
+            data["job", "requires_seniority", "seniority"].edge_index = torch.from_numpy(jsen_arr).long()
+            logger.info("  job→seniority edges: %d", len(jsen_pairs))
+
     # ---------------------------- Invariants (defensive asserts) ----------------------------
     user_total = Counter(u for u, _ in train) + Counter(u for u, _ in val) + Counter(u for u, _ in test)
     if user_total:
@@ -304,14 +467,15 @@ def load_careerbuilder_12(
         test_pairs=test,
         num_users=num_users,
         num_jobs=num_jobs,
-        num_skills=0,
-        num_seniority=0,
+        num_skills=num_skills,
+        num_seniority=num_seniority,
     )
     return CareerbuilderDataset(
         data=data,
         split=split,
         user_id_to_idx=user_id_to_idx,
         job_id_to_idx=job_id_to_idx,
+        skill_to_idx=skill_to_idx,
         idx_to_user_id=all_users,
         idx_to_job_id=all_jobs,
     )
