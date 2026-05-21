@@ -73,6 +73,18 @@ class HeteroGraphSAGE(nn.Module):
     def decode(self, z_dict: dict[str, torch.Tensor], cv_indices: torch.Tensor, job_indices: torch.Tensor) -> torch.Tensor:
         return self.decoder(z_dict["cv"][cv_indices], z_dict["job"][job_indices])
 
+    def decode_generic(
+        self,
+        z_dict: dict[str, torch.Tensor],
+        src_indices: torch.Tensor,
+        dst_indices: torch.Tensor,
+        src_type: str,
+        dst_type: str,
+    ) -> torch.Tensor:
+        # Generic decoder for any (src, dst) node-type pair. Used by Trainer.train_generic
+        # for datasets that are not CV/Job (e.g. MovieLens user/movie).
+        return self.decoder(z_dict[src_type][src_indices], z_dict[dst_type][dst_indices])
+
     def forward(self, data: HeteroData, cv_indices: torch.Tensor, job_indices: torch.Tensor) -> torch.Tensor:
         return self.decode(self.encode(data), cv_indices, job_indices)
 
@@ -189,6 +201,16 @@ class HeteroRGCN(nn.Module):
 
     def decode(self, z_dict: dict[str, torch.Tensor], cv_indices: torch.Tensor, job_indices: torch.Tensor) -> torch.Tensor:
         return self.decoder(z_dict["cv"][cv_indices], z_dict["job"][job_indices])
+
+    def decode_generic(
+        self,
+        z_dict: dict[str, torch.Tensor],
+        src_indices: torch.Tensor,
+        dst_indices: torch.Tensor,
+        src_type: str,
+        dst_type: str,
+    ) -> torch.Tensor:
+        return self.decoder(z_dict[src_type][src_indices], z_dict[dst_type][dst_indices])
 
     def forward(self, data: HeteroData, cv_indices: torch.Tensor, job_indices: torch.Tensor) -> torch.Tensor:
         return self.decode(self.encode(data), cv_indices, job_indices)

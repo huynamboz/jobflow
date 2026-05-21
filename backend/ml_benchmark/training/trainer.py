@@ -9,7 +9,13 @@ import torch
 from torch_geometric.data import HeteroData
 
 from ml_benchmark.baselines.skill_overlap import SkillOverlapScorer
-from ml_benchmark.evaluation.metrics import compute_all_metrics
+from ml_benchmark.evaluation.metrics import (
+    compute_all_metrics,
+    hit_rate_at_k,
+    mrr,
+    ndcg_at_k,
+    recall_at_k,
+)
 from ml_benchmark.graph.schema import (
     EDGE_TRIPLETS,
     CVData,
@@ -431,6 +437,266 @@ class Trainer:
 
         y_true = np.array([p.label for p in valid_pairs])
         return compute_all_metrics(y_true, hybrid)
+
+    # ------------------------------------------------------------------
+    # Generic training loop for datasets without CV/Job schema (e.g. MovieLens).
+    # Pure BPR + random negative + per-user full-ranking evaluation, matching
+    # the LightGCN paper convention. Does NOT use hybrid scoring or hard negatives.
+    # ------------------------------------------------------------------
+
+    def train_generic(
+        self,
+        data: HeteroData,
+        train_pairs: list[tuple[int, int]],
+        val_pairs: list[tuple[int, int]],
+        test_pairs: list[tuple[int, int]],
+        *,
+        src_type: str = "user",
+        dst_type: str = "movie",
+        num_src: int,
+        num_dst: int,
+        eval_at_k: tuple[int, ...] = (20,),
+    ) -> TrainResult:
+        cfg = self.config
+        seed = getattr(cfg, "seed", 42)
+        rng = np.random.RandomState(seed)
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+
+        device = self._device
+
+        # Per-user positive set for train (used to mask seen items at eval time)
+        train_pos_by_src: dict[int, set[int]] = {}
+        for s, d in train_pairs:
+            train_pos_by_src.setdefault(s, set()).add(d)
+
+        data_clean = prepare_data_for_gnn(data).to(device)
+        metadata = data_clean.metadata()
+        node_dims = {
+            ntype: data_clean[ntype].x.shape[1]
+            for ntype in data_clean.node_types
+            if hasattr(data_clean[ntype], "x") and data_clean[ntype].x is not None
+        }
+        model = HeteroGraphSAGE(
+            metadata=metadata,
+            hidden_channels=cfg.hidden_channels,
+            num_layers=cfg.num_layers,
+            dropout=cfg.dropout,
+            node_dims=node_dims,
+        ).to(device)
+
+        # Learnable embedding tables per node type — replace the frozen Xavier
+        # tensors that the loader puts on data[ntype].x. Without this, only the
+        # projection layer learns and signal per-user/item is essentially fixed
+        # (verified empirically: frozen embeddings give NDCG@20 ≈ 0.006 vs paper 0.22).
+        node_embeddings = torch.nn.ModuleDict()
+        for ntype in data_clean.node_types:
+            x = getattr(data_clean[ntype], "x", None)
+            if x is None:
+                continue
+            num_nodes, emb_dim = x.shape
+            emb = torch.nn.Embedding(num_nodes, emb_dim).to(device)
+            torch.nn.init.xavier_uniform_(emb.weight)
+            node_embeddings[ntype] = emb
+
+        optimizer = torch.optim.Adam(
+            list(model.parameters()) + list(node_embeddings.parameters()),
+            lr=cfg.lr,
+            weight_decay=cfg.weight_decay,
+        )
+
+        # Helper to refresh data.x → embedding.weight before each encode call
+        def _refresh_features():
+            for ntype, emb in node_embeddings.items():
+                data_clean[ntype].x = emb.weight
+
+        _refresh_features()
+
+        train_arr = np.asarray(train_pairs, dtype=np.int64)
+        train_src = torch.from_numpy(train_arr[:, 0]).long().to(device)
+        train_pos = torch.from_numpy(train_arr[:, 1]).long().to(device)
+        n_train = len(train_pairs)
+
+        result = TrainResult()
+        best_val_signal = -float("inf")
+        patience_counter = 0
+        best_state = None
+        primary_k = eval_at_k[0]
+
+        for epoch in range(cfg.epochs):
+            model.train()
+            # BPR: 1 random negative per positive (LightGCN convention)
+            neg_np = rng.randint(0, num_dst, size=n_train).astype(np.int64)
+            neg = torch.from_numpy(neg_np).long().to(device)
+
+            z_dict = model.encode(data_clean)
+            pos_s = model.decode_generic(z_dict, train_src, train_pos, src_type, dst_type)
+            neg_s = model.decode_generic(z_dict, train_src, neg, src_type, dst_type)
+            loss = bpr_loss(pos_s, neg_s)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            result.train_losses.append(loss.item())
+
+            # Validate
+            model.eval()
+            with torch.no_grad():
+                val_metrics = self._evaluate_full_ranking(
+                    model, data_clean, val_pairs, train_pos_by_src,
+                    src_type=src_type, dst_type=dst_type,
+                    num_dst=num_dst, eval_at_k=eval_at_k,
+                )
+            result.val_metrics_history.append(val_metrics)
+
+            val_signal = val_metrics.get(f"ndcg@{primary_k}", 0.0)
+            logger.info(
+                "Epoch %d — loss=%.4f val_ndcg@%d=%.4f val_recall@%d=%.4f val_hr@%d=%.4f",
+                epoch, loss.item(),
+                primary_k, val_signal,
+                primary_k, val_metrics.get(f"recall@{primary_k}", 0.0),
+                primary_k, val_metrics.get(f"hr@{primary_k}", 0.0),
+            )
+
+            if val_signal > best_val_signal:
+                best_val_signal = val_signal
+                best_state = {
+                    "model": copy.deepcopy(model.state_dict()),
+                    "embeddings": copy.deepcopy(node_embeddings.state_dict()),
+                }
+                result.best_epoch = epoch
+                patience_counter = 0
+            elif epoch >= cfg.warmup_epochs:
+                patience_counter += 1
+                if patience_counter >= cfg.patience:
+                    logger.info("Early stopping at epoch %d (patience=%d)", epoch, cfg.patience)
+                    break
+
+        if best_state is not None:
+            model.load_state_dict(best_state["model"])
+            node_embeddings.load_state_dict(best_state["embeddings"])
+            _refresh_features()
+        model.eval()
+        with torch.no_grad():
+            result.test_metrics = self._evaluate_full_ranking(
+                model, data_clean, test_pairs, train_pos_by_src,
+                src_type=src_type, dst_type=dst_type,
+                num_dst=num_dst, eval_at_k=eval_at_k,
+            )
+
+        result.model = model
+        result.data_clean = data_clean
+        return result
+
+    def _evaluate_full_ranking(
+        self,
+        model: HeteroGraphSAGE,
+        data: HeteroData,
+        eval_pairs: list[tuple[int, int]],
+        train_pos_by_src: dict[int, set[int]],
+        *,
+        src_type: str,
+        dst_type: str,
+        num_dst: int,
+        eval_at_k: tuple[int, ...],
+        chunk_size: int = 1024,
+    ) -> dict[str, float]:
+        # Per-user full-ranking eval, chuẩn LightGCN paper §4.2:
+        # for each user, score ALL items except those seen in TRAIN,
+        # then compute Recall/NDCG/HR@k + MRR on whether the user's eval items rank high.
+        #
+        # Vectorized GPU implementation: chunks of `chunk_size` users at a time,
+        # scores all items in one batched MLP forward, sorts + computes metrics on GPU.
+        # ~5-10x faster than the per-user Python loop.
+        if not eval_pairs:
+            return {}
+
+        device = self._device
+
+        # Group eval pairs by src user
+        eval_by_src: dict[int, list[int]] = {}
+        for s, d in eval_pairs:
+            eval_by_src.setdefault(s, []).append(d)
+
+        eval_users = sorted(eval_by_src.keys())
+        n_eval = len(eval_users)
+        if n_eval == 0:
+            return {}
+
+        # Encode once
+        z_dict = model.encode(data)
+        z_src_full = z_dict[src_type]   # [num_src, hidden]
+        z_dst_full = z_dict[dst_type]   # [num_dst, hidden]
+        decoder = model.decoder
+        max_k = max(eval_at_k)
+        log2_idx = torch.log2(torch.arange(2, num_dst + 2, dtype=torch.float32, device=device))
+        discount_topk = 1.0 / log2_idx[:max_k]
+
+        accum: dict[str, float] = {}
+        for k in eval_at_k:
+            accum[f"recall@{k}"] = 0.0
+            accum[f"ndcg@{k}"] = 0.0
+            accum[f"hr@{k}"] = 0.0
+        accum["mrr"] = 0.0
+
+        for start in range(0, n_eval, chunk_size):
+            end = min(start + chunk_size, n_eval)
+            chunk = end - start
+            chunk_users = eval_users[start:end]
+            user_idx = torch.tensor(chunk_users, dtype=torch.long, device=device)
+            z_u = z_src_full[user_idx]                                   # [chunk, hidden]
+
+            # Build (chunk * num_dst, 2*hidden) input for MLP decoder
+            z_u_exp = z_u.unsqueeze(1).expand(-1, num_dst, -1)            # [chunk, num_dst, hidden]
+            z_m_exp = z_dst_full.unsqueeze(0).expand(chunk, -1, -1)        # [chunk, num_dst, hidden]
+            z_cat = torch.cat([z_u_exp, z_m_exp], dim=-1)                 # [chunk, num_dst, 2*hidden]
+            z_flat = z_cat.reshape(-1, z_cat.shape[-1])
+            scores = decoder.lin2(torch.relu(decoder.lin1(z_flat))).squeeze(-1)
+            scores = scores.view(chunk, num_dst)                          # [chunk, num_dst]
+
+            # Mask: -inf at items seen in train (so they don't appear in top-K)
+            train_mask = torch.zeros(chunk, num_dst, dtype=torch.bool, device=device)
+            eval_pos = torch.zeros(chunk, num_dst, dtype=torch.bool, device=device)
+            for i, u in enumerate(chunk_users):
+                seen = train_pos_by_src.get(u, set())
+                if seen:
+                    train_mask[i, list(seen)] = True
+                eval_pos[i, eval_by_src[u]] = True
+
+            scores = scores.masked_fill(train_mask, float("-inf"))
+
+            # Sort scores descending → ranking per user
+            sorted_idx = scores.argsort(dim=-1, descending=True)           # [chunk, num_dst]
+            is_pos_full = eval_pos.gather(1, sorted_idx)                   # [chunk, num_dst]
+            is_pos_topk = is_pos_full[:, :max_k].float()                   # [chunk, max_k]
+
+            n_pos_per_user = eval_pos.sum(dim=-1).clamp(min=1).float()     # [chunk]
+
+            for k in eval_at_k:
+                hits_at_k = is_pos_topk[:, :k]                              # [chunk, k]
+                recall_per_user = hits_at_k.sum(dim=-1) / n_pos_per_user
+                accum[f"recall@{k}"] += recall_per_user.sum().item()
+
+                dcg = (hits_at_k * discount_topk[:k]).sum(dim=-1)
+                # Ideal DCG: cap positives to k, then sum top-k of discount
+                n_ideal_per_user = eval_pos.sum(dim=-1).clamp(max=k)        # [chunk]
+                positions = torch.arange(k, device=device).unsqueeze(0)     # [1, k]
+                ideal_mask = positions < n_ideal_per_user.unsqueeze(1)      # [chunk, k]
+                idcg = (ideal_mask.float() * discount_topk[:k]).sum(dim=-1).clamp(min=1e-10)
+                ndcg_per_user = dcg / idcg
+                accum[f"ndcg@{k}"] += ndcg_per_user.sum().item()
+
+                hr_per_user = (hits_at_k.sum(dim=-1) > 0).float()
+                accum[f"hr@{k}"] += hr_per_user.sum().item()
+
+            # MRR over full ranking: 1 / rank_of_first_positive (1-indexed)
+            first_pos = is_pos_full.float().argmax(dim=-1)                 # [chunk]
+            has_any_pos = is_pos_full.any(dim=-1).float()
+            mrr_per_user = has_any_pos / (first_pos.float() + 1.0)
+            accum["mrr"] += mrr_per_user.sum().item()
+
+        for key in accum:
+            accum[key] /= n_eval
+        return accum
 
 
 def make_gnn_hybrid_scorer(

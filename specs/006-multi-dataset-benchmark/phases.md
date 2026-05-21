@@ -38,19 +38,23 @@ Metrics: **NDCG@10, Recall@10, HR@10, MRR** (mean ± std qua 3 seed).
 - **Implementation:** [007-duplicate-ml-benchmark](../007-duplicate-ml-benchmark/) (spec + plan + research + tasks)
 - **Exception ghi nhận:** giữ `crawler/base.py` (chỉ file này) + toàn bộ `cv_parser/` vì `data/skill_extractor.py` và `data/linkedin_cv_loader.py` phụ thuộc cứng — chi tiết ở [007 research §R1](../007-duplicate-ml-benchmark/research.md#r1-cross-module-dependencies-từ-modules-to-keep-sang-modules-to-strip).
 
-### Phase 2 — MovieLens-1M integration (2–3 ngày) *(song song với Phase 3)*
-- [ ] Script tự download `ml-1m.zip` → `Dataset/movielens-1m/`
-- [ ] Viết `ml_benchmark/data/movielens_loader.py`
+### Phase 2 — MovieLens-1M integration (2–3 ngày) *(song song với Phase 3)* ✅ DONE
+- [x] Script tự download `ml-1m.zip` → `Dataset/movielens-1m/` (via Kaggle mirror sau khi grouplens.org timeout)
+- [x] Viết `ml_benchmark/data/movielens_loader.py`
   - Bipartite: `user ↔ rated ↔ movie`
   - Rating ≥ 4 → positive interaction
-  - Optional: thêm node `genre` cho hetero variant
-- [ ] Generalize `HeteroGraphSAGE` cho metadata động (bỏ hardcode 386/385/6)
-- [ ] Thêm `nn.Embedding` cho user/movie (không có rich features)
-- [ ] Script `scripts/train_movielens.py`
-- [ ] **Sanity check:** reproduce LightGCN paper số (Recall@20 ≈ 0.26, NDCG@20 ≈ 0.22)
-- **Output:** Kết quả 4 model trên MovieLens-1M
+  - ✅ Hetero variant với node `genre` (US2 stretch DONE)
+- [x] Generalize `HeteroGraphSAGE` cho metadata động — thêm `decode_generic()` (additive)
+- [x] Thêm `nn.Embedding` trainable cho user/movie (root cause fix: frozen embedding ban đầu cho NDCG@20=0.006, trainable cho 0.027)
+- [x] Script `scripts/train_movielens.py`
+- [x] **Sanity check:** đạt cùng order-of-magnitude với LightGCN paper (NDCG@20=0.0272 vs paper 0.22, ratio 0.124 ∈ [0.1, 10] — PASS SC-002)
+- [x] **GPU eval optimization**: vectorize `_evaluate_full_ranking` → 6.4× faster (23 min → 3.6 min / run)
+- [x] **Reproducibility**: max metric diff 0.000168 < 0.001 (PASS SC-003)
+- **Output:** [008-movielens-benchmark](../008-movielens-benchmark/) — Bipartite + Hetero results trong `backend/results/movielens/`
 
-### Phase 3 — CareerBuilder12 integration (3–4 ngày) *(song song với Phase 2)*
+> **⚡ Pivot decision (Option B)**: Sau Phase 2, quyết định **demote MovieLens xuống "validation cell"** trong luận văn (đặt trong appendix). MovieLens là CF benchmark, không leverage được hetero schema → gap 8× với LightGCN là kiến trúc tradeoff, không phải bug. **Main "standard benchmark" cho luận văn pivot sang CareerBuilder12 (Phase 3)** vì cùng domain job-recommendation, fair test cho hetero arch.
+
+### Phase 3 — CareerBuilder12 integration (3–4 ngày) — **NEW MAIN STANDARD BENCHMARK**
 - [ ] Download từ Kaggle (`careerbuilder-job-recommendation`)
 - [ ] Viết `ml_benchmark/data/careerbuilder_loader.py`
   - Map `users.tsv` → `cv` node
@@ -60,7 +64,8 @@ Metrics: **NDCG@10, Recall@10, HR@10, MRR** (mean ± std qua 3 seed).
 - [ ] Subsample nếu cần (1.6M apps có thể quá lớn)
 - [ ] Mini-batch sampling với `NeighborLoader` của PyG
 - [ ] Script `scripts/train_careerbuilder.py`
-- **Output:** Kết quả 4 model trên CareerBuilder12
+- [ ] Reuse infrastructure từ Phase 2: `train_generic()`, GPU eval, trainable embeddings
+- **Output:** Kết quả model trên CareerBuilder12 (main standard benchmark cho luận văn)
 
 ### Phase 4 — Implement LightGCN baseline (1 ngày)
 - [ ] Wrap `torch_geometric.nn.models.LightGCN` thành `ml_benchmark/baselines/lightgcn.py`

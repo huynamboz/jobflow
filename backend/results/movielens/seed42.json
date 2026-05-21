@@ -1,0 +1,47 @@
+{
+  "feature": "008-movielens-benchmark",
+  "dataset": "MovieLens-1M",
+  "variant": "bipartite",
+  "preprocessing": {
+    "rating_threshold": 4,
+    "k_core": 10,
+    "split": "leave-one-out per user (timestamp)"
+  },
+  "model": "HeteroGraphSAGE",
+  "config": {
+    "hidden_channels": 64,
+    "num_layers": 2,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "max_epochs": 500,
+    "early_stopping_patience": 50,
+    "seed": 42
+  },
+  "stats": {
+    "num_users": 5949,
+    "num_movies": 2810,
+    "num_genres": 0,
+    "num_train_pairs": 559633,
+    "num_val_pairs": 5949,
+    "num_test_pairs": 5949
+  },
+  "training": {
+    "best_epoch": 126,
+    "epochs_run": 177,
+    "final_train_loss": 0.3894892632961273,
+    "wall_time_seconds": 214.53,
+    "device": "cuda"
+  },
+  "test_metrics": {
+    "recall@20": 0.07244915111783493,
+    "ndcg@20": 0.027230933326135104,
+    "hr@20": 0.07244915111783493,
+    "mrr": 0.020594282017212633
+  },
+  "versions": {
+    "python": "3.11.12",
+    "torch": "2.4.1+cu121",
+    "torch_geometric": "2.7.0",
+    "numpy": "1.26.3"
+  }
+}
