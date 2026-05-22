@@ -26,6 +26,9 @@ import LabelBatchOverview from "@/pages/admin/label-batch/overview";
 import LabelBatchDetail from "@/pages/admin/label-batch/detail";
 import VerifySchedulePage from "@/pages/admin/schedule/verify";
 import ExtractSchedulePage from "@/pages/admin/schedule/extract";
+import EmployeesPage from "@/pages/admin/employees";
+import EmployeeDetailPage from "@/pages/admin/employees/detail";
+import PipelinePage from "@/pages/admin/pipeline";
 
 function App() {
   return (
@@ -56,6 +59,11 @@ function App() {
         </Route>
         <Route path="schedule/verify" element={<VerifySchedulePage />} />
         <Route path="schedule/extract" element={<ExtractSchedulePage />} />
+
+        {/* Feature 012 — Employee MVP */}
+        <Route path="employees" element={<EmployeesPage />} />
+        <Route path="employees/:id" element={<EmployeeDetailPage />} />
+        <Route path="pipeline" element={<PipelinePage />} />
       </Route>
 
       <Route element={<PublicRoute />}>

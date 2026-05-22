@@ -24,6 +24,9 @@ urlpatterns = [
     path("api/admin/", include("apps.labeling.admin_urls")),
     path("api/admin/", include("apps.admin_dashboard.urls")),
     path("api/admin/", include("apps.schedule.urls")),
+    # Employee MVP (feature 012)
+    path("api/admin/", include("apps.employees.urls")),
+    path("api/notifications/", include("apps.notifications.urls")),
 
     # Swagger
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

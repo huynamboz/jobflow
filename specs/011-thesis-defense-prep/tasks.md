@@ -104,7 +104,7 @@ description: "Task list for feature 011 — Thesis Defense Preparation (LSTM/BiL
 
 ## Phase 6: Commit
 
-- [ ] T023 Stage feature 011 artifacts:
+- [x] T023 Stage feature 011 artifacts:
   ```
   git add backend/ml_benchmark/baselines/lstm.py \
           backend/scripts/train_lstm.py \
@@ -115,9 +115,9 @@ description: "Task list for feature 011 — Thesis Defense Preparation (LSTM/BiL
           .specify/feature.json
   ```
   TUYỆT ĐỐI KHÔNG `git add backend/ml_service/`.
-- [ ] T024 Verify staged sạch: `git diff --cached --stat | grep ml_service` empty.
-- [ ] T025 Commit với heredoc message (detailed at implement time).
-- [ ] T026 Verify single commit + production history clean.
+- [x] T024 Verify staged sạch: `git diff --cached --stat | grep ml_service` empty.
+- [x] T025 Commit với heredoc message (detailed at implement time).
+- [x] T026 Verify single commit + production history clean.
 
 ---
 

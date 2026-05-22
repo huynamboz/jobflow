@@ -34,7 +34,8 @@ export function AdminRoute() {
     return <Navigate replace state={{ from: location }} to="/login" />;
   }
 
-  if (user?.role !== "admin") {
+  // Feature 012: HR/recruiter role can access staffing pages alongside admin.
+  if (user?.role !== "admin" && user?.role !== "recruiter") {
     return <Navigate replace to="/login" />;
   }
 
