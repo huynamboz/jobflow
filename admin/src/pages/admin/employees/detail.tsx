@@ -485,19 +485,6 @@ export default function EmployeeDetailPage() {
         </div>
       </div>
 
-      {/* contact + skills strip */}
-      <Card padding={0} style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", padding: "12px 16px" }}>
-        <MetaRow icon={<IconUsers size={14} />}>{employee.email || "no email"}</MetaRow>
-        {employee.phone && <MetaRow icon={<IconBriefcase size={14} />}>{employee.phone}</MetaRow>}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginLeft: "auto" }}>
-          {(employee.skills ?? []).slice(0, 8).map((s) => (
-            <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.surface2, color: T.ink2 }}>{s}</span>
-          ))}
-          {(employee.skills?.length ?? 0) > 8 && <span style={{ fontSize: 11.5, color: T.ink4, alignSelf: "center" }}>+{employee.skills.length - 8}</span>}
-          {!employee.skills?.length && <span style={{ fontSize: 12, color: T.ink4 }}>no skills parsed</span>}
-        </div>
-      </Card>
-
       {/* tabs */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {TABS.map((t) => {

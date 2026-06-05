@@ -30,6 +30,7 @@ import ExtractSchedulePage from "@/pages/admin/schedule/extract";
 import EmployeesPage from "@/pages/admin/employees";
 import EmployeeDetailPage from "@/pages/admin/employees/detail";
 import PipelinePage from "@/pages/admin/pipeline";
+import JobTrackingPage from "@/pages/admin/job-tracking";
 import SettingsPage from "@/pages/admin/settings";
 
 function App() {
@@ -67,6 +68,7 @@ function App() {
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
         <Route path="pipeline" element={<PipelinePage />} />
+        <Route path="job-tracking" element={<JobTrackingPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
 
