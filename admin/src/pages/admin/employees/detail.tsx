@@ -214,6 +214,31 @@ function JobDetailPanel({
         )}
       </div>
 
+      {/* Actions */}
+      <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {match.status === "applied" || match.status === "won" || match.status === "lost" ? (
+          <>
+            <StatusChip status={match.status} />
+            <span style={{ fontSize: 12.5, color: T.ink3 }}>in job tracking</span>
+            {j.source_url && (
+              <a href={j.source_url} target="_blank" rel="noreferrer"
+                style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 600, color: T.accent, textDecoration: "none" }}>
+                Open posting <IconExternalLink size={13} />
+              </a>
+            )}
+          </>
+        ) : (
+          <>
+            <Button color="primary" startContent={<IconExternalLink size={15} />} onPress={() => onApply(match)}>
+              Apply
+            </Button>
+            <Button variant="light" color="danger" startContent={<IconX size={15} />} onPress={() => onDismiss(match)}>
+              Not a fit
+            </Button>
+          </>
+        )}
+      </div>
+
       {j.source_url && (
         <a href={j.source_url} target="_blank" rel="noreferrer"
           style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 14, fontSize: 13, fontWeight: 600, color: T.accent, textDecoration: "none" }}>
@@ -256,31 +281,6 @@ function JobDetailPanel({
           <div style={{ fontSize: 13, lineHeight: 1.65, color: T.ink2, whiteSpace: "pre-line" }}>{desc}</div>
         ) : (
           <div style={{ fontSize: 13, color: T.ink4 }}>No description available.</div>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        {match.status === "applied" || match.status === "won" || match.status === "lost" ? (
-          <>
-            <StatusChip status={match.status} />
-            <span style={{ fontSize: 12.5, color: T.ink3 }}>in job tracking</span>
-            {j.source_url && (
-              <a href={j.source_url} target="_blank" rel="noreferrer"
-                style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 600, color: T.accent, textDecoration: "none" }}>
-                Open posting <IconExternalLink size={13} />
-              </a>
-            )}
-          </>
-        ) : (
-          <>
-            <Button color="primary" startContent={<IconExternalLink size={15} />} onPress={() => onApply(match)}>
-              Apply
-            </Button>
-            <Button variant="bordered" color="danger" startContent={<IconX size={15} />} onPress={() => onDismiss(match)}>
-              Not a fit
-            </Button>
-          </>
         )}
       </div>
     </div>
