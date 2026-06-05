@@ -4,6 +4,7 @@ import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
 import { Card, CardBody, CardHeader } from "@heroui/card";
 import { Chip } from "@heroui/chip";
+import { Input, Textarea } from "@heroui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@heroui/popover";
 import { Select, SelectItem } from "@heroui/select";
 import { Tabs, Tab } from "@heroui/tabs";
@@ -22,7 +23,13 @@ import {
   TableHeader,
   TableRow,
 } from "@heroui/table";
-import { IconArrowLeft, IconInfoCircle, IconRefresh } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconArrowLeft,
+  IconInfoCircle,
+  IconPencil,
+  IconRefresh,
+} from "@tabler/icons-react";
 
 import { EmployeeStatusChip } from "@/components/employee-status-chip";
 import { MatchScoreBadge } from "@/components/match-score-badge";
@@ -32,6 +39,32 @@ import { matchService } from "@/services/match.service";
 import type { DuplicateApplyError, DuplicateApplyFrontman } from "@/services/match.service";
 import type { Employee } from "@/types/employee.types";
 import type { EmployeeJobMatch, MatchStatus } from "@/types/match.types";
+
+const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
+
+interface EditForm {
+  full_name: string;
+  email: string;
+  phone: string;
+  position: string;
+  seniority: number;
+  experience_years: string;
+  skills: string; // comma-separated for editing
+  notes: string;
+}
+
+function toForm(e: Employee): EditForm {
+  return {
+    full_name: e.full_name ?? "",
+    email: e.email ?? "",
+    phone: e.phone ?? "",
+    position: e.position ?? "",
+    seniority: e.seniority ?? 2,
+    experience_years: e.experience_years != null ? String(e.experience_years) : "",
+    skills: (e.skills ?? []).join(", "),
+    notes: e.notes ?? "",
+  };
+}
 
 /** Human-readable seniority gap (job_seniority - employee_seniority). */
 function seniorityGapLabel(gap: number | null): string {
@@ -101,6 +134,8 @@ export default function EmployeeDetailPage() {
   const [activeTab, setActiveTab] = useState<MatchStatus | "all">("all");
   const [loading, setLoading] = useState(true);
   const [dup, setDup] = useState<{ matchId: number; frontman: DuplicateApplyFrontman } | null>(null);
+  const [form, setForm] = useState<EditForm | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -151,6 +186,38 @@ export default function EmployeeDetailPage() {
     }
   };
 
+  const startEdit = () => employee && setForm(toForm(employee));
+  const cancelEdit = () => setForm(null);
+
+  const saveEdit = async () => {
+    if (!form) return;
+    setSaving(true);
+    try {
+      const skills = form.skills
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const exp = form.experience_years.trim();
+      await employeeService.update(empId, {
+        full_name: form.full_name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        position: form.position.trim(),
+        seniority: form.seniority,
+        experience_years: exp === "" ? null : Number(exp),
+        skills,
+        notes: form.notes,
+      });
+      addToast({ title: "Employee updated", color: "success" });
+      setForm(null);
+      void reload();
+    } catch {
+      addToast({ title: "Update failed", color: "danger" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading && !employee) return <p>Loading…</p>;
   if (!employee) return <p>Employee not found.</p>;
 
@@ -169,31 +236,98 @@ export default function EmployeeDetailPage() {
         </div>
       </div>
 
+      {employee.is_parse_failed && !form && (
+        <Card className="border border-warning-300 bg-warning-50">
+          <CardBody className="flex flex-row items-center gap-3 text-sm text-warning-700">
+            <IconAlertTriangle size={18} />
+            <span className="flex-1">
+              CV chưa parse được — vui lòng nhập tay kỹ năng &amp; thông tin để có thể match job.
+            </span>
+            <Button size="sm" color="warning" variant="flat" startContent={<IconPencil size={14} />} onPress={startEdit}>
+              Nhập tay
+            </Button>
+          </CardBody>
+        </Card>
+      )}
+
       <Card>
-        <CardHeader>Profile</CardHeader>
-        <CardBody className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
-          <div><span className="text-default-500">Email: </span>{employee.email || "—"}</div>
-          <div><span className="text-default-500">Phone: </span>{employee.phone || "—"}</div>
-          <div><span className="text-default-500">Position: </span>{employee.position || "—"}</div>
-          <div><span className="text-default-500">Seniority: </span>{employee.seniority}</div>
-          <div><span className="text-default-500">Experience: </span>{employee.experience_years ?? "—"} years</div>
-          <div className="md:col-span-2">
-            <span className="text-default-500">Skills: </span>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {(employee.skills ?? []).map((s) => (
-                <Chip key={s} size="sm" variant="flat">{s}</Chip>
-              ))}
-              {!employee.skills?.length && <span className="text-default-400">none parsed</span>}
-            </div>
-          </div>
-          {employee.cv_file && (
-            <div className="md:col-span-2">
-              <a href={employee.cv_file} target="_blank" rel="noreferrer" className="text-primary text-xs underline">
-                Download CV
-              </a>
+        <CardHeader className="flex items-center justify-between">
+          <span>Profile</span>
+          {!form ? (
+            <Button size="sm" variant="light" startContent={<IconPencil size={14} />} onPress={startEdit}>
+              Edit
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button size="sm" variant="light" onPress={cancelEdit} isDisabled={saving}>Cancel</Button>
+              <Button size="sm" color="primary" onPress={saveEdit} isLoading={saving}>Save</Button>
             </div>
           )}
-        </CardBody>
+        </CardHeader>
+        {!form ? (
+          <CardBody className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+            <div><span className="text-default-500">Email: </span>{employee.email || "—"}</div>
+            <div><span className="text-default-500">Phone: </span>{employee.phone || "—"}</div>
+            <div><span className="text-default-500">Position: </span>{employee.position || "—"}</div>
+            <div>
+              <span className="text-default-500">Seniority: </span>
+              {SENIORITY_LABELS[employee.seniority] ?? employee.seniority}
+            </div>
+            <div><span className="text-default-500">Experience: </span>{employee.experience_years ?? "—"} years</div>
+            <div className="md:col-span-2">
+              <span className="text-default-500">Skills: </span>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {(employee.skills ?? []).map((s) => (
+                  <Chip key={s} size="sm" variant="flat">{s}</Chip>
+                ))}
+                {!employee.skills?.length && <span className="text-default-400">none parsed</span>}
+              </div>
+            </div>
+            {employee.cv_file && (
+              <div className="md:col-span-2">
+                <a href={employee.cv_file} target="_blank" rel="noreferrer" className="text-primary text-xs underline">
+                  Download CV
+                </a>
+              </div>
+            )}
+          </CardBody>
+        ) : (
+          <CardBody className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Input size="sm" label="Full name" value={form.full_name}
+              onValueChange={(v) => setForm({ ...form, full_name: v })} />
+            <Input size="sm" label="Email" value={form.email}
+              onValueChange={(v) => setForm({ ...form, email: v })} />
+            <Input size="sm" label="Phone" value={form.phone}
+              onValueChange={(v) => setForm({ ...form, phone: v })} />
+            <Input size="sm" label="Position" value={form.position}
+              onValueChange={(v) => setForm({ ...form, position: v })} />
+            <Select
+              size="sm"
+              label="Seniority"
+              selectedKeys={[String(form.seniority)]}
+              onSelectionChange={(keys) =>
+                setForm({ ...form, seniority: Number(Array.from(keys)[0]) })
+              }
+            >
+              {SENIORITY_LABELS.map((label, i) => (
+                <SelectItem key={String(i)}>{label}</SelectItem>
+              ))}
+            </Select>
+            <Input size="sm" type="number" label="Experience (years)" value={form.experience_years}
+              onValueChange={(v) => setForm({ ...form, experience_years: v })} />
+            <div className="md:col-span-2">
+              <Input size="sm" label="Skills (phân tách bằng dấu phẩy)" value={form.skills}
+                onValueChange={(v) => setForm({ ...form, skills: v })} />
+              <div className="mt-1 flex flex-wrap gap-1">
+                {form.skills.split(",").map((s) => s.trim()).filter(Boolean).map((s) => (
+                  <Chip key={s} size="sm" variant="flat">{s}</Chip>
+                ))}
+              </div>
+            </div>
+            <Textarea size="sm" label="Notes" className="md:col-span-2" value={form.notes}
+              onValueChange={(v) => setForm({ ...form, notes: v })} />
+          </CardBody>
+        )}
       </Card>
 
       <Card>

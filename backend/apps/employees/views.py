@@ -46,6 +46,14 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
+    def perform_update(self, serializer):
+        # Feature 1.3: a manual HR edit means the record has been reviewed, so a
+        # prior parse failure is considered resolved.
+        instance = serializer.save()
+        if instance.is_parse_failed:
+            instance.is_parse_failed = False
+            instance.save(update_fields=["is_parse_failed", "updated_at"])
+
     def destroy(self, request, *args, **kwargs):
         if not IsAdminUserRole().has_permission(request, self):
             raise PermissionDenied("Only admin role can delete employees.")

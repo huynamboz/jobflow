@@ -59,6 +59,19 @@ class EmployeeAuthorizationTests(APITestCase):
         resp = _auth_client(self.admin).delete(f"/api/admin/employees/{self.emp.id}/")
         self.assertEqual(resp.status_code, 204)
 
+    def test_manual_edit_clears_parse_failed(self):
+        # Feature 1.3: editing a parse-failed employee marks it resolved.
+        broken = Employee.objects.create(full_name="Broken", is_parse_failed=True)
+        resp = _auth_client(self.hr).patch(
+            f"/api/admin/employees/{broken.id}/",
+            {"skills": ["python", "django"], "seniority": 3},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        broken.refresh_from_db()
+        self.assertFalse(broken.is_parse_failed)
+        self.assertEqual(broken.skills, ["python", "django"])
+
     def test_bulk_upload_size_limit(self):
         # Build a fake list of 51 small files via DRF's MultiPartParser
         import io
