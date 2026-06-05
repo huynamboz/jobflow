@@ -47,6 +47,9 @@ const T = {
 
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
 
+// Temporarily hidden until the live matching pipeline is reliable. Flip to true.
+const SHOW_MATCH_PCT = false;
+
 const STATUS_META: Record<MatchStatus, { label: string; bg: string; color: string }> = {
   suggested: { label: "Suggested", bg: T.surface3, color: T.ink2 },
   pursuing: { label: "Pursuing", bg: T.accent100, color: "#0e5353" },
@@ -122,9 +125,11 @@ function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; s
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
         <span style={{ fontWeight: 700, fontSize: 14, color: T.ink, lineHeight: 1.3 }}>{j.title}</span>
-        <span style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 700, color: T.accent }}>
-          {Math.round((match.match_score || 0) * 100)}%
-        </span>
+        {SHOW_MATCH_PCT && (
+          <span style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 700, color: T.accent }}>
+            {Math.round((match.match_score || 0) * 100)}%
+          </span>
+        )}
       </div>
       <div style={{ fontSize: 12.5, color: T.ink3, marginTop: 3 }}>
         {j.company_name || "—"}{j.location ? ` · ${j.location}` : ""}
@@ -182,10 +187,12 @@ function JobDetailPanel({
             </span>
           </div>
         </div>
-        <div style={{ flexShrink: 0, textAlign: "center" }}>
-          <div style={{ fontSize: 30, fontWeight: 800, color: T.accent, lineHeight: 1 }}>{Math.round((match.match_score || 0) * 100)}<span style={{ fontSize: 15 }}>%</span></div>
-          <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: T.ink4, marginTop: 2 }}>match</div>
-        </div>
+        {SHOW_MATCH_PCT && (
+          <div style={{ flexShrink: 0, textAlign: "center" }}>
+            <div style={{ fontSize: 30, fontWeight: 800, color: T.accent, lineHeight: 1 }}>{Math.round((match.match_score || 0) * 100)}<span style={{ fontSize: 15 }}>%</span></div>
+            <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: T.ink4, marginTop: 2 }}>match</div>
+          </div>
+        )}
       </div>
 
       {j.source_url && (
