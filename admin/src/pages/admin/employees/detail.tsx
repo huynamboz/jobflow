@@ -56,8 +56,8 @@ const STATUS_META: Record<MatchStatus, { label: string; bg: string; color: strin
   suggested: { label: "Suggested", bg: T.surface3, color: T.ink2 },
   pursuing: { label: "Pursuing", bg: T.accent100, color: "#0e5353" },
   applied: { label: "Applied", bg: "oklch(0.94 0.05 280)", color: "oklch(0.45 0.16 280)" },
-  won: { label: "Won", bg: T.success50, color: T.success },
-  lost: { label: "Lost", bg: T.danger50, color: T.danger },
+  won: { label: "Accepted", bg: T.success50, color: T.success },
+  lost: { label: "Rejected", bg: T.danger50, color: T.danger },
   dismissed: { label: "Not a fit", bg: T.surface3, color: T.ink4 },
 };
 
@@ -66,8 +66,8 @@ const TABS: { key: MatchStatus | "all"; label: string }[] = [
   { key: "suggested", label: "Suggested" },
   { key: "pursuing", label: "Pursuing" },
   { key: "applied", label: "Applied" },
-  { key: "won", label: "Won" },
-  { key: "lost", label: "Lost" },
+  { key: "won", label: "Accepted" },
+  { key: "lost", label: "Rejected" },
 ];
 
 function initials(name: string): string {

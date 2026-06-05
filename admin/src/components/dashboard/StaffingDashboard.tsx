@@ -159,8 +159,8 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
     { key: "suggested", label: "Suggested", color: "bg-default-400" },
     { key: "pursuing", label: "Pursuing", color: "bg-primary-400" },
     { key: "applied", label: "Applied", color: "bg-secondary-400" },
-    { key: "won", label: "Won", color: "bg-success-500" },
-    { key: "lost", label: "Lost", color: "bg-default-300" },
+    { key: "won", label: "Accepted", color: "bg-success-500" },
+    { key: "lost", label: "Rejected", color: "bg-default-300" },
   ] as const;
   const funnelMax = Math.max(1, ...funnelRows.map((f) => funnel[f.key]));
 
@@ -176,7 +176,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
         <StatCard label="Bench utilization" value={`${kpi.utilization_pct}%`} hint="employees engaged" tone={utilTone} icon={<IconTargetArrow size={20} />} />
         <StatCard label="On bench" value={kpi.bench_count} hint="need work" icon={<IconUsers size={20} />} />
         <StatCard label="In progress" value={kpi.in_progress} hint="pursuing + applied" tone="primary" icon={<IconClockHour4 size={20} />} />
-        <StatCard label="Won this week" value={kpi.won_this_week} hint={`${kpi.lost_this_week} lost`} tone="success" icon={<IconTrophy size={20} />} />
+        <StatCard label="Accepted this week" value={kpi.won_this_week} hint={`${kpi.lost_this_week} rejected`} tone="success" icon={<IconTrophy size={20} />} />
         <StatCard label="New jobs (24h)" value={kpi.new_jobs_24h} hint={`${kpi.new_jobs_7d} in 7 days`} icon={<IconBriefcase size={20} />} />
       </div>
 
@@ -290,13 +290,13 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
         <h3 className="text-sm font-semibold text-foreground">Recent activity</h3>
         <div className="grid gap-5 text-sm md:grid-cols-3">
           <div>
-            <p className="mb-2 text-xs font-medium text-default-500">Won / lost</p>
+            <p className="mb-2 text-xs font-medium text-default-500">Accepted / rejected</p>
             {recent.won_lost.length === 0 && <p className="text-default-400">—</p>}
             <ul className="space-y-1.5">
               {recent.won_lost.map((m) => (
                 <li key={m.match_id} className="flex items-center justify-between gap-2">
                   <span className="truncate text-default-700">{m.employee_name} · {m.job_title}</span>
-                  <Chip size="sm" color={m.status === "won" ? "success" : "default"} variant="flat">{m.status}</Chip>
+                  <Chip size="sm" color={m.status === "won" ? "success" : "default"} variant="flat">{m.status === "won" ? "Accepted" : "Rejected"}</Chip>
                 </li>
               ))}
             </ul>

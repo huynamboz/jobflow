@@ -25,14 +25,14 @@ type TrackTab = "all" | "applied" | "won" | "lost";
 const TABS: { key: TrackTab; label: string }[] = [
   { key: "all", label: "All" },
   { key: "applied", label: "Applied" },
-  { key: "won", label: "Won" },
-  { key: "lost", label: "Lost" },
+  { key: "won", label: "Accepted" },
+  { key: "lost", label: "Rejected" },
 ];
 
 const STATUS_CHIP: Record<string, { label: string; bg: string; color: string }> = {
   applied: { label: "Applied", bg: "oklch(0.94 0.05 280)", color: "oklch(0.45 0.16 280)" },
-  won: { label: "Won", bg: T.success50, color: T.success },
-  lost: { label: "Lost", bg: T.danger50, color: T.danger },
+  won: { label: "Accepted", bg: T.success50, color: T.success },
+  lost: { label: "Rejected", bg: T.danger50, color: T.danger },
 };
 
 function initials(name: string): string {
@@ -153,7 +153,7 @@ export default function JobTrackingPage() {
                           {m.employee_name} · {m.job.title}
                         </span>
                         <span style={{ display: "block", fontSize: 12.5, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {m.job.company_name || "—"} · {m.status} {fmtDate(dateFor(m))}
+                          {m.job.company_name || "—"} · {(STATUS_CHIP[m.status]?.label ?? m.status).toLowerCase()} {fmtDate(dateFor(m))}
                         </span>
                       </span>
                     </button>
@@ -172,8 +172,8 @@ export default function JobTrackingPage() {
                     {m.status === "applied" ? (
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                         <Button size="sm" color="success" variant="flat" isLoading={busy === m.id}
-                          startContent={<IconCheck size={14} />} onPress={() => setStatus(m, "won", "won")}>
-                          Won
+                          startContent={<IconCheck size={14} />} onPress={() => setStatus(m, "won", "accepted")}>
+                          Accepted
                         </Button>
                         <Button size="sm" color="danger" variant="light" isLoading={busy === m.id}
                           startContent={<IconX size={14} />} onPress={() => setStatus(m, "lost", "rejected")}>
