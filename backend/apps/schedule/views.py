@@ -2,16 +2,38 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.jobs.models import VerifierRunLog
+from apps.jobs.models import Job, VerifierRunLog
 from apps.schedule import services
 from apps.schedule.models import VerifierSchedule
 
 ALLOWED_COMMANDS = {VerifierSchedule.COMMAND_VERIFY, VerifierSchedule.COMMAND_EXTRACT}
+
+
+def _pending_counts(platform: str) -> dict[str, int]:
+    """Cheap counts for the two operations, mirroring the repository selection.
+
+    - verify  : active|stale ∩ (backoff null or expired)
+    - extract : the same set ∩ date_posted IS NULL
+    """
+    now = datetime.now(timezone.utc)
+    base = (
+        Job.objects
+        .filter(platform__name__iexact=platform)
+        .filter(lifecycle__in=[Job.LIFECYCLE_ACTIVE, Job.LIFECYCLE_STALE])
+        .filter(Q(verification_backoff_until__isnull=True) | Q(verification_backoff_until__lte=now))
+    )
+    return {
+        "verify": base.count(),
+        "extract": base.filter(date_posted__isnull=True).count(),
+    }
 
 
 def _serialize_schedule(row: VerifierSchedule) -> dict:
@@ -23,6 +45,7 @@ def _serialize_schedule(row: VerifierSchedule) -> dict:
         "batches_per_day": row.batches_per_day,
         "hours_utc": row.hours_utc,
         "use_no_auth_check": row.use_no_auth_check,
+        "headless": row.headless,
         "platform": row.platform,
         "active_run": {
             "pid": row.current_run_pid,
@@ -32,6 +55,7 @@ def _serialize_schedule(row: VerifierSchedule) -> dict:
         },
         "last_fired_at": row.last_fired_at.isoformat() if row.last_fired_at else None,
         "updated_at": row.updated_at.isoformat(),
+        "pending": _pending_counts(row.platform),
     }
 
 
@@ -76,7 +100,7 @@ class ScheduleConfigView(APIView):
 
         payload = request.data or {}
         for key in ("enabled", "batch_size", "batches_per_day", "hours_utc",
-                    "use_no_auth_check", "platform"):
+                    "use_no_auth_check", "headless", "platform"):
             if key in payload:
                 setattr(row, key, payload[key])
 

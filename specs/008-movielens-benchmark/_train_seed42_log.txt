@@ -1,0 +1,223 @@
+Failed to mark orphaned JD batches: connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+
+Failed to resume orphaned batches: connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+
+2026-05-21 09:02:06,118 | train_movielens | INFO | Loading MovieLens-1M (k_core=10, hetero=False, seed=42) ...
+2026-05-21 09:02:06,119 | ml_benchmark.data.movielens_loader | INFO | Using cached MovieLens-1M at /home/dana/huynam/jobflow-gnn/Dataset/movielens-1m/ml-1m
+2026-05-21 09:02:06,119 | ml_benchmark.data.movielens_loader | INFO | Parsing ratings.dat ...
+2026-05-21 09:02:06,998 | apps.matching.services.matching_service | INFO | Loading ML engine from /home/dana/huynam/jobflow-gnn/backend/checkpoints/latest...
+2026-05-21 09:02:07,148 | ml_benchmark.data.movielens_loader | INFO |   loaded 1000209 raw ratings
+2026-05-21 09:02:07,239 | ml_benchmark.data.movielens_loader | INFO |   after rating>=4 filter: 575281 positives
+2026-05-21 09:02:07,239 | ml_benchmark.data.movielens_loader | INFO | Applying k-core filter (k=10) ...
+2026-05-21 09:02:07,651 | ml_benchmark.data.movielens_loader | INFO |   k-core iter 1: 575281 → 571549 interactions
+2026-05-21 09:02:08,064 | ml_benchmark.data.movielens_loader | INFO |   k-core iter 2: 571549 → 571531 interactions
+2026-05-21 09:02:08,486 | ml_benchmark.data.movielens_loader | INFO |   k-core iter 3: 571531 → 571531 interactions
+2026-05-21 09:02:08,579 | ml_benchmark.data.movielens_loader | INFO |   after k-core: 5949 users, 2810 movies, 571531 interactions
+2026-05-21 09:02:08,713 | ml_benchmark.data.movielens_loader | INFO | Building leave-one-out split per user ...
+2026-05-21 09:02:09,068 | ml_benchmark.data.movielens_loader | INFO |   train=559633 val=5949 test=5949
+2026-05-21 09:02:09,505 | ml_benchmark.training.trainer | INFO | Device: cuda
+2026-05-21 09:02:09,800 | sentence_transformers.SentenceTransformer | INFO | Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+/home/dana/huynam/jobflow-gnn/backend/.venv/lib/python3.11/site-packages/transformers/tokenization_utils_base.py:1601: FutureWarning: `clean_up_tokenization_spaces` was not set. It will be set to `True` by default. This behavior will be depracted in transformers v4.45, and will be then set to `False` by default. For more details check this issue: https://github.com/huggingface/transformers/issues/31884
+  warnings.warn(
+2026-05-21 09:02:12,971 | sentence_transformers.SentenceTransformer | INFO | Use pytorch device_name: cuda
+2026-05-21 09:02:13,642 | ml_service.inference.checkpoint | INFO | Checkpoint loaded from /home/dana/huynam/jobflow-gnn/backend/checkpoints/latest (364 CVs, 6251 jobs)
+2026-05-21 09:02:13,853 | ml_service.inference.engine | INFO | Precomputing text embeddings for 6251 jobs...
+2026-05-21 09:02:23,784 | ml_service.reranker.ranker | INFO | Reranker loaded from /home/dana/huynam/jobflow-gnn/backend/checkpoints/latest (ordinal=True)
+2026-05-21 09:02:23,785 | ml_service.reranker.calibration | INFO | Calibration loaded: a=1.016, b=-1.078
+2026-05-21 09:02:23,785 | ml_service.inference.engine | INFO | InferenceEngine ready: 364 CVs, 6251 jobs, 5806 skill-pairs, reranker=trained
+2026-05-21 09:02:23,785 | apps.matching.services.matching_service | INFO | ML engine ready: 364 CVs, 6251 jobs
+2026-05-21 09:02:23,807 | apps.matching.services.matching_service | WARNING | Job skill refresh skipped: connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+
+2026-05-21 09:02:23,808 | apps.matching.apps | INFO | Inference engine warmed up.
+2026-05-21 09:02:26,782 | ml_benchmark.training.trainer | INFO | Epoch 0 — loss=0.6931 val_ndcg@20=0.0025 val_recall@20=0.0074 val_hr@20=0.0074
+2026-05-21 09:02:35,372 | ml_benchmark.training.trainer | INFO | Epoch 1 — loss=0.6931 val_ndcg@20=0.0042 val_recall@20=0.0134 val_hr@20=0.0134
+2026-05-21 09:02:43,993 | ml_benchmark.training.trainer | INFO | Epoch 2 — loss=0.6931 val_ndcg@20=0.0078 val_recall@20=0.0208 val_hr@20=0.0208
+2026-05-21 09:02:52,459 | ml_benchmark.training.trainer | INFO | Epoch 3 — loss=0.6930 val_ndcg@20=0.0105 val_recall@20=0.0234 val_hr@20=0.0234
+2026-05-21 09:03:00,840 | ml_benchmark.training.trainer | INFO | Epoch 4 — loss=0.6930 val_ndcg@20=0.0140 val_recall@20=0.0341 val_hr@20=0.0341
+2026-05-21 09:03:09,185 | ml_benchmark.training.trainer | INFO | Epoch 5 — loss=0.6929 val_ndcg@20=0.0171 val_recall@20=0.0445 val_hr@20=0.0445
+2026-05-21 09:03:17,471 | ml_benchmark.training.trainer | INFO | Epoch 6 — loss=0.6928 val_ndcg@20=0.0194 val_recall@20=0.0518 val_hr@20=0.0518
+2026-05-21 09:03:25,587 | ml_benchmark.training.trainer | INFO | Epoch 7 — loss=0.6926 val_ndcg@20=0.0203 val_recall@20=0.0555 val_hr@20=0.0555
+2026-05-21 09:03:33,721 | ml_benchmark.training.trainer | INFO | Epoch 8 — loss=0.6924 val_ndcg@20=0.0209 val_recall@20=0.0575 val_hr@20=0.0575
+2026-05-21 09:03:41,696 | ml_benchmark.training.trainer | INFO | Epoch 9 — loss=0.6921 val_ndcg@20=0.0209 val_recall@20=0.0573 val_hr@20=0.0573
+2026-05-21 09:03:49,635 | ml_benchmark.training.trainer | INFO | Epoch 10 — loss=0.6917 val_ndcg@20=0.0211 val_recall@20=0.0580 val_hr@20=0.0580
+2026-05-21 09:03:57,579 | ml_benchmark.training.trainer | INFO | Epoch 11 — loss=0.6911 val_ndcg@20=0.0215 val_recall@20=0.0593 val_hr@20=0.0593
+2026-05-21 09:04:05,416 | ml_benchmark.training.trainer | INFO | Epoch 12 — loss=0.6903 val_ndcg@20=0.0216 val_recall@20=0.0598 val_hr@20=0.0598
+2026-05-21 09:04:13,221 | ml_benchmark.training.trainer | INFO | Epoch 13 — loss=0.6893 val_ndcg@20=0.0218 val_recall@20=0.0610 val_hr@20=0.0610
+2026-05-21 09:04:20,973 | ml_benchmark.training.trainer | INFO | Epoch 14 — loss=0.6879 val_ndcg@20=0.0220 val_recall@20=0.0617 val_hr@20=0.0617
+2026-05-21 09:04:28,792 | ml_benchmark.training.trainer | INFO | Epoch 15 — loss=0.6861 val_ndcg@20=0.0220 val_recall@20=0.0627 val_hr@20=0.0627
+2026-05-21 09:04:36,587 | ml_benchmark.training.trainer | INFO | Epoch 16 — loss=0.6837 val_ndcg@20=0.0223 val_recall@20=0.0634 val_hr@20=0.0634
+2026-05-21 09:04:44,382 | ml_benchmark.training.trainer | INFO | Epoch 17 — loss=0.6806 val_ndcg@20=0.0228 val_recall@20=0.0640 val_hr@20=0.0640
+2026-05-21 09:04:52,242 | ml_benchmark.training.trainer | INFO | Epoch 18 — loss=0.6767 val_ndcg@20=0.0228 val_recall@20=0.0645 val_hr@20=0.0645
+2026-05-21 09:05:00,364 | ml_benchmark.training.trainer | INFO | Epoch 19 — loss=0.6716 val_ndcg@20=0.0226 val_recall@20=0.0639 val_hr@20=0.0639
+2026-05-21 09:05:08,502 | ml_benchmark.training.trainer | INFO | Epoch 20 — loss=0.6653 val_ndcg@20=0.0228 val_recall@20=0.0634 val_hr@20=0.0634
+2026-05-21 09:05:16,607 | ml_benchmark.training.trainer | INFO | Epoch 21 — loss=0.6574 val_ndcg@20=0.0231 val_recall@20=0.0647 val_hr@20=0.0647
+2026-05-21 09:05:24,682 | ml_benchmark.training.trainer | INFO | Epoch 22 — loss=0.6476 val_ndcg@20=0.0236 val_recall@20=0.0651 val_hr@20=0.0651
+2026-05-21 09:05:32,416 | ml_benchmark.training.trainer | INFO | Epoch 23 — loss=0.6358 val_ndcg@20=0.0238 val_recall@20=0.0645 val_hr@20=0.0645
+2026-05-21 09:05:40,211 | ml_benchmark.training.trainer | INFO | Epoch 24 — loss=0.6223 val_ndcg@20=0.0241 val_recall@20=0.0651 val_hr@20=0.0651
+2026-05-21 09:05:47,990 | ml_benchmark.training.trainer | INFO | Epoch 25 — loss=0.6068 val_ndcg@20=0.0244 val_recall@20=0.0666 val_hr@20=0.0666
+2026-05-21 09:05:55,759 | ml_benchmark.training.trainer | INFO | Epoch 26 — loss=0.5895 val_ndcg@20=0.0244 val_recall@20=0.0669 val_hr@20=0.0669
+2026-05-21 09:06:03,547 | ml_benchmark.training.trainer | INFO | Epoch 27 — loss=0.5707 val_ndcg@20=0.0243 val_recall@20=0.0666 val_hr@20=0.0666
+2026-05-21 09:06:11,298 | ml_benchmark.training.trainer | INFO | Epoch 28 — loss=0.5508 val_ndcg@20=0.0247 val_recall@20=0.0679 val_hr@20=0.0679
+2026-05-21 09:06:19,089 | ml_benchmark.training.trainer | INFO | Epoch 29 — loss=0.5295 val_ndcg@20=0.0247 val_recall@20=0.0681 val_hr@20=0.0681
+2026-05-21 09:06:26,776 | ml_benchmark.training.trainer | INFO | Epoch 30 — loss=0.5084 val_ndcg@20=0.0248 val_recall@20=0.0686 val_hr@20=0.0686
+2026-05-21 09:06:34,573 | ml_benchmark.training.trainer | INFO | Epoch 31 — loss=0.4875 val_ndcg@20=0.0249 val_recall@20=0.0693 val_hr@20=0.0693
+2026-05-21 09:06:42,280 | ml_benchmark.training.trainer | INFO | Epoch 32 — loss=0.4679 val_ndcg@20=0.0250 val_recall@20=0.0698 val_hr@20=0.0698
+2026-05-21 09:06:50,101 | ml_benchmark.training.trainer | INFO | Epoch 33 — loss=0.4515 val_ndcg@20=0.0250 val_recall@20=0.0699 val_hr@20=0.0699
+2026-05-21 09:06:57,876 | ml_benchmark.training.trainer | INFO | Epoch 34 — loss=0.4376 val_ndcg@20=0.0252 val_recall@20=0.0704 val_hr@20=0.0704
+2026-05-21 09:07:05,680 | ml_benchmark.training.trainer | INFO | Epoch 35 — loss=0.4307 val_ndcg@20=0.0253 val_recall@20=0.0706 val_hr@20=0.0706
+2026-05-21 09:07:13,483 | ml_benchmark.training.trainer | INFO | Epoch 36 — loss=0.4255 val_ndcg@20=0.0253 val_recall@20=0.0706 val_hr@20=0.0706
+2026-05-21 09:07:21,207 | ml_benchmark.training.trainer | INFO | Epoch 37 — loss=0.4237 val_ndcg@20=0.0255 val_recall@20=0.0713 val_hr@20=0.0713
+2026-05-21 09:07:28,984 | ml_benchmark.training.trainer | INFO | Epoch 38 — loss=0.4252 val_ndcg@20=0.0260 val_recall@20=0.0730 val_hr@20=0.0730
+2026-05-21 09:07:36,800 | ml_benchmark.training.trainer | INFO | Epoch 39 — loss=0.4242 val_ndcg@20=0.0262 val_recall@20=0.0736 val_hr@20=0.0736
+2026-05-21 09:07:44,545 | ml_benchmark.training.trainer | INFO | Epoch 40 — loss=0.4224 val_ndcg@20=0.0263 val_recall@20=0.0736 val_hr@20=0.0736
+2026-05-21 09:07:52,415 | ml_benchmark.training.trainer | INFO | Epoch 41 — loss=0.4200 val_ndcg@20=0.0263 val_recall@20=0.0735 val_hr@20=0.0735
+2026-05-21 09:08:00,183 | ml_benchmark.training.trainer | INFO | Epoch 42 — loss=0.4142 val_ndcg@20=0.0266 val_recall@20=0.0740 val_hr@20=0.0740
+2026-05-21 09:08:07,908 | ml_benchmark.training.trainer | INFO | Epoch 43 — loss=0.4110 val_ndcg@20=0.0266 val_recall@20=0.0731 val_hr@20=0.0731
+2026-05-21 09:08:15,638 | ml_benchmark.training.trainer | INFO | Epoch 44 — loss=0.4085 val_ndcg@20=0.0270 val_recall@20=0.0743 val_hr@20=0.0743
+2026-05-21 09:08:23,364 | ml_benchmark.training.trainer | INFO | Epoch 45 — loss=0.4067 val_ndcg@20=0.0270 val_recall@20=0.0736 val_hr@20=0.0736
+2026-05-21 09:08:31,135 | ml_benchmark.training.trainer | INFO | Epoch 46 — loss=0.4074 val_ndcg@20=0.0275 val_recall@20=0.0748 val_hr@20=0.0748
+2026-05-21 09:08:38,855 | ml_benchmark.training.trainer | INFO | Epoch 47 — loss=0.4079 val_ndcg@20=0.0279 val_recall@20=0.0753 val_hr@20=0.0753
+2026-05-21 09:08:46,567 | ml_benchmark.training.trainer | INFO | Epoch 48 — loss=0.4072 val_ndcg@20=0.0279 val_recall@20=0.0751 val_hr@20=0.0751
+2026-05-21 09:08:54,301 | ml_benchmark.training.trainer | INFO | Epoch 49 — loss=0.4082 val_ndcg@20=0.0280 val_recall@20=0.0753 val_hr@20=0.0753
+2026-05-21 09:09:02,054 | ml_benchmark.training.trainer | INFO | Epoch 50 — loss=0.4074 val_ndcg@20=0.0281 val_recall@20=0.0756 val_hr@20=0.0756
+2026-05-21 09:09:09,744 | ml_benchmark.training.trainer | INFO | Epoch 51 — loss=0.4054 val_ndcg@20=0.0282 val_recall@20=0.0758 val_hr@20=0.0758
+2026-05-21 09:09:17,493 | ml_benchmark.training.trainer | INFO | Epoch 52 — loss=0.4050 val_ndcg@20=0.0283 val_recall@20=0.0763 val_hr@20=0.0763
+2026-05-21 09:09:25,187 | ml_benchmark.training.trainer | INFO | Epoch 53 — loss=0.4041 val_ndcg@20=0.0281 val_recall@20=0.0753 val_hr@20=0.0753
+2026-05-21 09:09:32,941 | ml_benchmark.training.trainer | INFO | Epoch 54 — loss=0.4037 val_ndcg@20=0.0282 val_recall@20=0.0756 val_hr@20=0.0756
+2026-05-21 09:09:40,751 | ml_benchmark.training.trainer | INFO | Epoch 55 — loss=0.4051 val_ndcg@20=0.0287 val_recall@20=0.0770 val_hr@20=0.0770
+2026-05-21 09:09:48,502 | ml_benchmark.training.trainer | INFO | Epoch 56 — loss=0.4039 val_ndcg@20=0.0289 val_recall@20=0.0775 val_hr@20=0.0775
+2026-05-21 09:09:56,218 | ml_benchmark.training.trainer | INFO | Epoch 57 — loss=0.4039 val_ndcg@20=0.0289 val_recall@20=0.0777 val_hr@20=0.0777
+2026-05-21 09:10:03,952 | ml_benchmark.training.trainer | INFO | Epoch 58 — loss=0.4042 val_ndcg@20=0.0290 val_recall@20=0.0777 val_hr@20=0.0777
+2026-05-21 09:10:11,682 | ml_benchmark.training.trainer | INFO | Epoch 59 — loss=0.4032 val_ndcg@20=0.0290 val_recall@20=0.0780 val_hr@20=0.0780
+2026-05-21 09:10:19,448 | ml_benchmark.training.trainer | INFO | Epoch 60 — loss=0.4035 val_ndcg@20=0.0291 val_recall@20=0.0783 val_hr@20=0.0783
+2026-05-21 09:10:27,317 | ml_benchmark.training.trainer | INFO | Epoch 61 — loss=0.4016 val_ndcg@20=0.0293 val_recall@20=0.0792 val_hr@20=0.0792
+2026-05-21 09:10:35,409 | ml_benchmark.training.trainer | INFO | Epoch 62 — loss=0.4025 val_ndcg@20=0.0295 val_recall@20=0.0797 val_hr@20=0.0797
+2026-05-21 09:10:43,511 | ml_benchmark.training.trainer | INFO | Epoch 63 — loss=0.4013 val_ndcg@20=0.0297 val_recall@20=0.0797 val_hr@20=0.0797
+2026-05-21 09:10:51,560 | ml_benchmark.training.trainer | INFO | Epoch 64 — loss=0.4008 val_ndcg@20=0.0298 val_recall@20=0.0798 val_hr@20=0.0798
+2026-05-21 09:10:59,629 | ml_benchmark.training.trainer | INFO | Epoch 65 — loss=0.4017 val_ndcg@20=0.0298 val_recall@20=0.0803 val_hr@20=0.0803
+2026-05-21 09:11:07,370 | ml_benchmark.training.trainer | INFO | Epoch 66 — loss=0.4012 val_ndcg@20=0.0298 val_recall@20=0.0803 val_hr@20=0.0803
+2026-05-21 09:11:15,096 | ml_benchmark.training.trainer | INFO | Epoch 67 — loss=0.4014 val_ndcg@20=0.0300 val_recall@20=0.0807 val_hr@20=0.0807
+2026-05-21 09:11:22,825 | ml_benchmark.training.trainer | INFO | Epoch 68 — loss=0.4013 val_ndcg@20=0.0302 val_recall@20=0.0803 val_hr@20=0.0803
+2026-05-21 09:11:30,539 | ml_benchmark.training.trainer | INFO | Epoch 69 — loss=0.4002 val_ndcg@20=0.0302 val_recall@20=0.0807 val_hr@20=0.0807
+2026-05-21 09:11:38,276 | ml_benchmark.training.trainer | INFO | Epoch 70 — loss=0.4010 val_ndcg@20=0.0300 val_recall@20=0.0800 val_hr@20=0.0800
+2026-05-21 09:11:45,993 | ml_benchmark.training.trainer | INFO | Epoch 71 — loss=0.4006 val_ndcg@20=0.0300 val_recall@20=0.0798 val_hr@20=0.0798
+2026-05-21 09:11:53,719 | ml_benchmark.training.trainer | INFO | Epoch 72 — loss=0.4012 val_ndcg@20=0.0300 val_recall@20=0.0797 val_hr@20=0.0797
+2026-05-21 09:12:01,434 | ml_benchmark.training.trainer | INFO | Epoch 73 — loss=0.4008 val_ndcg@20=0.0301 val_recall@20=0.0798 val_hr@20=0.0798
+2026-05-21 09:12:09,191 | ml_benchmark.training.trainer | INFO | Epoch 74 — loss=0.3999 val_ndcg@20=0.0302 val_recall@20=0.0802 val_hr@20=0.0802
+2026-05-21 09:12:16,878 | ml_benchmark.training.trainer | INFO | Epoch 75 — loss=0.4004 val_ndcg@20=0.0303 val_recall@20=0.0807 val_hr@20=0.0807
+2026-05-21 09:12:24,605 | ml_benchmark.training.trainer | INFO | Epoch 76 — loss=0.4001 val_ndcg@20=0.0303 val_recall@20=0.0807 val_hr@20=0.0807
+2026-05-21 09:12:32,307 | ml_benchmark.training.trainer | INFO | Epoch 77 — loss=0.4007 val_ndcg@20=0.0304 val_recall@20=0.0809 val_hr@20=0.0809
+2026-05-21 09:12:40,085 | ml_benchmark.training.trainer | INFO | Epoch 78 — loss=0.4002 val_ndcg@20=0.0304 val_recall@20=0.0812 val_hr@20=0.0812
+2026-05-21 09:12:47,769 | ml_benchmark.training.trainer | INFO | Epoch 79 — loss=0.4000 val_ndcg@20=0.0305 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:12:55,716 | ml_benchmark.training.trainer | INFO | Epoch 80 — loss=0.4000 val_ndcg@20=0.0302 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:13:03,434 | ml_benchmark.training.trainer | INFO | Epoch 81 — loss=0.4000 val_ndcg@20=0.0301 val_recall@20=0.0812 val_hr@20=0.0812
+2026-05-21 09:13:11,210 | ml_benchmark.training.trainer | INFO | Epoch 82 — loss=0.3992 val_ndcg@20=0.0302 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:13:18,919 | ml_benchmark.training.trainer | INFO | Epoch 83 — loss=0.3988 val_ndcg@20=0.0303 val_recall@20=0.0819 val_hr@20=0.0819
+2026-05-21 09:13:26,648 | ml_benchmark.training.trainer | INFO | Epoch 84 — loss=0.3988 val_ndcg@20=0.0303 val_recall@20=0.0819 val_hr@20=0.0819
+2026-05-21 09:13:34,363 | ml_benchmark.training.trainer | INFO | Epoch 85 — loss=0.3986 val_ndcg@20=0.0304 val_recall@20=0.0817 val_hr@20=0.0817
+2026-05-21 09:13:42,104 | ml_benchmark.training.trainer | INFO | Epoch 86 — loss=0.3986 val_ndcg@20=0.0303 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:13:49,800 | ml_benchmark.training.trainer | INFO | Epoch 87 — loss=0.3985 val_ndcg@20=0.0305 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:13:57,531 | ml_benchmark.training.trainer | INFO | Epoch 88 — loss=0.3981 val_ndcg@20=0.0304 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:14:05,234 | ml_benchmark.training.trainer | INFO | Epoch 89 — loss=0.3993 val_ndcg@20=0.0304 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:14:13,000 | ml_benchmark.training.trainer | INFO | Epoch 90 — loss=0.3977 val_ndcg@20=0.0305 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:14:20,732 | ml_benchmark.training.trainer | INFO | Epoch 91 — loss=0.3984 val_ndcg@20=0.0304 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:14:28,460 | ml_benchmark.training.trainer | INFO | Epoch 92 — loss=0.3986 val_ndcg@20=0.0304 val_recall@20=0.0812 val_hr@20=0.0812
+2026-05-21 09:14:36,155 | ml_benchmark.training.trainer | INFO | Epoch 93 — loss=0.3966 val_ndcg@20=0.0304 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:14:43,897 | ml_benchmark.training.trainer | INFO | Epoch 94 — loss=0.3974 val_ndcg@20=0.0307 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:14:51,632 | ml_benchmark.training.trainer | INFO | Epoch 95 — loss=0.3969 val_ndcg@20=0.0306 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:14:59,350 | ml_benchmark.training.trainer | INFO | Epoch 96 — loss=0.3973 val_ndcg@20=0.0307 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:15:07,107 | ml_benchmark.training.trainer | INFO | Epoch 97 — loss=0.3972 val_ndcg@20=0.0307 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:15:14,839 | ml_benchmark.training.trainer | INFO | Epoch 98 — loss=0.3960 val_ndcg@20=0.0306 val_recall@20=0.0812 val_hr@20=0.0812
+2026-05-21 09:15:22,601 | ml_benchmark.training.trainer | INFO | Epoch 99 — loss=0.3963 val_ndcg@20=0.0306 val_recall@20=0.0812 val_hr@20=0.0812
+2026-05-21 09:15:30,329 | ml_benchmark.training.trainer | INFO | Epoch 100 — loss=0.3964 val_ndcg@20=0.0309 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:15:38,076 | ml_benchmark.training.trainer | INFO | Epoch 101 — loss=0.3953 val_ndcg@20=0.0309 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:15:45,781 | ml_benchmark.training.trainer | INFO | Epoch 102 — loss=0.3955 val_ndcg@20=0.0308 val_recall@20=0.0812 val_hr@20=0.0812
+2026-05-21 09:15:53,505 | ml_benchmark.training.trainer | INFO | Epoch 103 — loss=0.3959 val_ndcg@20=0.0308 val_recall@20=0.0812 val_hr@20=0.0812
+2026-05-21 09:16:01,328 | ml_benchmark.training.trainer | INFO | Epoch 104 — loss=0.3952 val_ndcg@20=0.0309 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:16:09,402 | ml_benchmark.training.trainer | INFO | Epoch 105 — loss=0.3953 val_ndcg@20=0.0309 val_recall@20=0.0817 val_hr@20=0.0817
+2026-05-21 09:16:17,421 | ml_benchmark.training.trainer | INFO | Epoch 106 — loss=0.3943 val_ndcg@20=0.0309 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:16:25,487 | ml_benchmark.training.trainer | INFO | Epoch 107 — loss=0.3940 val_ndcg@20=0.0309 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:16:33,559 | ml_benchmark.training.trainer | INFO | Epoch 108 — loss=0.3951 val_ndcg@20=0.0309 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:16:41,301 | ml_benchmark.training.trainer | INFO | Epoch 109 — loss=0.3936 val_ndcg@20=0.0308 val_recall@20=0.0817 val_hr@20=0.0817
+2026-05-21 09:16:48,964 | ml_benchmark.training.trainer | INFO | Epoch 110 — loss=0.3938 val_ndcg@20=0.0308 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:16:56,724 | ml_benchmark.training.trainer | INFO | Epoch 111 — loss=0.3927 val_ndcg@20=0.0308 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:17:04,475 | ml_benchmark.training.trainer | INFO | Epoch 112 — loss=0.3936 val_ndcg@20=0.0308 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:17:12,223 | ml_benchmark.training.trainer | INFO | Epoch 113 — loss=0.3943 val_ndcg@20=0.0308 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:17:19,951 | ml_benchmark.training.trainer | INFO | Epoch 114 — loss=0.3932 val_ndcg@20=0.0308 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:17:27,687 | ml_benchmark.training.trainer | INFO | Epoch 115 — loss=0.3927 val_ndcg@20=0.0309 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:17:35,407 | ml_benchmark.training.trainer | INFO | Epoch 116 — loss=0.3925 val_ndcg@20=0.0309 val_recall@20=0.0817 val_hr@20=0.0817
+2026-05-21 09:17:43,130 | ml_benchmark.training.trainer | INFO | Epoch 117 — loss=0.3922 val_ndcg@20=0.0309 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:17:50,842 | ml_benchmark.training.trainer | INFO | Epoch 118 — loss=0.3927 val_ndcg@20=0.0310 val_recall@20=0.0819 val_hr@20=0.0819
+2026-05-21 09:17:58,575 | ml_benchmark.training.trainer | INFO | Epoch 119 — loss=0.3922 val_ndcg@20=0.0310 val_recall@20=0.0819 val_hr@20=0.0819
+2026-05-21 09:18:06,262 | ml_benchmark.training.trainer | INFO | Epoch 120 — loss=0.3921 val_ndcg@20=0.0310 val_recall@20=0.0819 val_hr@20=0.0819
+2026-05-21 09:18:14,087 | ml_benchmark.training.trainer | INFO | Epoch 121 — loss=0.3923 val_ndcg@20=0.0309 val_recall@20=0.0820 val_hr@20=0.0820
+2026-05-21 09:18:21,832 | ml_benchmark.training.trainer | INFO | Epoch 122 — loss=0.3907 val_ndcg@20=0.0310 val_recall@20=0.0822 val_hr@20=0.0822
+2026-05-21 09:18:29,565 | ml_benchmark.training.trainer | INFO | Epoch 123 — loss=0.3915 val_ndcg@20=0.0309 val_recall@20=0.0822 val_hr@20=0.0822
+2026-05-21 09:18:37,261 | ml_benchmark.training.trainer | INFO | Epoch 124 — loss=0.3926 val_ndcg@20=0.0309 val_recall@20=0.0822 val_hr@20=0.0822
+2026-05-21 09:18:45,002 | ml_benchmark.training.trainer | INFO | Epoch 125 — loss=0.3922 val_ndcg@20=0.0309 val_recall@20=0.0822 val_hr@20=0.0822
+2026-05-21 09:18:52,832 | ml_benchmark.training.trainer | INFO | Epoch 126 — loss=0.3921 val_ndcg@20=0.0311 val_recall@20=0.0829 val_hr@20=0.0829
+2026-05-21 09:19:00,623 | ml_benchmark.training.trainer | INFO | Epoch 127 — loss=0.3911 val_ndcg@20=0.0311 val_recall@20=0.0827 val_hr@20=0.0827
+2026-05-21 09:19:08,429 | ml_benchmark.training.trainer | INFO | Epoch 128 — loss=0.3909 val_ndcg@20=0.0311 val_recall@20=0.0827 val_hr@20=0.0827
+2026-05-21 09:19:16,147 | ml_benchmark.training.trainer | INFO | Epoch 129 — loss=0.3914 val_ndcg@20=0.0311 val_recall@20=0.0827 val_hr@20=0.0827
+2026-05-21 09:19:23,949 | ml_benchmark.training.trainer | INFO | Epoch 130 — loss=0.3911 val_ndcg@20=0.0310 val_recall@20=0.0825 val_hr@20=0.0825
+2026-05-21 09:19:31,684 | ml_benchmark.training.trainer | INFO | Epoch 131 — loss=0.3913 val_ndcg@20=0.0308 val_recall@20=0.0817 val_hr@20=0.0817
+2026-05-21 09:19:39,443 | ml_benchmark.training.trainer | INFO | Epoch 132 — loss=0.3912 val_ndcg@20=0.0308 val_recall@20=0.0817 val_hr@20=0.0817
+2026-05-21 09:19:47,140 | ml_benchmark.training.trainer | INFO | Epoch 133 — loss=0.3903 val_ndcg@20=0.0309 val_recall@20=0.0817 val_hr@20=0.0817
+2026-05-21 09:19:54,861 | ml_benchmark.training.trainer | INFO | Epoch 134 — loss=0.3908 val_ndcg@20=0.0308 val_recall@20=0.0819 val_hr@20=0.0819
+2026-05-21 09:20:02,634 | ml_benchmark.training.trainer | INFO | Epoch 135 — loss=0.3904 val_ndcg@20=0.0307 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:20:10,317 | ml_benchmark.training.trainer | INFO | Epoch 136 — loss=0.3905 val_ndcg@20=0.0307 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:20:18,082 | ml_benchmark.training.trainer | INFO | Epoch 137 — loss=0.3897 val_ndcg@20=0.0307 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:20:25,819 | ml_benchmark.training.trainer | INFO | Epoch 138 — loss=0.3916 val_ndcg@20=0.0306 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:20:33,563 | ml_benchmark.training.trainer | INFO | Epoch 139 — loss=0.3913 val_ndcg@20=0.0308 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:20:41,272 | ml_benchmark.training.trainer | INFO | Epoch 140 — loss=0.3912 val_ndcg@20=0.0308 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:20:49,008 | ml_benchmark.training.trainer | INFO | Epoch 141 — loss=0.3912 val_ndcg@20=0.0307 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:20:56,763 | ml_benchmark.training.trainer | INFO | Epoch 142 — loss=0.3912 val_ndcg@20=0.0307 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:21:04,482 | ml_benchmark.training.trainer | INFO | Epoch 143 — loss=0.3913 val_ndcg@20=0.0306 val_recall@20=0.0814 val_hr@20=0.0814
+2026-05-21 09:21:12,226 | ml_benchmark.training.trainer | INFO | Epoch 144 — loss=0.3913 val_ndcg@20=0.0307 val_recall@20=0.0815 val_hr@20=0.0815
+2026-05-21 09:21:19,976 | ml_benchmark.training.trainer | INFO | Epoch 145 — loss=0.3905 val_ndcg@20=0.0306 val_recall@20=0.0807 val_hr@20=0.0807
+2026-05-21 09:21:27,724 | ml_benchmark.training.trainer | INFO | Epoch 146 — loss=0.3909 val_ndcg@20=0.0304 val_recall@20=0.0798 val_hr@20=0.0798
+2026-05-21 09:21:35,477 | ml_benchmark.training.trainer | INFO | Epoch 147 — loss=0.3903 val_ndcg@20=0.0304 val_recall@20=0.0797 val_hr@20=0.0797
+2026-05-21 09:21:43,539 | ml_benchmark.training.trainer | INFO | Epoch 148 — loss=0.3919 val_ndcg@20=0.0304 val_recall@20=0.0800 val_hr@20=0.0800
+2026-05-21 09:21:51,606 | ml_benchmark.training.trainer | INFO | Epoch 149 — loss=0.3914 val_ndcg@20=0.0305 val_recall@20=0.0798 val_hr@20=0.0798
+2026-05-21 09:21:59,675 | ml_benchmark.training.trainer | INFO | Epoch 150 — loss=0.3901 val_ndcg@20=0.0306 val_recall@20=0.0802 val_hr@20=0.0802
+2026-05-21 09:22:07,754 | ml_benchmark.training.trainer | INFO | Epoch 151 — loss=0.3905 val_ndcg@20=0.0307 val_recall@20=0.0802 val_hr@20=0.0802
+2026-05-21 09:22:15,487 | ml_benchmark.training.trainer | INFO | Epoch 152 — loss=0.3894 val_ndcg@20=0.0307 val_recall@20=0.0802 val_hr@20=0.0802
+2026-05-21 09:22:23,228 | ml_benchmark.training.trainer | INFO | Epoch 153 — loss=0.3898 val_ndcg@20=0.0305 val_recall@20=0.0795 val_hr@20=0.0795
+2026-05-21 09:22:30,962 | ml_benchmark.training.trainer | INFO | Epoch 154 — loss=0.3893 val_ndcg@20=0.0303 val_recall@20=0.0790 val_hr@20=0.0790
+2026-05-21 09:22:38,742 | ml_benchmark.training.trainer | INFO | Epoch 155 — loss=0.3896 val_ndcg@20=0.0303 val_recall@20=0.0790 val_hr@20=0.0790
+2026-05-21 09:22:46,483 | ml_benchmark.training.trainer | INFO | Epoch 156 — loss=0.3899 val_ndcg@20=0.0303 val_recall@20=0.0788 val_hr@20=0.0788
+2026-05-21 09:22:54,230 | ml_benchmark.training.trainer | INFO | Epoch 157 — loss=0.3905 val_ndcg@20=0.0302 val_recall@20=0.0790 val_hr@20=0.0790
+2026-05-21 09:23:02,096 | ml_benchmark.training.trainer | INFO | Epoch 158 — loss=0.3901 val_ndcg@20=0.0301 val_recall@20=0.0787 val_hr@20=0.0787
+2026-05-21 09:23:09,823 | ml_benchmark.training.trainer | INFO | Epoch 159 — loss=0.3899 val_ndcg@20=0.0301 val_recall@20=0.0787 val_hr@20=0.0787
+2026-05-21 09:23:17,513 | ml_benchmark.training.trainer | INFO | Epoch 160 — loss=0.3899 val_ndcg@20=0.0302 val_recall@20=0.0790 val_hr@20=0.0790
+2026-05-21 09:23:25,264 | ml_benchmark.training.trainer | INFO | Epoch 161 — loss=0.3904 val_ndcg@20=0.0302 val_recall@20=0.0792 val_hr@20=0.0792
+2026-05-21 09:23:33,033 | ml_benchmark.training.trainer | INFO | Epoch 162 — loss=0.3895 val_ndcg@20=0.0302 val_recall@20=0.0792 val_hr@20=0.0792
+2026-05-21 09:23:40,789 | ml_benchmark.training.trainer | INFO | Epoch 163 — loss=0.3895 val_ndcg@20=0.0303 val_recall@20=0.0793 val_hr@20=0.0793
+2026-05-21 09:23:48,523 | ml_benchmark.training.trainer | INFO | Epoch 164 — loss=0.3892 val_ndcg@20=0.0303 val_recall@20=0.0793 val_hr@20=0.0793
+2026-05-21 09:23:56,220 | ml_benchmark.training.trainer | INFO | Epoch 165 — loss=0.3903 val_ndcg@20=0.0302 val_recall@20=0.0792 val_hr@20=0.0792
+2026-05-21 09:24:04,015 | ml_benchmark.training.trainer | INFO | Epoch 166 — loss=0.3897 val_ndcg@20=0.0302 val_recall@20=0.0793 val_hr@20=0.0793
+2026-05-21 09:24:11,782 | ml_benchmark.training.trainer | INFO | Epoch 167 — loss=0.3889 val_ndcg@20=0.0303 val_recall@20=0.0800 val_hr@20=0.0800
+2026-05-21 09:24:19,563 | ml_benchmark.training.trainer | INFO | Epoch 168 — loss=0.3893 val_ndcg@20=0.0302 val_recall@20=0.0802 val_hr@20=0.0802
+2026-05-21 09:24:27,308 | ml_benchmark.training.trainer | INFO | Epoch 169 — loss=0.3900 val_ndcg@20=0.0303 val_recall@20=0.0805 val_hr@20=0.0805
+2026-05-21 09:24:35,097 | ml_benchmark.training.trainer | INFO | Epoch 170 — loss=0.3893 val_ndcg@20=0.0303 val_recall@20=0.0805 val_hr@20=0.0805
+2026-05-21 09:24:42,798 | ml_benchmark.training.trainer | INFO | Epoch 171 — loss=0.3893 val_ndcg@20=0.0303 val_recall@20=0.0807 val_hr@20=0.0807
+2026-05-21 09:24:50,542 | ml_benchmark.training.trainer | INFO | Epoch 172 — loss=0.3900 val_ndcg@20=0.0302 val_recall@20=0.0805 val_hr@20=0.0805
+2026-05-21 09:24:58,252 | ml_benchmark.training.trainer | INFO | Epoch 173 — loss=0.3889 val_ndcg@20=0.0302 val_recall@20=0.0803 val_hr@20=0.0803
+2026-05-21 09:25:06,039 | ml_benchmark.training.trainer | INFO | Epoch 174 — loss=0.3898 val_ndcg@20=0.0301 val_recall@20=0.0802 val_hr@20=0.0802
+2026-05-21 09:25:13,734 | ml_benchmark.training.trainer | INFO | Epoch 175 — loss=0.3896 val_ndcg@20=0.0301 val_recall@20=0.0803 val_hr@20=0.0803
+2026-05-21 09:25:21,530 | ml_benchmark.training.trainer | INFO | Epoch 176 — loss=0.3894 val_ndcg@20=0.0302 val_recall@20=0.0807 val_hr@20=0.0807
+2026-05-21 09:25:21,531 | ml_benchmark.training.trainer | INFO | Early stopping at epoch 176 (patience=50)
+2026-05-21 09:25:29,350 | train_movielens | INFO | Result written to results/movielens/seed42.json
+
+============================================================
+✓ Full training completed (seed42.json)
+  Wall time:    1403.2s (23.4 min)
+  Best epoch:   126/177
+  Test NDCG@20: 0.0272
+  Test Recall@20: 0.0724
+  Test HR@20:   0.0724
+  Test MRR:     0.0206
+============================================================

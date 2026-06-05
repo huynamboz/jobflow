@@ -29,6 +29,7 @@ import ExtractSchedulePage from "@/pages/admin/schedule/extract";
 import EmployeesPage from "@/pages/admin/employees";
 import EmployeeDetailPage from "@/pages/admin/employees/detail";
 import PipelinePage from "@/pages/admin/pipeline";
+import SettingsPage from "@/pages/admin/settings";
 
 function App() {
   return (
@@ -64,6 +65,7 @@ function App() {
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
         <Route path="pipeline" element={<PipelinePage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
 
       <Route element={<PublicRoute />}>

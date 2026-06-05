@@ -64,7 +64,7 @@ def main():
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--k-core", type=int, default=10)
     parser.add_argument("--subsample-users", type=int, default=50_000)
-    parser.add_argument("--hetero", action="store_true", help="Hetero variant (US2 stretch — not yet implemented)")
+    parser.add_argument("--hetero", action="store_true", help="Hetero variant with skill+seniority nodes extracted from jobs.tsv")
     parser.add_argument(
         "--output",
         type=Path,

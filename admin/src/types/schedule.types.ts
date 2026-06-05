@@ -14,10 +14,15 @@ export interface ScheduleConfig {
   batches_per_day: number;
   hours_utc: number[];
   use_no_auth_check: boolean;
+  headless: boolean;
   platform: string;
   active_run: ScheduleActiveRun;
   last_fired_at: string | null;
   updated_at: string;
+  pending: {
+    verify: number;
+    extract: number;
+  };
 }
 
 export interface ScheduleLiveLog {

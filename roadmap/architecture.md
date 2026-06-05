@@ -3,7 +3,11 @@
 > Tài liệu này mô tả toàn bộ kiến trúc hệ thống, flow dữ liệu, và cách các thành phần liên kết với nhau.
 > Mục đích: đảm bảo không đi sai hướng khi build thêm tính năng.
 >
-> Cập nhật: 2026-04-24 (Week 11)
+> Cập nhật: 2026-05-14 — đồng bộ với code thực tế (`backend/ml_service/` + `backend/apps/`).
+>
+> Hai lớp tách rời:
+> 1. **ML pipeline** (offline) — extraction → graph → train GNN + reranker → checkpoint
+> 2. **Production ops** (online) — crawler + verifier lifecycle + date extractor + schedule daemon + admin dashboard
 
 ---
 
@@ -72,11 +76,11 @@
            └──────────────┬───────────┘
                           │
                           ▼
-           ┌──────────────────────────┐
-           │   INFERENCE ENGINE       │
-           │  Stage 1: Retrieve top 50│
-           │  Stage 2: Rerank → top K │
-           └──────────────────────────┘
+           ┌────────────────────────────┐
+           │   INFERENCE ENGINE         │
+           │  Stage 1: Retrieve top N=200│
+           │  Stage 2: Rerank → top K   │
+           └────────────────────────────┘
 ```
 
 *JD seniority có hard override rule: title chứa "intern/co-op/fresher/trainee/thực tập" → bắt buộc seniority=0, bất kể skills hay experience trong JD.
@@ -94,24 +98,29 @@
 
 **Embedding model:** `all-MiniLM-L6-v2` (SentenceTransformers, 384-dim)
 
-**Edge types:**
+**Edge types** (xây trong `ml_service/graph/builder.py`):
+
 | Edge | Attr | Mô tả |
 |------|------|-------|
 | `(CV) -[has_skill]→ (Skill)` | proficiency (1–5) | CV biết skill này |
 | `(Job) -[requires_skill]→ (Skill)` | importance (1–5) | Job yêu cầu skill này |
 | `(CV) -[has_seniority]→ (Seniority)` | — | CV thuộc mức seniority nào |
 | `(Job) -[requires_seniority]→ (Seniority)` | — | Job yêu cầu mức seniority nào |
-| `(Skill) -[relates_to]→ (Skill)` | PMI score | Skills liên quan nhau (co-occurrence) |
+| `(Skill) -[relates_to]→ (Skill)` | PMI score (+ semantic ≥ 0.70) | Skills liên quan nhau (co-occurrence + skill-name embedding similarity) |
 | `(CV) -[similar_profile]→ (CV)` | Jaccard ≥ 0.3 | CVs có skill profile giống nhau |
 | `(Job) -[similar_to]→ (Job)` | Jaccard | Jobs có skill profile giống nhau |
 | `(CV) -[match]→ (Job)` | — | Training signal: positive pair |
 | `(CV) -[no_match]→ (Job)` | — | Training signal: negative pair |
 
+Lưu ý: `relates_to`, `similar_profile`, `similar_to` được builder add trực tiếp vào `HeteroData` nhưng **không** liệt kê trong enum `EdgeType` của `graph/schema.py` (enum chỉ có 6 loại bắt buộc cho training signal).
+
 ---
 
 ## Inference Flow (2-Stage)
 
-### Stage 1 — Retrieve (fast, top 50)
+### Stage 1 — Retrieve (fast, top N)
+
+`InferenceEngine.match_cv()` mặc định `retrieve_n=200` (`engine.py:223`). Tất cả `N` job được scoring và rerank, top-K trả về cho user.
 
 ```
 score = α × GNN_score + β × skill_overlap + γ × seniority_score
@@ -119,24 +128,33 @@ score = α × GNN_score + β × skill_overlap + γ × seniority_score
 ```
 
 Trong đó:
-- `GNN_score = 0.6 × gnn_decode(cv_emb, job_emb) + 0.4 × cosine(cv_text, job_text)`
-- `skill_overlap` = weighted Jaccard (theo importance), có PMI bonus (+0.6×) cho related skills
+- `GNN_score = 0.6 × sigmoid(gnn_decode(cv_emb, job_emb)) + 0.4 × cosine(cv_text, job_text)` (cả 2 đều normalize về [0,1])
+- `skill_overlap` = weighted Jaccard (theo importance), có PMI bonus (×0.6) cho related skills
 - `seniority_score = max(0, 1 - |cv_seniority - job_seniority| × 0.4)`
 
-**Trọng số `0.55/0.30/0.15` là hardcode (heuristic)**, không học từ data.
-Chỉ để lọc sơ top 50 candidates, không phải kết quả cuối.
+**Trọng số `0.55/0.30/0.15` là hardcode (heuristic)**, không học từ data — chỉ làm điểm khởi đầu cho Stage 2.
 
-**Penalties áp dụng thêm (sau khi có reranker score):**
+Stage 1 còn áp các multiplicative penalty **trong lúc scoring** (`_apply_must_have_penalty` + `_apply_edge_case_penalties`):
 
-| Tình huống | Multiplier | Label |
-|------------|-----------|-------|
+| Tình huống | Multiplier |
+|------------|-----------|
+| Missing required (importance ≥ 4) — 1 skill thiếu | ×0.90 |
+| Missing required — 2 thiếu | ×0.75 |
+| Missing required — ≥3 thiếu | ×0.60 |
+| CV < 4 skills (sparse profile) | ×0.85 |
+| `cv_seniority ≥ 3` và `job_seniority ≤ 1` (senior CV vs intern/junior job) | ×0.80 |
+| Job < 3 skills (sparse JD — Stage-1 only) | ×0.80 |
+| Intersection toàn tool skills (git, jira, docker…) | ×0.75 |
+| Role mismatch (`role_match_penalty`) | nhân hệ số ∈ [0.5, 1.0] |
+
+**Display-score penalties (áp sau Stage 2, trên reranker score):**
+
+| Tình huống | Multiplier | Label set ở `dim_scores` |
+|------------|-----------|-------------------------|
 | `cv_exp < job_exp_min` (thiếu năm kinh nghiệm) | ×0.40 | `experience_fit=weak` |
 | `cv_exp − job_exp_min > 3yr` (overqualified về năm) | ×0.85 | `experience_fit=weak` |
-| `job_seniority − cv_seniority ≥ 2` hoặc job Senior+ mà CV ≤ Mid | ×0.70 | `seniority_fit=weak` |
+| `job_seniority − cv_seniority ≥ 2` hoặc (gap ≥ 1 và job ≥ Senior, CV ≤ Mid) | ×0.70 | `seniority_fit=weak` |
 | `cv_seniority − job_seniority ≥ 2` (overqualified về seniority) | ×0.75 | `seniority_fit=weak` |
-| Role mismatch (cv_role ≠ job_role) | giảm nhẹ | — |
-| Must-have skill thiếu (importance ≥ 4) | giảm theo số thiếu | — |
-| Edge case: CV < 4 skills / intersection toàn tools | ×penalty | — |
 
 `experience_fit` và `seniority_fit` là hai gate độc lập — có thể cùng bị weak một lúc.
 
@@ -237,16 +255,23 @@ Score = E[class] = (0×p₀ + 1×p₁ + 2×p₂) / 2  →  [0, 1]
 
 ## Pair Generation Strategy
 
-| Type | Cách chọn | Mục đích | Số lượng (hiện tại) |
-|------|-----------|---------|-------------------|
-| `high_overlap` | Jaccard ≥ 0.5 + same role | Positive examples rõ ràng | ~1,505 |
-| `medium_overlap` | Jaccard 0.2–0.5 + same/related role | Hard positive | ~2,178 |
-| `hard_negative` | Stage-1 score ≥ 0.50 nhưng Jaccard < 0.35 | Model-confusing negatives | ~3,360 |
-| `random` | Random CV × Job | Easy negative | ~3,495 |
+Pipeline chính `python manage.py generate_pairs` (`apps/labeling/management/commands/generate_pairs.py`):
 
-**Tổng hiện tại: 11,611 labeled pairs** (split 70/15/15)
+| Type | Cách chọn | Mục đích | Tỉ lệ sample target |
+|------|-----------|---------|--------------------|
+| `high_overlap` | Same/related role + Jaccard ≥ 0.20 | Positive examples rõ ràng | 30% |
+| `medium_overlap` | Same/related role + 0.08 ≤ Jaccard < 0.20 | Hard positive | 40% |
+| `hard_negative` | Same/related role + Jaccard < 0.08 | Model-confusing negatives (low overlap, compatible role) | 20% |
+| `random` | Incompatible role (capped `max_per_cv=12`) | Easy negative | 10% |
 
-**Hard negative mining** (`mine_hard_negatives.py`): score toàn bộ CV×Job pool qua Stage-1, lấy pairs model đang bị nhầm để đưa vào PairQueue → LLM label.
+Ngưỡng Jaccard và sample ratio đều được hardcode trong `generate_pairs.py` (`overlap >= 0.20 / >= 0.08 / else`, ratios `0.30/0.40/0.20/0.10`).
+
+**Dataset hiện tại — `data/processed/b89_full` (training input của checkpoint `gnn_v2`):**
+- Tổng: **11,509 labeled pairs** (3,786 positive — 33% / 7,723 negative)
+- Split: 8,020 train / 1,753 val / 1,736 test (~70/15/15)
+- Batch IDs: 6, 8, 9, 10
+
+**Hard negative mining bổ sung** (`mine_hard_negatives.py`, **không** trong flow `generate_pairs`): score toàn bộ CV×Job qua Stage-1, lấy pairs với `score ≥ 0.50 và Jaccard < 0.35` (model đang nhầm) → insert PENDING vào `PairQueue` → LLM label. Đây là pipeline thứ 2, tách biệt với rule-based generation ở trên.
 
 ---
 
@@ -259,10 +284,11 @@ Score = E[class] = (0×p₀ + 1×p₁ + 2×p₂) / 2  →  [0, 1]
 - `domain_fit` 0/1/2: role_category có khớp không
 - `overall` 0/1/2: kết luận tổng thể
 
-**Phân phối hiện tại (11,611 pairs):**
-- overall=0 (not fit): 7,778 — 67%
-- overall=1 (suitable): 3,009 — 26%
-- overall=2 (strong): 824 — 7%
+**Phân phối hiện tại trên `b89_full` (11,509 pairs):**
+- overall=0 (not fit): ~67%
+- overall=1 (suitable): ~26%
+- overall=2 (strong): ~7%
+- `label` (binary fit/not): 3,786 positive (33%) / 7,723 negative
 
 **Data quality tools:**
 - `relabel_experience.py` — programmatic fix cho pairs noisy về experience_fit
@@ -282,7 +308,7 @@ Score = E[class] = (0×p₀ + 1×p₁ + 2×p₂) / 2  →  [0, 1]
 
 ---
 
-## Dependency Chain (thứ tự bắt buộc)
+## Dependency Chain (thứ tự bắt buộc — ML pipeline)
 
 ```
 1. CV batch extraction (role_category + seniority + skills đúng)
@@ -295,12 +321,95 @@ Score = E[class] = (0×p₀ + 1×p₁ + 2×p₂) / 2  →  [0, 1]
         ↓
 5. Train GNN (run_train_save.py — cần labeled pairs)
         ↓
-6. Train MLP Reranker (train_reranker.py — cần GNN embeddings + labeled pairs)
+6. Train MLP Reranker (run_train_reranker.py — cần GNN embeddings + labeled pairs)
         ↓
 7. Stage 2 inference hoạt động (patch checkpoint nếu cần)
 ```
 
-**Checkpoint patch:** nếu thay đổi DB data (seniority, skills) mà không retrain, cần patch `checkpoints/<name>/jobs.json` thủ công vì engine đọc từ file, không từ DB trực tiếp.
+**Checkpoint patch:** nếu thay đổi DB data (seniority, skills) mà không retrain, cần patch `checkpoints/<name>/jobs.json` thủ công vì engine đọc từ file, không từ DB trực tiếp (xem `patch_checkpoint_jobs.py`).
+
+---
+
+## Production Ops Layer (online, runtime job pool)
+
+Mảng này chạy độc lập với ML pipeline ở trên — mục đích là giữ job pool sạch & up-to-date cho engine inference dùng. Code chính ở `backend/ml_service/verifier/` + `backend/apps/schedule/` + `backend/apps/admin_dashboard/`.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              CRAWLER (run_crawl.py — LinkedIn)                 │
+│   → Job rows: lifecycle=ACTIVE, last_seen_at=now               │
+└─────────────────┬──────────────────────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────────────────────────────┐
+│   JD EXTRACTION (LLM) → JDExtractionRecord(result, status=DONE)│
+└─────────────────┬──────────────────────────────────────────────┘
+                  ↓
+        ┌─────────┴────────┐
+        ↓                  ↓
+┌──────────────┐   ┌──────────────────┐
+│ verify_job_  │   │ extract_job_dates │
+│ status       │   │  + bundled verify │
+│ (Playwright) │   │  (Playwright)     │
+└──────┬───────┘   └─────────┬────────┘
+       ↓                     ↓
+   Lifecycle             Job.date_posted
+   transitions:          + JobStatus
+   ACTIVE → STALE (aged ≥14d)
+   ACTIVE → EXPIRED (404/closed)
+   → write VerifierRunLog row
+                  ↓
+┌─────────────────────────────────────────────────────────────────┐
+│         SCHEDULE DAEMON (apps/schedule/management/              │
+│                         commands/schedule_runner.py)            │
+│   forever: tick 60s → read VerifierSchedule rows →              │
+│            subprocess.Popen(verify/extract) when hour matches   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Verifier subsystem (`ml_service/verifier/`)
+
+- `base.py` — `JobStatus` enum (ACTIVE / EXPIRED / SESSION_EXPIRED / UNKNOWN / ERROR) + `JobStatusVerifier` ABC
+- `service.py` — `StatusCheckService` orchestrator: aging rule (active ≥14d → stale) + dispatch verify
+- `backfill_service.py` — `DateBackfillService` cho `extract_job_dates` (bundled verify khi backfill date)
+- `providers/linkedin_verifier.py` — Playwright SDUI scraping cho LinkedIn (active markers, closed-job detection)
+- `selectors/linkedin.json` — CSS/XPath selectors có thể hot-swap không cần redeploy
+- `auth_guard.py` — kiểm tra `linkedin_state.json` (`li_at` cookie) trước khi spawn
+- `browser_pool.py` — Playwright context pool
+
+`Job` model có 4 lifecycle state + verification metadata (`last_seen_at`, `last_verified_at`, `verification_attempts`, `verification_backoff_until`). `VerifierRunLog` lưu history mỗi lần verify/extract chạy (counts_by_outcome, wall_clock).
+
+### Schedule daemon (`apps/schedule/`)
+
+In-process daemon (KHÔNG dùng Celery/Redis) — operator config qua admin UI, daemon đọc DB và spawn subprocess:
+
+- `models.VerifierSchedule` — 1 row per command (`verify_job_status` | `extract_job_dates`), giữ config (`hours_utc`, `batch_size`, `enabled`) + active-run trio (`current_run_pid`, `started_at`, `log_path`) + `last_fired_at` để idempotent
+- `services.py` — `start_run` / `stop_run` (SIGTERM process group) / `is_active_run` (kill -0 probe) / `tail_live_log` (seek + read offset)
+- `management/commands/schedule_runner.py` — forever loop, tick 60s mặc định
+- `views.py` — REST `/api/admin/schedule/<cmd>/...` (config, start, stop, live-log, history)
+
+Mỗi spawn dùng `subprocess.Popen(..., start_new_session=True)` để child Chromium + Playwright sống độc lập daemon (kill daemon không giết job đang chạy). Log đi vào `backend/logs/runs/<cmd>_<TS>.log` — frontend poll 2s với byte-offset (không SSE/WebSocket). Chi tiết: `roadmap/docs/schedule.md`.
+
+### Admin dashboard (`apps/admin_dashboard/`)
+
+REST KPI cho operator (`/api/admin/dashboard/...`):
+
+| Endpoint | Phục vụ card |
+|----------|--------------|
+| `kpi/` | counts tổng (jobs/CVs/pairs/active labels) |
+| `catalog/` | distribution theo role, seniority, platform |
+| `freshness/` | tỷ lệ jobs unverified / stale / expired theo bucket thời gian |
+| `ops/` | verifier run stats (success/error/session_expired rate) |
+| `labeling/` | PairQueue progress (pending / done / split distribution) |
+| `model/` | metadata.json + calibration.json từ checkpoint hiện tại |
+
+UI: `admin/src/pages/admin/` (React + Vite). Page schedule chia sẻ component `_schedule-page.tsx`.
+
+### Specs liên quan
+
+- `specs/001-linkedin-job-verifier/` — verifier lifecycle (Week 9)
+- `specs/002-job-date-posted-extraction/` — date extraction (Week 10)
+- `specs/003-admin-dashboard-v2/` — dashboard cards (Week 12, active)
+- `specs/005-verify-schedule-dashboard/` — schedule daemon + live-log UI (Week 13)
 
 ---
 
@@ -315,17 +424,23 @@ Score = E[class] = (0×p₀ + 1×p₁ + 2×p₂) / 2  →  [0, 1]
 
 ---
 
-## Kết quả hiện tại (Week 11)
+## Kết quả hiện tại (checkpoint `gnn_v2` / `latest`)
+
+Đọc trực tiếp từ `backend/checkpoints/latest/metadata.json` + `calibration.json`:
 
 | Metric | Giá trị |
 |--------|---------|
-| GNN Test AUC-ROC | **0.876** |
+| GNN Test AUC-ROC | **0.8764** |
 | GNN NDCG@5 | 1.000 |
+| GNN Precision@5 | 1.000 |
+| GNN Hit@5 | 1.000 |
 | GNN MRR | 1.000 |
-| Labeled pairs | 11,611 |
+| Best epoch | 299 |
+| Labeled pairs (train input) | 11,509 (`data/processed/b89_full`) |
 | CVs / Jobs trong checkpoint | 364 / 6,251 |
 | Reranker | MLP ordinal 3-class, 23 features |
-| Calibration | a=1.016, b=−1.078 |
+| Hidden / Layers (GNN) | 256 / 3 |
+| Calibration (Platt) | a = 1.0162, b = −1.0778 |
 
 **Ranking quality theo domain:**
 
@@ -353,4 +468,5 @@ Score = E[class] = (0×p₀ + 1×p₁ + 2×p₂) / 2  →  [0, 1]
 | Week 9 | 0.701 | 9,889 | Rule-based | Fix early stopping |
 | Week 10 (b89) | 0.790 | 5,206 | Binary MLP | LLM labels, biased |
 | Week 10 (v2) | 0.786 | 11,565 | Binary MLP 81.2% | Dataset cân bằng |
-| **Week 11** | **0.876** | **11,611** | **Ordinal 3-class MLP** | 23 features, intern fix |
+| **Week 11 (gnn_v2)** | **0.876** | **11,509** | **Ordinal 3-class MLP** | 23 features, intern fix, b89_full |
+| Week 12+ | n/a (no retrain) | — | — | Verifier lifecycle, dashboard, schedule daemon (ops layer) |

@@ -62,6 +62,11 @@ class Command(BaseCommand):
                 "relies on LinkedIn's guest layout. Useful for ad-hoc testing."
             ),
         )
+        parser.add_argument(
+            "--headed",
+            action="store_true",
+            help="Launch Chromium with a visible window. Default is headless.",
+        )
 
     def handle(self, *args, **opts):
         platform = opts["platform"]
@@ -69,6 +74,7 @@ class Command(BaseCommand):
         dry_run = bool(opts["dry_run"])
         json_report = bool(opts["json_report"])
         no_auth_check = bool(opts["no_auth_check"])
+        headed = bool(opts["headed"])
 
         if not (_MIN_BATCH <= batch <= _MAX_BATCH):
             raise CommandError(
@@ -77,7 +83,7 @@ class Command(BaseCommand):
 
         try:
             verifier = verifier_factory.get_verifier(
-                platform, require_li_at=not no_auth_check,
+                platform, require_li_at=not no_auth_check, headless=not headed,
             )
         except ValueError as e:
             raise CommandError(str(e)) from e

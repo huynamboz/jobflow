@@ -1,0 +1,11 @@
+Phase 2 MovieLens baseline (from feature 008 seed42.json)
+Captured: 2026-05-21
+
+  NDCG@20  = 0.0272
+  Recall@20 = 0.0724
+  HR@20    = 0.0724
+  MRR      = 0.0206
+
+T018 regression check: smoke test sẽ chạy 5 epoch trên subsample 1000 users k-core=5.
+Smoke baseline (from feature 008 _smoke_movielens_log.txt): NDCG@20=0.0179, Recall@20=0.0581 (10 epoch).
+Tolerance: chệch < 5% absolute cho smoke; chệch < 0.001 cho full reproducibility.

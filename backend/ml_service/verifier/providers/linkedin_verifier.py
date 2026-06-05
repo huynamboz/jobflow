@@ -151,9 +151,16 @@ class LinkedInVerifier(JobStatusVerifier):
     # ── Internals ────────────────────────────────────────────────────────
 
     def _check_one(self, page, url: str, selectors: dict) -> VerifyResult:
+        if page.is_closed():
+            raise RuntimeError("browser page closed — aborting batch")
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=15000)
         except Exception as exc:  # network, timeout, etc.
+            # If the page/browser died, propagate so the outer batch loop
+            # bails immediately instead of producing N copies of the same
+            # TargetClosedError (which would flood the log on Stop).
+            if page.is_closed():
+                raise
             return VerifyResult(
                 JobStatus.ERROR, reason=f"goto failed: {exc!r}", final_url=url
             )

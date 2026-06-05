@@ -157,6 +157,13 @@ class DateBackfillService:
                 if i > 0:
                     time.sleep(self._delay + random.uniform(0.0, self._jitter))
 
+                # If the page/browser is gone (operator hit Stop, OOM,
+                # crash) bail the whole batch instead of producing N copies
+                # of TargetClosedError.
+                if page.is_closed():
+                    logger.warning("page closed mid-batch at %d/%d — aborting", i + 1, total)
+                    break
+
                 # Per-URL try/except — FR-015 isolation.
                 try:
                     self._navigate(page, url)
@@ -171,6 +178,9 @@ class DateBackfillService:
                     outcomes.append((job_id, date_result, verify_result, False))
                     self._log_progress(i + 1, total, job_id, url, date_result, verify_result, errored=False)
                 except Exception as exc:  # noqa: BLE001
+                    if page.is_closed():
+                        logger.warning("page closed during URL %d/%d — aborting", i + 1, total)
+                        break
                     logger.exception("extract failed for job %s", job_id)
                     outcomes.append((job_id, None, None, True))
                     self._log_progress(i + 1, total, job_id, url, None, None, errored=True, exc=exc)

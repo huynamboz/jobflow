@@ -1,0 +1,40 @@
+JobFlow Smoke Test Baseline (from feature 007)
+================================================
+
+Source: specs/007-duplicate-ml-benchmark/_smoke_test_log.txt
+Captured: 2026-05-21
+
+Configuration
+-------------
+Script:        backend/scripts/smoke_test_benchmark.py
+Dataset:       data/processed/b89 (~29 MB, JobFlow)
+Epochs:        5
+Hidden:        128
+Seed:          42
+
+Result (run on macOS Apple Silicon CPU)
+---------------------------------------
+Wall time:        ~94 seconds
+Final train loss: 0.6818
+Best epoch:       4
+
+Test metrics
+------------
+recall@5      = 0.0111
+precision@5   = 1.0000
+ndcg@5        = 1.0000
+hit_rate@5    = 1.0000
+recall@10     = 0.0200
+precision@10  = 0.9000
+ndcg@10       = 0.9266
+hit_rate@10   = 1.0000
+mrr           = 1.0000
+auc_roc       = 0.6550
+
+Tolerance bands for Phase 2 regression check (T007, SC-006)
+-----------------------------------------------------------
+ndcg@10:   [0.88, 0.97]   (±5% absolute)
+auc_roc:   [0.62, 0.69]   (±5% absolute)
+wall time: [50s, 150s]    (CPU noise / thermal throttle tolerant)
+
+T007 PASS criterion: all 3 bands satisfied + exit 0 + no exception.

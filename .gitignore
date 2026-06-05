@@ -55,3 +55,4 @@ backend/auth/chromium_profile/
 
 # Schedule run logs (live tail files)
 backend/logs/runs/
+/specs/013-thesis-report

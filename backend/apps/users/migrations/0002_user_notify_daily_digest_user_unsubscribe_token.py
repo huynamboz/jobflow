@@ -4,6 +4,13 @@ import uuid
 from django.db import migrations, models
 
 
+def backfill_tokens(apps, schema_editor):
+    User = apps.get_model("users", "User")
+    for user in User.objects.all():
+        user.unsubscribe_token = uuid.uuid4()
+        user.save(update_fields=["unsubscribe_token"])
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -16,7 +23,16 @@ class Migration(migrations.Migration):
             name='notify_daily_digest',
             field=models.BooleanField(default=True),
         ),
+        # Step 1: add column nullable, no unique yet
         migrations.AddField(
+            model_name='user',
+            name='unsubscribe_token',
+            field=models.UUIDField(default=uuid.uuid4, editable=False, null=True),
+        ),
+        # Step 2: backfill unique UUIDs for existing rows
+        migrations.RunPython(backfill_tokens, migrations.RunPython.noop),
+        # Step 3: make non-null + unique
+        migrations.AlterField(
             model_name='user',
             name='unsubscribe_token',
             field=models.UUIDField(default=uuid.uuid4, editable=False, unique=True),

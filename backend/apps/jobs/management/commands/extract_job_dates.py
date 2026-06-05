@@ -60,6 +60,11 @@ class Command(BaseCommand):
                 "extract-only behaviour."
             ),
         )
+        parser.add_argument(
+            "--headed",
+            action="store_true",
+            help="Launch Chromium with a visible window. Default is headless.",
+        )
 
     def handle(self, *args, **opts):
         platform = opts["platform"]
@@ -68,6 +73,7 @@ class Command(BaseCommand):
         json_report = bool(opts["json_report"])
         no_auth_check = bool(opts["no_auth_check"])
         with_verify = not bool(opts["no_verify"])
+        headed = bool(opts["headed"])
 
         if platform != "linkedin":
             raise CommandError(f"v1 supports only --platform linkedin (got {platform!r}).")
@@ -88,7 +94,7 @@ class Command(BaseCommand):
         @contextmanager
         def browser_factory():
             with open_browser_page(
-                state_path, headless=True, require_li_at=not no_auth_check,
+                state_path, headless=not headed, require_li_at=not no_auth_check,
             ) as (page, ctx):
                 yield page, ctx
 
