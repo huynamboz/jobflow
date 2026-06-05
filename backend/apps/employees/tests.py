@@ -233,25 +233,52 @@ class CvParserAdapterTests(APITestCase):
         self.assertIsNone(_seniority_to_int(None))
         self.assertIsNone(_seniority_to_int("unknown-grade"))
 
-    def test_adapter_maps_parser_output(self):
-        # Real parser stubbed so the test stays fast (no ML model load).
+    def test_email_phone_extraction(self):
+        from apps.employees.parsers import _first_email, _first_phone
+
+        text = "John Doe\n+84354633778 | john.doe@gmail.com\nGPA 3.51/4.0  2021-2023"
+        self.assertEqual(_first_email(text), "john.doe@gmail.com")
+        self.assertEqual(_first_phone(text), "+84354633778")
+        # A bare year range must NOT be read as a phone number.
+        self.assertEqual(_first_phone("Education 2021 - 2023"), "")
+
+    def test_position_from_work_experience(self):
+        from apps.employees.parsers import _position_from
+
+        self.assertEqual(_position_from([{"title": "Senior Backend Dev"}], "backend"), "Senior Backend Dev")
+        self.assertEqual(_position_from([], "frontend"), "Frontend Developer")
+        self.assertEqual(_position_from([], "unknownrole"), "")
+
+    def test_adapter_maps_full_output(self):
+        # Stub the LLM + text extraction + normalizer so the test stays fast.
         from unittest.mock import patch
 
         from apps.employees import parsers
+        from apps.cvs.services.llm_cv_extractor import CVExtractResult
 
-        raw = {"skills": ["python", "django"], "seniority": "SENIOR", "experience_years": 6.0}
-        with patch("apps.matching.services.parse_cv_file", return_value=raw):
+        result = CVExtractResult(
+            name="Jane Smith", experience_years=6.0, seniority=3, role_category="backend",
+            skills=[{"name": "Python", "proficiency": 4}, {"name": "Django", "proficiency": 3}],
+            work_experience=[{"title": "Senior Backend Engineer"}],
+        )
+        norm = type("N", (), {"normalize": staticmethod(lambda s: s.lower())})()
+        with patch.object(parsers, "_extract_text", return_value="Jane Smith jane@x.com +84354633778"), \
+             patch("apps.cvs.services.llm_cv_extractor.extract", return_value=result), \
+             patch.object(parsers, "_get_normalizer", return_value=norm):
             out = parsers.parse_cv_file("/tmp/cv.pdf")
-        self.assertEqual(out["skills"], ["python", "django"])
+        self.assertEqual(out["full_name"], "Jane Smith")
+        self.assertEqual(out["position"], "Senior Backend Engineer")
+        self.assertEqual(out["email"], "jane@x.com")
+        self.assertEqual(out["phone"], "+84354633778")
         self.assertEqual(out["seniority"], 3)
-        self.assertEqual(out["experience_years"], 6.0)
+        self.assertEqual(out["skills"], ["python", "django"])
 
     def test_adapter_returns_empty_on_failure(self):
         from unittest.mock import patch
 
         from apps.employees import parsers
 
-        with patch("apps.matching.services.parse_cv_file", side_effect=RuntimeError("no engine")):
+        with patch.object(parsers, "_extract_text", side_effect=RuntimeError("no file")):
             self.assertEqual(parsers.parse_cv_file("/tmp/cv.pdf"), {})
 
 

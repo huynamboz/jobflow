@@ -27,6 +27,17 @@ def _do_parse_and_match(employee_id: int) -> dict:
 
     parsed = parse_cv_file(emp.cv_file) if emp.cv_file else {}
     if parsed:
+        # Identity fields — only overwrite when the CV gave us something.
+        if parsed.get("full_name"):
+            emp.full_name = parsed["full_name"]
+        if parsed.get("position"):
+            emp.position = parsed["position"]
+        if parsed.get("phone"):
+            emp.phone = parsed["phone"]
+        email = parsed.get("email")
+        if email and not Employee.objects.filter(email=email).exclude(pk=emp.pk).exists():
+            emp.email = email  # respect the unique-email constraint
+
         emp.skills = parsed.get("skills", emp.skills)
         if "seniority" in parsed:
             emp.seniority = parsed["seniority"]
