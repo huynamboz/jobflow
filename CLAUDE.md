@@ -1,17 +1,16 @@
 <!-- SPECKIT START -->
-Active feature plan: [specs/013-thesis-report/plan.md](specs/013-thesis-report/plan.md)
+Active feature plan: [specs/014-employee-shadow-enhance/plan.md](specs/014-employee-shadow-enhance/plan.md)
 
 Related artifacts:
-- [spec.md](specs/013-thesis-report/spec.md)
-- [research.md](specs/013-thesis-report/research.md)
-- [data-model.md](specs/013-thesis-report/data-model.md)
-- [contracts/file-structure.md](specs/013-thesis-report/contracts/file-structure.md)
-- [contracts/style-guide.md](specs/013-thesis-report/contracts/style-guide.md)
-- [contracts/source-data-map.md](specs/013-thesis-report/contracts/source-data-map.md)
-- [quickstart.md](specs/013-thesis-report/quickstart.md)
-- [checklists/requirements.md](specs/013-thesis-report/checklists/requirements.md)
+- [spec.md](specs/014-employee-shadow-enhance/spec.md)
+- [research.md](specs/014-employee-shadow-enhance/research.md)
+- [data-model.md](specs/014-employee-shadow-enhance/data-model.md)
+- [contracts/api-changes.md](specs/014-employee-shadow-enhance/contracts/api-changes.md)
+- [quickstart.md](specs/014-employee-shadow-enhance/quickstart.md)
+- [checklists/requirements.md](specs/014-employee-shadow-enhance/checklists/requirements.md)
 
 Previous features (still in this branch's history):
+- [specs/013-thesis-report/plan.md](specs/013-thesis-report/plan.md) (Thesis report — Vietnamese academic doc)
 - [specs/012-employee-mvp/plan.md](specs/012-employee-mvp/plan.md) (Employee MVP — internal HR tool, in-progress)
 - [specs/011-thesis-defense-prep/plan.md](specs/011-thesis-defense-prep/plan.md) (Thesis defense — LSTM/BiLSTM)
 - [specs/010-lightgcn-baseline/plan.md](specs/010-lightgcn-baseline/plan.md) (LightGCN GNN baseline)

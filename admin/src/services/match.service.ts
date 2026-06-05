@@ -20,6 +20,21 @@ interface UpdatePayload {
   status?: MatchStatus;
   notes?: string;
   assigned_to?: number | null;
+  // Set true to proceed past the duplicate-apply warning (US3).
+  confirm_duplicate?: boolean;
+}
+
+export interface DuplicateApplyFrontman {
+  employee_id: number;
+  employee_name: string;
+  match_id: number;
+  status: MatchStatus;
+}
+
+export interface DuplicateApplyError {
+  code: "DUPLICATE_APPLY";
+  message: string;
+  frontman: DuplicateApplyFrontman;
 }
 
 class MatchService {

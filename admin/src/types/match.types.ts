@@ -23,6 +23,8 @@ export interface EmployeeJobMatch {
   status: MatchStatus;
   match_score: number;
   matched_skills: string[];
+  missing_skills: string[];
+  seniority_gap: number | null;
   assigned_to: number | null;
   notes: string;
   applied_at: string | null;

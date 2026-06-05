@@ -8,6 +8,13 @@
 **Ký hiệu trạng thái:** ✅ Đã có · 🟡 Có một phần · 🔴 Chưa có
 **Ưu tiên:** P1 (cốt lõi, làm ngay) · P2 (vận hành) · P3 (tối ưu/về sau)
 
+> **Cập nhật 2026-06-05 (feature 014 — Employee Shadow Enhance):** đã triển khai các mục P1:
+> 3.3 Explainability (kỹ năng khớp/thiếu + chênh cấp bậc) 🔴→✅ ·
+> 4.2 Badge "job mới"/nhân viên 🟡→✅ ·
+> 5.2 Ghi nhận frontman + 5.3 Chặn apply trùng 🔴→✅ ·
+> Mục 6: bỏ logic sai "won→placed" của #012 (trạng thái nhân viên giờ hoàn toàn thủ công).
+> Còn lại P1: 2.2 Nhập job thủ công (chưa làm). Chi tiết: [specs/014-employee-shadow-enhance/](../specs/014-employee-shadow-enhance/plan.md).
+
 ---
 
 ## 1. Quản lý nguồn lực — Nhân viên & CV

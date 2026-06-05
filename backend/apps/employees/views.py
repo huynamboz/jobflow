@@ -102,7 +102,14 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 
 
 class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
-    """List/update match records. Auto-transition timestamps + Employee.status."""
+    """List/update match records.
+
+    Shadow model (feature 014):
+    - Employee.status is NEVER changed automatically by a match transition; HR
+      sets it manually. A frontman who wins a job stays on bench to apply again.
+    - Marking a match ``applied`` guards against another employee already
+      fronting the same job (soft warning via HTTP 409 unless ``confirm_duplicate``).
+    """
 
     serializer_class = EmployeeJobMatchSerializer
     permission_classes = [IsAuthenticated, IsHRStaff]
@@ -119,6 +126,42 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Only admin role can delete matches.")
         return super().destroy(request, *args, **kwargs)
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        new_status = request.data.get("status")
+        confirm_duplicate = str(request.data.get("confirm_duplicate", "")).lower() in (
+            "1", "true", "yes",
+        )
+        # US3: warn before two employees front the same job.
+        if new_status == "applied" and not confirm_duplicate:
+            frontman = (
+                EmployeeJobMatch.objects.filter(
+                    job_id=instance.job_id,
+                    status__in=["applied", "won"],
+                )
+                .exclude(pk=instance.pk)
+                .select_related("employee")
+                .first()
+            )
+            if frontman is not None:
+                return Response(
+                    {
+                        "success": False,
+                        "error": {
+                            "code": "DUPLICATE_APPLY",
+                            "message": "Job này đã được apply bởi nhân viên khác.",
+                            "frontman": {
+                                "employee_id": frontman.employee_id,
+                                "employee_name": frontman.employee.full_name,
+                                "match_id": frontman.pk,
+                                "status": frontman.status,
+                            },
+                        },
+                    },
+                    status=drf_status.HTTP_409_CONFLICT,
+                )
+        return super().update(request, *args, **kwargs)
+
     def perform_update(self, serializer):
         instance = serializer.save()
         new_status = serializer.validated_data.get("status")
@@ -130,18 +173,13 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
             instance.applied_at = now
             updates.append("applied_at")
         if new_status == "won" and not instance.won_at:
+            # US4: winning a job does NOT place the frontman — record the
+            # timestamp only; Employee.status is left untouched.
             instance.won_at = now
             updates.append("won_at")
-            # Auto-transition Employee
-            if instance.employee.status != Employee.Status.PLACED:
-                instance.employee.status = Employee.Status.PLACED
-                instance.employee.save(update_fields=["status", "updated_at"])
         if new_status == "lost" and not instance.lost_at:
             instance.lost_at = now
             updates.append("lost_at")
-        if new_status == "pursuing" and instance.employee.status == Employee.Status.BENCH:
-            instance.employee.status = Employee.Status.PURSUING
-            instance.employee.save(update_fields=["status", "updated_at"])
         if updates:
             instance.save(update_fields=updates + ["updated_at"])
 

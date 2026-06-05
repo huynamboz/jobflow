@@ -149,6 +149,8 @@ flowchart LR
 
 ---
 
+> **Cập nhật 2026-06-05 (feature 014):** màn 4.2 (badge "job mới") và 4.3 (panel "Vì sao khớp" + cảnh báo apply trùng) đã triển khai; logic sai "won→placed" của #012 đã gỡ. Chi tiết: [specs/014-employee-shadow-enhance/](../specs/014-employee-shadow-enhance/plan.md).
+
 ## 5. Tổng hợp ưu tiên màn hình
 
 | Ưu tiên | Màn hình | Trạng thái |

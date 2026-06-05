@@ -107,7 +107,7 @@ export default function EmployeesPage() {
               <TableColumn>Position</TableColumn>
               <TableColumn>Skills</TableColumn>
               <TableColumn>Status</TableColumn>
-              <TableColumn>Matches</TableColumn>
+              <TableColumn>New jobs</TableColumn>
               <TableColumn>Created</TableColumn>
             </TableHeader>
             <TableBody
@@ -140,7 +140,15 @@ export default function EmployeesPage() {
                     </div>
                   </TableCell>
                   <TableCell><EmployeeStatusChip status={emp.status} /></TableCell>
-                  <TableCell>{emp.match_count ?? 0}</TableCell>
+                  <TableCell>
+                    {emp.match_count ? (
+                      <Chip size="sm" color="primary" variant="flat">
+                        {emp.match_count} new
+                      </Chip>
+                    ) : (
+                      <span className="text-default-300">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-default-500">
                     {new Date(emp.created_at).toLocaleDateString()}
                   </TableCell>

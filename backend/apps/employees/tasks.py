@@ -38,21 +38,40 @@ def _do_parse_and_match(employee_id: int) -> dict:
         emp.is_parse_failed = bool(emp.cv_file)  # only mark failed if there was a file
     emp.save()
 
+    from apps.jobs.models import Job
+
     matches = match_employee_to_jobs(emp, top_k=30)
     created = 0
+    skipped = 0
     for m in matches:
+        job = Job.objects.filter(pk=m["job_id"]).first()
+        if job is None:
+            # Engine job_id space may not map onto a Job row; skip rather than
+            # raise an integrity error so the rest of the batch still lands.
+            skipped += 1
+            continue
+        seniority_gap = None
+        if job.seniority is not None and emp.seniority is not None:
+            seniority_gap = int(job.seniority) - int(emp.seniority)
         _, was_created = EmployeeJobMatch.objects.update_or_create(
             employee=emp,
-            job_id=m["job_id"],
+            job=job,
             defaults={
                 "status": EmployeeJobMatch.Status.SUGGESTED,
                 "match_score": float(m.get("score", 0.0)),
                 "matched_skills": m.get("matched_skills", []),
+                "missing_skills": m.get("missing_skills", []),
+                "seniority_gap": seniority_gap,
             },
         )
         if was_created:
             created += 1
-    return {"employee_id": employee_id, "matches_total": len(matches), "matches_created": created}
+    return {
+        "employee_id": employee_id,
+        "matches_total": len(matches),
+        "matches_created": created,
+        "matches_skipped": skipped,
+    }
 
 
 try:

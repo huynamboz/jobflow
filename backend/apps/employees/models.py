@@ -92,6 +92,10 @@ class EmployeeJobMatch(models.Model):
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
     )
     matched_skills = models.JSONField(default=list, blank=True)
+    # Explainability (feature 014): skills the job requires but the employee lacks,
+    # and the seniority distance (job_seniority - employee_seniority); null when unknown.
+    missing_skills = models.JSONField(default=list, blank=True)
+    seniority_gap = models.IntegerField(null=True, blank=True)
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

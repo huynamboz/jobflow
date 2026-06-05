@@ -73,7 +73,10 @@ class EmployeeAuthorizationTests(APITestCase):
         self.assertEqual(resp.status_code, 413)
 
 
-class MatchAutoTransitionTests(APITestCase):
+class MatchTransitionTests(APITestCase):
+    """Shadow model (feature 014): match transitions never auto-change
+    Employee.status; the frontman stays on bench to apply again."""
+
     @classmethod
     def setUpTestData(cls):
         cls.admin = User.objects.create_user(
@@ -86,7 +89,8 @@ class MatchAutoTransitionTests(APITestCase):
             employee=cls.emp, job=cls.job, status="suggested", match_score=0.8
         )
 
-    def test_won_sets_employee_placed(self):
+    def test_won_does_not_place_employee(self):
+        # US4: winning a job records won_at but leaves the frontman on bench.
         resp = _auth_client(self.admin).patch(
             f"/api/admin/matches/{self.match.id}/",
             {"status": "won"},
@@ -95,10 +99,11 @@ class MatchAutoTransitionTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.emp.refresh_from_db()
         self.match.refresh_from_db()
-        self.assertEqual(self.emp.status, "placed")
+        self.assertEqual(self.emp.status, "bench")
         self.assertIsNotNone(self.match.won_at)
 
-    def test_pursuing_promotes_bench_employee(self):
+    def test_pursuing_does_not_change_employee_status(self):
+        # US4: Employee.status is fully manual now.
         resp = _auth_client(self.admin).patch(
             f"/api/admin/matches/{self.match.id}/",
             {"status": "pursuing"},
@@ -106,7 +111,18 @@ class MatchAutoTransitionTests(APITestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.emp.refresh_from_db()
-        self.assertEqual(self.emp.status, "pursuing")
+        self.assertEqual(self.emp.status, "bench")
+
+    def test_manual_status_change_allowed(self):
+        # US4/FR-011: HR can still mark an employee busy (placed) manually.
+        resp = _auth_client(self.admin).patch(
+            f"/api/admin/employees/{self.emp.id}/",
+            {"status": "placed"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.emp.refresh_from_db()
+        self.assertEqual(self.emp.status, "placed")
 
     def test_applied_stamps_timestamp(self):
         resp = _auth_client(self.admin).patch(
@@ -117,6 +133,77 @@ class MatchAutoTransitionTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         self.match.refresh_from_db()
         self.assertIsNotNone(self.match.applied_at)
+
+    def test_explainability_fields_exposed(self):
+        # US1: serializer surfaces missing_skills + seniority_gap.
+        self.match.missing_skills = ["kubernetes"]
+        self.match.matched_skills = ["python"]
+        self.match.seniority_gap = 1
+        self.match.save()
+        resp = _auth_client(self.admin).get(
+            f"/api/admin/matches/{self.match.id}/",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["missing_skills"], ["kubernetes"])
+        self.assertEqual(resp.data["matched_skills"], ["python"])
+        self.assertEqual(resp.data["seniority_gap"], 1)
+
+
+class DuplicateApplyGuardTests(APITestCase):
+    """US3: warn when two employees front the same job."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin = User.objects.create_user(
+            username="boss", email="boss@x.com", password="x1", role="admin"
+        )
+        cls.platform = Platform.objects.create(name="LinkedIn", slug="linkedin")
+        cls.job = Job.objects.create(platform=cls.platform, title="Job", description="...")
+        cls.emp1 = Employee.objects.create(full_name="Alice", status="bench")
+        cls.emp2 = Employee.objects.create(full_name="Bob", status="bench")
+        cls.match1 = EmployeeJobMatch.objects.create(
+            employee=cls.emp1, job=cls.job, status="applied", match_score=0.8
+        )
+        cls.match2 = EmployeeJobMatch.objects.create(
+            employee=cls.emp2, job=cls.job, status="suggested", match_score=0.7
+        )
+
+    def test_duplicate_apply_warns(self):
+        resp = _auth_client(self.admin).patch(
+            f"/api/admin/matches/{self.match2.id}/",
+            {"status": "applied"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.data["error"]["code"], "DUPLICATE_APPLY")
+        self.assertEqual(resp.data["error"]["frontman"]["employee_id"], self.emp1.id)
+        self.match2.refresh_from_db()
+        self.assertEqual(self.match2.status, "suggested")
+
+    def test_duplicate_apply_proceeds_with_confirm(self):
+        resp = _auth_client(self.admin).patch(
+            f"/api/admin/matches/{self.match2.id}/",
+            {"status": "applied", "confirm_duplicate": True},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.match2.refresh_from_db()
+        self.assertEqual(self.match2.status, "applied")
+
+    def test_first_apply_no_warning(self):
+        # A job with no prior frontman applies cleanly.
+        emp3 = Employee.objects.create(full_name="Cara", status="bench")
+        platform2 = Platform.objects.create(name="Indeed", slug="indeed")
+        job2 = Job.objects.create(platform=platform2, title="Other", description="...")
+        match3 = EmployeeJobMatch.objects.create(
+            employee=emp3, job=job2, status="suggested", match_score=0.6
+        )
+        resp = _auth_client(self.admin).patch(
+            f"/api/admin/matches/{match3.id}/",
+            {"status": "applied"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
 
 
 class KpiTests(APITestCase):
