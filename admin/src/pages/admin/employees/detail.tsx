@@ -227,7 +227,7 @@ function JobDetailPanel({
         {descLoading ? (
           <div style={{ fontSize: 13, color: T.ink4 }}>Loading description…</div>
         ) : desc ? (
-          <div style={{ fontSize: 13, lineHeight: 1.65, color: T.ink2, whiteSpace: "pre-line", maxHeight: 360, overflow: "auto", paddingRight: 4 }}>{desc}</div>
+          <div style={{ fontSize: 13, lineHeight: 1.65, color: T.ink2, whiteSpace: "pre-line" }}>{desc}</div>
         ) : (
           <div style={{ fontSize: 13, color: T.ink4 }}>No description available.</div>
         )}
@@ -441,16 +441,16 @@ export default function EmployeeDetailPage() {
           </div>
         </Card>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 380px) 1fr", gap: 14, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 380px) 1fr", gap: 14, alignItems: "stretch", height: "calc(100vh - 220px)" }}>
           {/* left list */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "calc(100vh - 280px)", overflow: "auto", paddingRight: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0, overflow: "auto", paddingRight: 4 }}>
             {visible.map((m) => (
               <JobListItem key={m.id} match={m} selected={m.id === selectedId} onSelect={() => setSelectedId(m.id)} />
             ))}
             {visible.length === 0 && <div style={{ padding: 16, fontSize: 13, color: T.ink4 }}>No jobs in this status.</div>}
           </div>
           {/* right detail */}
-          <Card padding={0} style={{ position: "sticky", top: 12 }}>
+          <Card padding={0} style={{ height: "100%", overflow: "auto" }}>
             {selected ? (
               <JobDetailPanel match={selected} onStatus={(s) => updateStatus(selected.id, s)} />
             ) : (
