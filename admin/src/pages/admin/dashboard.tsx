@@ -7,6 +7,7 @@ import FreshnessActivity from "@/components/dashboard/FreshnessActivity";
 import KpiStrip from "@/components/dashboard/KpiStrip";
 import LabelingProgress from "@/components/dashboard/LabelingProgress";
 import ModelStatus from "@/components/dashboard/ModelStatus";
+import StaffingDashboard from "@/components/dashboard/StaffingDashboard";
 import VerifierExtractorOps from "@/components/dashboard/VerifierExtractorOps";
 
 export default function DashboardPage() {
@@ -58,6 +59,18 @@ export default function DashboardPage() {
       </header>
 
       <AuthStateBanner refreshKey={refreshKey} />
+
+      <StaffingDashboard refreshKey={refreshKey} />
+
+      <h2
+        style={{
+          font: "600 15px/1.2 var(--font-node-sans)",
+          color: "var(--ink)",
+          margin: "8px 0 0",
+        }}
+      >
+        System &amp; ML ops
+      </h2>
       <KpiStrip refreshKey={refreshKey} />
 
       <div className="grid gap-4 xl:grid-cols-2">

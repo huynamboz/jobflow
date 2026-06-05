@@ -219,6 +219,46 @@ class DuplicateApplyGuardTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+class DashboardTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin = User.objects.create_user(
+            username="a", email="a@x.com", password="x1", role="admin"
+        )
+        cls.platform = Platform.objects.create(name="LinkedIn", slug="linkedin")
+        cls.job = Job.objects.create(platform=cls.platform, title="Job", description="...")
+        cls.bench = Employee.objects.create(full_name="BenchGuy", status="bench")
+        cls.broken = Employee.objects.create(full_name="Broken", is_parse_failed=True)
+        EmployeeJobMatch.objects.create(
+            employee=cls.bench, job=cls.job, status="suggested", match_score=0.9
+        )
+
+    def test_requires_hr_role(self):
+        cand = User.objects.create_user(
+            username="c", email="c@x.com", password="x1", role="candidate"
+        )
+        resp = _auth_client(cand).get("/api/admin/staffing/dashboard/")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_returns_all_blocks(self):
+        resp = _auth_client(self.admin).get("/api/admin/staffing/dashboard/")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.data["data"]
+        for key in ("kpi", "action_queue", "funnel", "alerts", "recent"):
+            self.assertIn(key, data)
+        # bench employee with a suggested match shows up in the action queue
+        self.assertTrue(
+            any(r["full_name"] == "BenchGuy" for r in data["action_queue"]["top_new_matches"])
+        )
+        # high-score suggested match surfaces as an alert
+        self.assertTrue(len(data["alerts"]["high_score_unapplied"]) >= 1)
+        # parse-failed employee surfaces as an alert
+        self.assertTrue(
+            any(r["full_name"] == "Broken" for r in data["alerts"]["parse_failed"])
+        )
+        self.assertEqual(data["funnel"]["suggested"], 1)
+
+
 class KpiTests(APITestCase):
     def test_kpi_requires_hr_role(self):
         cand = User.objects.create_user(

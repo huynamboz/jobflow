@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.employees.views import (
+    DashboardView,
     EmployeeJobMatchViewSet,
     EmployeeViewSet,
     PipelineKpiView,
@@ -14,4 +15,5 @@ router.register(r"matches", EmployeeJobMatchViewSet, basename="admin-match")
 urlpatterns = [
     path("", include(router.urls)),
     path("pipeline/kpi/", PipelineKpiView.as_view(), name="admin-pipeline-kpi"),
+    path("staffing/dashboard/", DashboardView.as_view(), name="admin-staffing-dashboard"),
 ]
