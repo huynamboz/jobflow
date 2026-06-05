@@ -36,7 +36,7 @@ export default function FreshnessActivity({ refreshKey }: Props) {
           <div>
             <p style={NODE_DESC}>Jobs added per day, last 30 days</p>
             <div style={{ marginTop: 8 }}>
-              <AreaSeries data={data.jobs_added_per_day} ariaLabel="Jobs added per day" color="#3582ff" />
+              <AreaSeries data={data.jobs_added_per_day} ariaLabel="Jobs added per day" color="#167a7a" />
             </div>
           </div>
           <div>

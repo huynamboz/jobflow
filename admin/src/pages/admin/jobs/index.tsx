@@ -113,7 +113,7 @@ function AccentBtn({
         boxShadow: "var(--shadow-btn)",
         transition: "background 0.14s",
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = "#1e6cf0"; }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = "#126767"; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = "var(--blue)"; }}
     >
       {icon}

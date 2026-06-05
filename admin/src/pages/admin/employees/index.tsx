@@ -50,11 +50,11 @@ type BadgeState = { label: string; bg: string; color: string; pulse?: boolean };
 
 function badgeFor(emp: Employee): BadgeState {
   const parsing = !emp.parsed_at && !emp.is_parse_failed;
-  if (parsing) return { label: "Parsing…", bg: "oklch(0.93 0.05 240)", color: "oklch(0.42 0.16 240)", pulse: true };
+  if (parsing) return { label: "Parsing…", bg: "#c8e5e5", color: "#0e5353", pulse: true };
   if (emp.is_parse_failed) return { label: "Parse failed", bg: T.danger50, color: T.danger };
   const map: Record<string, BadgeState> = {
     bench: { label: "On bench", bg: T.surface3, color: T.ink2 },
-    pursuing: { label: "Pursuing", bg: "oklch(0.93 0.05 240)", color: "oklch(0.42 0.16 240)" },
+    pursuing: { label: "Pursuing", bg: "#c8e5e5", color: "#0e5353" },
     placed: { label: "Placed", bg: T.success50, color: T.success },
     inactive: { label: "Inactive", bg: T.surface3, color: T.ink4 },
   };
@@ -83,7 +83,7 @@ function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) 
       borderRadius: 20, padding: 18, cursor: "pointer",
       transition: "transform 0.14s, box-shadow 0.14s", position: "relative", overflow: "hidden",
     }}>
-      {parsing && <span style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg,transparent,oklch(0.55 0.20 240),transparent)", backgroundSize: "200% 100%", animation: "jb-shimmer 1.6s linear infinite" }} />}
+      {parsing && <span style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg,transparent,#167a7a,transparent)", backgroundSize: "200% 100%", animation: "jb-shimmer 1.6s linear infinite" }} />}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: b.bg, color: b.color }}>

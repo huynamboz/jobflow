@@ -47,7 +47,7 @@ const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"
 
 const STATUS_META: Record<MatchStatus, { label: string; bg: string; color: string }> = {
   suggested: { label: "Suggested", bg: T.surface3, color: T.ink2 },
-  pursuing: { label: "Pursuing", bg: T.accent100, color: "oklch(0.42 0.16 240)" },
+  pursuing: { label: "Pursuing", bg: T.accent100, color: "#0e5353" },
   applied: { label: "Applied", bg: "oklch(0.94 0.05 280)", color: "oklch(0.45 0.16 280)" },
   won: { label: "Won", bg: T.success50, color: T.success },
   lost: { label: "Lost", bg: T.danger50, color: T.danger },

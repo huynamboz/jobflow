@@ -9,7 +9,7 @@ import { useDashboardSection } from "./useDashboardSection";
 interface Props { refreshKey: number }
 
 const NODE_PALETTE = [
-  "#3582ff", "#49ba61", "#e36323", "#ffb73a", "#8755e9", "#fe5938", "#7b7b7b", "#323232",
+  "#167a7a", "#49ba61", "#e36323", "#ffb73a", "#8755e9", "#fe5938", "#7b7b7b", "#323232",
 ];
 
 const LIFECYCLE_COLOR_MAP: Record<string, string> = {
@@ -56,7 +56,7 @@ export default function CatalogComposition({ refreshKey }: Props) {
             />
           </Pane>
           <Pane label={`By role category${data.by_role_category.length ? ` (${data.by_role_category.length})` : ""}`}>
-            <BarH data={data.by_role_category} ariaLabel="Jobs by role category" color="#3582ff" />
+            <BarH data={data.by_role_category} ariaLabel="Jobs by role category" color="#167a7a" />
           </Pane>
           <Pane label="By seniority">
             <BarH

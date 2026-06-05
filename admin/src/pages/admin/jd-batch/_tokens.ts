@@ -1,9 +1,9 @@
 import type { JDBatch } from "@/types/job.types";
 
 export const T = {
-  accent:    "oklch(0.55 0.20 240)",
+  accent:    "#167a7a",
   accent600: "oklch(0.48 0.20 240)",
-  accent50:  "oklch(0.97 0.03 240)",
+  accent50:  "#e8f4f4",
   accent100: "oklch(0.92 0.07 240)",
   success:   "oklch(0.62 0.17 155)",
   success50: "oklch(0.96 0.04 155)",

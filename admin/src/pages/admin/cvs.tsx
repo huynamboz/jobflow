@@ -37,7 +37,7 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 const ROLE_COLOR: Record<string, string> = {
-  backend:   "oklch(0.93 0.05 240)",
+  backend:   "#c8e5e5",
   frontend:  "oklch(0.93 0.06 180)",
   fullstack: "oklch(0.93 0.06 210)",
   mobile:    "oklch(0.93 0.05 270)",
