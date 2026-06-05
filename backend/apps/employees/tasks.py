@@ -17,6 +17,10 @@ from apps.employees.parsers import parse_cv_file
 
 logger = logging.getLogger(__name__)
 
+# How many top-ranked jobs to store per employee. The list is ranked by the GNN,
+# so larger = a longer tail of lower-relevance jobs for HR to browse.
+MATCH_TOP_K = 100
+
 
 def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
     """Upsert match rows. New rows start as ``suggested``; existing rows keep
@@ -71,7 +75,7 @@ def _do_rematch(employee_id: int) -> dict:
         return {"employee_id": employee_id, "skipped": "not_found"}
     if not emp.skills:
         return {"employee_id": employee_id, "skipped": "no_skills"}
-    return _persist_matches(emp, rematch_employee(emp, top_k=30))
+    return _persist_matches(emp, rematch_employee(emp, top_k=MATCH_TOP_K))
 
 
 def _do_parse_and_match(employee_id: int) -> dict:
@@ -105,7 +109,7 @@ def _do_parse_and_match(employee_id: int) -> dict:
         emp.is_parse_failed = bool(emp.cv_file)  # only mark failed if there was a file
     emp.save()
 
-    return _persist_matches(emp, match_employee_to_jobs(emp, top_k=30))
+    return _persist_matches(emp, match_employee_to_jobs(emp, top_k=MATCH_TOP_K))
 
 
 try:
