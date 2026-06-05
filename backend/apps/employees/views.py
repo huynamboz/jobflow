@@ -492,18 +492,19 @@ class PipelineKpiView(APIView):
 _SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"]
 
 EMAIL_SYSTEM_PROMPT = (
-    "You are an expert technical recruiter at an IT staffing agency. You write the "
-    "body of a short, professional job-application email that puts ONE of the "
-    "agency's engineers forward for a specific role.\n\n"
+    "You write a job-application email IN THE FIRST PERSON, as the candidate "
+    "applying for the role themselves (the candidate is the sender). Use 'I', "
+    "'my', 'me' — never write as a recruiter or agency recommending someone.\n\n"
     "Rules:\n"
     "- Output ONLY the email body as plain text. No subject line, no markdown, no "
     "bracketed placeholders, no '[Your Name]'.\n"
-    "- Open with a brief, warm greeting to the hiring team.\n"
-    "- In 2-3 short paragraphs, connect the candidate's REAL skills and experience "
-    "to what the job actually needs. Be specific and concrete; never invent skills "
-    "the candidate does not have.\n"
+    "- Open with a brief, professional greeting to the hiring team and state which "
+    "role you are applying for.\n"
+    "- In 2-3 short paragraphs, introduce yourself and connect YOUR real skills and "
+    "experience to what the job needs. Be specific and concrete; never invent "
+    "skills you do not have.\n"
     "- Keep it under ~180 words, confident but not boastful.\n"
-    "- End with a short sign-off that includes the candidate's name."
+    "- End with a short sign-off using the candidate's own name."
 )
 
 
@@ -516,18 +517,18 @@ def _build_email_messages(emp: Employee, job) -> list[dict]:
     company = getattr(getattr(job, "company", None), "name", "") or "the company"
     desc = (job.description or "").strip()[:1800]
     user = (
-        "CANDIDATE\n"
+        "ME (the applicant — write the email as this person, first person)\n"
         f"Name: {emp.full_name}\n"
         f"Title: {emp.position or '—'}\n"
         f"Seniority: {seniority}\n"
         f"Experience: {emp.experience_years or 0} years\n"
         f"Skills: {', '.join(emp.skills or []) or '—'}\n\n"
-        "JOB\n"
+        "JOB I'M APPLYING FOR\n"
         f"Title: {job.title}\n"
         f"Company: {company}\n"
         f"Location: {job.location or '—'}\n"
         f"Description:\n{desc or '(no description provided)'}\n\n"
-        "Write the application email body now."
+        f"Write my application email body now, in first person as {emp.full_name}."
     )
     return [
         {"role": "system", "content": EMAIL_SYSTEM_PROMPT},

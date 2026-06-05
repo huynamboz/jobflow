@@ -35,11 +35,11 @@ function draftBody(emp: Employee | null, job: JobDetail | null): string {
   const skills = (emp?.skills ?? []).slice(0, 6).join(", ");
   return [
     `<p>Dear Hiring Manager,</p>`,
-    `<p>I'd like to put forward <strong>${name}</strong> for the <strong>${role}</strong> position${company}.`,
-    skills ? ` ${name.split(" ")[0]} brings hands-on experience with ${skills}, and is a strong fit for what your team is looking for.` : ``,
+    `<p>I'm writing to apply for the <strong>${role}</strong> position${company}.`,
+    skills ? ` I bring hands-on experience with ${skills}, and I'm confident I would be a strong fit for your team.` : ``,
     `</p>`,
-    `<p>I've attached the CV and would be glad to arrange a quick call to discuss how we can help.</p>`,
-    `<p>Best regards,<br/>${emp?.email || ""}${emp?.phone ? ` · ${emp.phone}` : ""}</p>`,
+    `<p>I've attached my CV and would welcome the chance to discuss how I can contribute.</p>`,
+    `<p>Best regards,<br/>${name}${emp?.email ? `<br/>${emp.email}` : ""}${emp?.phone ? ` · ${emp.phone}` : ""}</p>`,
   ].join("");
 }
 
