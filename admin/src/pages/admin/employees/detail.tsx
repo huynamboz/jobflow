@@ -294,6 +294,7 @@ export default function EmployeeDetailPage() {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Server-side status filter per tab; matches arrive ranked by score, paginated.
   const listParams = useCallback(
@@ -371,12 +372,20 @@ export default function EmployeeDetailPage() {
   };
 
   const refreshJobs = async () => {
+    setRefreshing(true);
     try {
-      await employeeService.rematch(empId);
-      addToast({ title: "Refreshing jobs…", description: "Re-matching against the current catalog. List updates shortly.", color: "success" });
-      setTimeout(() => void reload(), 4000);
+      const res = await employeeService.rematch(empId);
+      await reload();
+      const created = res?.matches_created ?? 0;
+      addToast({
+        title: "Jobs refreshed",
+        description: created > 0 ? `${created} new job${created > 1 ? "s" : ""} matched.` : "List is up to date.",
+        color: "success",
+      });
     } catch {
       addToast({ title: "Refresh failed", color: "danger" });
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -435,7 +444,9 @@ export default function EmployeeDetailPage() {
           </div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <Button variant="bordered" size="sm" startContent={<IconBriefcase size={14} />} onPress={refreshJobs}>Refresh jobs</Button>
+          <Button variant="bordered" size="sm" startContent={<IconBriefcase size={14} />} onPress={refreshJobs} isLoading={refreshing}>
+            {refreshing ? "Refreshing…" : "Refresh jobs"}
+          </Button>
           <Button variant="bordered" size="sm" startContent={<IconRefresh size={14} />} onPress={rescore}>Re-score</Button>
           <Button variant="bordered" size="sm" startContent={<IconPencil size={14} />} onPress={startEdit}>Edit</Button>
           <Button variant="light" size="sm" color="danger" startContent={<IconTrash size={14} />} onPress={() => setDeleteOpen(true)}>Delete</Button>

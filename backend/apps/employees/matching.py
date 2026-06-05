@@ -20,6 +20,10 @@ def _jobs_to_dicts(result: Any) -> list[dict]:
     return [
         {
             "job_id": j.get("job_id"),
+            # source_url is the real link between the engine's JDExtractionRecord
+            # space and the admin Job catalog — kept so matches resolve to the
+            # right Job (engine job_id rarely equals Job.pk).
+            "source_url": j.get("source_url") or "",
             "score": j.get("score", 0.0),
             "matched_skills": j.get("matched_skills", []),
             "missing_skills": j.get("missing_skills", []),

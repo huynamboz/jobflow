@@ -58,9 +58,15 @@ class EmployeeService {
     await apiClient.post<void>(`/admin/employees/${id}/rescore/`, {});
   }
 
-  /** Refresh job matches against the current catalog (no CV re-parse / no LLM). */
-  async rematch(id: number): Promise<void> {
-    await apiClient.post<void>(`/admin/employees/${id}/rematch/`, {});
+  /** Refresh job matches against the current catalog (no CV re-parse / no LLM).
+   *  Synchronous — resolves once re-matching is done. Generous timeout so the
+   *  first call after a cold GNN-engine load (which warms it) isn't cut off;
+   *  subsequent calls take a couple of seconds. */
+  async rematch(id: number): Promise<{ matches_total: number; matches_created: number; matches_skipped: number }> {
+    const res = await apiClient.post<{ success: boolean; data: { matches_total: number; matches_created: number; matches_skipped: number } }>(
+      `/admin/employees/${id}/rematch/`, {}, { timeout: 120_000 },
+    );
+    return res.data.data;
   }
 }
 

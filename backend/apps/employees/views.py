@@ -155,21 +155,20 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="rematch")
     def rematch(self, request, pk=None):
         """Refresh job matches against the current catalog — no CV re-parse / no
-        LLM, and keeps each match's pipeline status. Runs in the background pool."""
+        LLM, and keeps each match's pipeline status. Runs **synchronously** (the
+        GNN engine is warm, so this is quick) so the client gets a definitive
+        'done' instead of guessing."""
         from apps.employees.tasks import _do_rematch
 
-        def _run() -> None:
-            try:
-                _do_rematch(int(pk))
-            except Exception:  # noqa: BLE001
-                logger.warning("Re-match failed for employee %s", pk, exc_info=True)
-            finally:
-                from django.db import connection
-
-                connection.close()
-
-        _get_parse_pool().submit(_run)
-        return Response({"success": True, "status": "queued"})
+        try:
+            result = _do_rematch(int(pk))
+            return Response({"success": True, "data": result})
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Re-match failed for employee %s", pk, exc_info=True)
+            return Response(
+                {"success": False, "error": {"message": str(exc)}},
+                status=drf_status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
 
 class MatchPagination(PageNumberPagination):
