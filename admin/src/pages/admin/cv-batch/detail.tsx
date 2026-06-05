@@ -17,7 +17,7 @@ const T = {
   ink:      "oklch(0.18 0.02 265)", ink2: "oklch(0.38 0.015 265)",
   ink3:     "oklch(0.56 0.012 265)", ink4: "oklch(0.72 0.008 265)",
   surface:  "#ffffff", surface2: "oklch(0.97 0.005 85)", surface3: "oklch(0.945 0.006 85)",
-  line:     "oklch(0.92 0.006 85)",
+  line:     "rgba(226,232,240,0.7)",
 };
 
 const POLL_INTERVAL = 2500;
@@ -410,7 +410,7 @@ export default function CVBatchDetail() {
       </div>
 
       {/* Records table */}
-      <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 20, overflow: "hidden" }}>
+      <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, overflow: "hidden" }}>
         <div style={{ padding: "12px 20px", borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 600, fontSize: 15 }}>Records · {total_records}</span>
           <div style={{ marginLeft: "auto", display: "inline-flex", padding: 3, background: T.surface2, borderRadius: 10, gap: 2 }}>

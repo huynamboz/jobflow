@@ -20,6 +20,7 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 
+import { Card } from "@/components/ui/card";
 import { employeeService } from "@/services/employee.service";
 import type { Employee, EmployeeStatus } from "@/types/employee.types";
 
@@ -31,7 +32,7 @@ const T = {
   ink: "oklch(0.18 0.02 265)", ink2: "oklch(0.38 0.015 265)",
   ink3: "oklch(0.56 0.012 265)", ink4: "oklch(0.72 0.008 265)",
   surface: "#ffffff", surface2: "oklch(0.97 0.005 85)", surface3: "oklch(0.945 0.006 85)",
-  line: "oklch(0.92 0.006 85)",
+  line: "rgba(226,232,240,0.7)",
 };
 
 const POLL_INTERVAL = 3000;
@@ -78,11 +79,7 @@ function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) 
   const skills = emp.skills ?? [];
 
   return (
-    <div className="jb-card-hover" onClick={onClick} style={{
-      background: T.surface, border: `1px solid ${T.line}`,
-      borderRadius: 20, padding: 18, cursor: "pointer",
-      transition: "transform 0.14s, box-shadow 0.14s", position: "relative", overflow: "hidden",
-    }}>
+    <Card hoverable onClick={onClick} style={{ position: "relative", overflow: "hidden" }}>
       {parsing && <span style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg,transparent,#167a7a,transparent)", backgroundSize: "200% 100%", animation: "jb-shimmer 1.6s linear infinite" }} />}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -139,7 +136,7 @@ function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) 
           <span style={{ fontSize: 11.5, color: T.ink4 }}>—</span>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 

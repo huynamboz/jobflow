@@ -15,7 +15,7 @@ const T = {
   ink:      "oklch(0.18 0.02 265)", ink2: "oklch(0.38 0.015 265)",
   ink3:     "oklch(0.56 0.012 265)", ink4: "oklch(0.72 0.008 265)",
   surface:  "#ffffff", surface2: "oklch(0.97 0.005 85)", surface3: "oklch(0.945 0.006 85)",
-  line:     "oklch(0.92 0.006 85)",
+  line:     "rgba(226,232,240,0.7)",
 };
 
 const POLL_INTERVAL = 2500;
@@ -43,7 +43,7 @@ function BatchCard({ batch, onClick }: { batch: CVBatch; onClick: () => void }) 
   return (
     <div className="jb-card-hover" onClick={onClick} style={{
       background: T.surface, border: `1px solid ${T.line}`,
-      borderRadius: 20, padding: 18, cursor: "pointer",
+      borderRadius: 16, padding: 18, cursor: "pointer",
       transition: "transform 0.14s, box-shadow 0.14s",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>

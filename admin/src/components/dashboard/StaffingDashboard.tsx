@@ -55,7 +55,7 @@ function StatCard({
     danger: "text-danger-700",
   };
   return (
-    <Card shadow="sm" radius="lg">
+    <Card shadow="none" radius="lg" className="border border-default-200">
       <CardBody className="flex flex-row items-center gap-3 p-4">
         <div className={`grid size-10 shrink-0 place-items-center rounded-xl ${toneRing[tone]}`}>
           {icon}
@@ -200,7 +200,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* ---- FOCAL: action queue (2/3) ---- */}
-        <Card className="lg:col-span-2" radius="lg">
+        <Card shadow="none" radius="lg" className="lg:col-span-2 border border-default-200">
           <CardBody className="gap-5 p-5">
             <div className="flex items-center gap-2">
               <IconSparkles size={18} className="text-primary-600" />
@@ -274,7 +274,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
         </Card>
 
         {/* ---- Funnel (1/3) ---- */}
-        <Card radius="lg">
+        <Card shadow="none" radius="lg" className="border border-default-200">
           <CardBody className="gap-3 p-5">
             <div className="flex items-center gap-2">
               <IconClockHour4 size={16} className="text-default-500" />
@@ -302,7 +302,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
 
       {/* ---- Alerts ---- */}
       {totalAlerts > 0 && (
-        <Card radius="lg" className="border border-warning-200 bg-warning-50/40">
+        <Card shadow="none" radius="lg" className="border border-warning-200 bg-warning-50/40">
           <CardBody className="gap-4 p-5">
             <div className="flex items-center gap-2">
               <IconAlertTriangle size={16} className="text-warning-600" />
@@ -344,7 +344,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
       )}
 
       {/* ---- Recent activity ---- */}
-      <Card radius="lg">
+      <Card shadow="none" radius="lg" className="border border-default-200">
         <CardBody className="gap-4 p-5">
           <h3 className="text-sm font-semibold text-foreground">Recent activity</h3>
           <div className="grid gap-5 text-sm md:grid-cols-3">

@@ -21,7 +21,7 @@ export default {
         radius: {
           small: "10px",
           medium: "12px",
-          large: "20px",
+          large: "16px",
         },
       },
       // Map HeroUI semantic colors to NODE accents.

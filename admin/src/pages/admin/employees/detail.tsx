@@ -26,6 +26,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 
+import { Card } from "@/components/ui/card";
 import { employeeService } from "@/services/employee.service";
 import { matchService } from "@/services/match.service";
 import type { DuplicateApplyError, DuplicateApplyFrontman } from "@/services/match.service";
@@ -40,7 +41,7 @@ const T = {
   ink: "oklch(0.18 0.02 265)", ink2: "oklch(0.38 0.015 265)",
   ink3: "oklch(0.56 0.012 265)", ink4: "oklch(0.72 0.008 265)",
   surface: "#ffffff", surface2: "oklch(0.97 0.005 85)", surface3: "oklch(0.945 0.006 85)",
-  line: "oklch(0.92 0.006 85)",
+  line: "rgba(226,232,240,0.7)",
 };
 
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
@@ -374,7 +375,7 @@ export default function EmployeeDetailPage() {
       </div>
 
       {/* contact + skills strip */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", padding: "12px 16px", background: T.surface, border: `1px solid ${T.line}`, borderRadius: 14 }}>
+      <Card padding={0} style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", padding: "12px 16px" }}>
         <MetaRow icon={<IconUsers size={14} />}>{employee.email || "no email"}</MetaRow>
         {employee.phone && <MetaRow icon={<IconBriefcase size={14} />}>{employee.phone}</MetaRow>}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginLeft: "auto" }}>
@@ -384,7 +385,7 @@ export default function EmployeeDetailPage() {
           {(employee.skills?.length ?? 0) > 8 && <span style={{ fontSize: 11.5, color: T.ink4, alignSelf: "center" }}>+{employee.skills.length - 8}</span>}
           {!employee.skills?.length && <span style={{ fontSize: 12, color: T.ink4 }}>no skills parsed</span>}
         </div>
-      </div>
+      </Card>
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -406,13 +407,13 @@ export default function EmployeeDetailPage() {
 
       {/* LinkedIn-style browser */}
       {matches.length === 0 ? (
-        <div style={{ display: "grid", placeItems: "center", height: 240, color: T.ink3, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16 }}>
+        <Card style={{ display: "grid", placeItems: "center", height: 240, color: T.ink3 }}>
           <div style={{ textAlign: "center" }}>
             <IconBriefcase size={30} style={{ margin: "0 auto 10px", color: T.ink4 }} />
             <div style={{ fontWeight: 600 }}>No matched jobs yet</div>
             <div style={{ fontSize: 13 }}>Re-score after the CV is parsed, or add jobs to the catalog.</div>
           </div>
-        </div>
+        </Card>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 380px) 1fr", gap: 14, alignItems: "start" }}>
           {/* left list */}
@@ -423,13 +424,13 @@ export default function EmployeeDetailPage() {
             {visible.length === 0 && <div style={{ padding: 16, fontSize: 13, color: T.ink4 }}>No jobs in this status.</div>}
           </div>
           {/* right detail */}
-          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 18, position: "sticky", top: 12 }}>
+          <Card padding={0} style={{ position: "sticky", top: 12 }}>
             {selected ? (
               <JobDetailPanel match={selected} onStatus={(s) => updateStatus(selected.id, s)} />
             ) : (
               <div style={{ display: "grid", placeItems: "center", height: 200, color: T.ink4 }}>Select a job</div>
             )}
-          </div>
+          </Card>
         </div>
       )}
 
