@@ -21,13 +21,23 @@ const T = {
 const PAGE_SIZE = 20;
 const TRACKED = "applied,won,lost";
 
-type TrackTab = "all" | "applied" | "won" | "lost";
+type TrackTab = "all" | "in_progress" | "complete" | "won" | "lost";
 const TABS: { key: TrackTab; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "applied", label: "Applied" },
+  { key: "in_progress", label: "In progress" },
+  { key: "complete", label: "Complete" },
   { key: "won", label: "Accepted" },
   { key: "lost", label: "Rejected" },
 ];
+
+// Each tab → the status filter it sends to the match API.
+const TAB_FILTER: Record<TrackTab, { status?: MatchStatus; statuses?: string }> = {
+  all: { statuses: TRACKED },
+  in_progress: { status: "applied" },
+  complete: { statuses: "won,lost" },
+  won: { status: "won" },
+  lost: { status: "lost" },
+};
 
 const STATUS_CHIP: Record<string, { label: string; bg: string; color: string }> = {
   applied: { label: "Applied", bg: "oklch(0.94 0.05 280)", color: "oklch(0.45 0.16 280)" },
@@ -64,8 +74,7 @@ export default function JobTrackingPage() {
     async (pg = 1, append = false) => {
       if (!append) setLoading(true);
       try {
-        const filter = tab === "all" ? { statuses: TRACKED } : { status: tab as MatchStatus };
-        const m = await matchService.list({ ...filter, page: pg, page_size: PAGE_SIZE });
+        const m = await matchService.list({ ...TAB_FILTER[tab], page: pg, page_size: PAGE_SIZE });
         setItems((prev) => (append ? [...prev, ...m.results] : m.results));
         setHasMore(!!m.next);
         setTotal(m.count ?? m.results.length);
