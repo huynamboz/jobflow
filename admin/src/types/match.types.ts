@@ -6,12 +6,15 @@ export interface JobLite {
   company_name?: string;
   platform_name?: string;
   location?: string;
+  seniority?: number;
+  job_type?: string;
   salary_min?: number;
   salary_max?: number;
   salary_currency?: string;
   applicant_count?: string;
   is_active?: boolean;
   date_posted?: string | null;
+  source_url?: string;
   created_at?: string;
 }
 
