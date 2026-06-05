@@ -36,7 +36,7 @@ export default function DashboardPage() {
               margin: "4px 0 0",
             }}
           >
-            System health, catalog and ops at a glance.
+            Việc cần xử lý cho bench hôm nay — và sức khỏe hệ thống.
           </p>
         </div>
         <button
