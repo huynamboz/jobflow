@@ -529,7 +529,9 @@ export default function EmployeeDetailPage() {
                 isLoading={loadingMore}
                 onPress={() => void loadMore()}
               >
-                {loadingMore ? "Loading…" : `View more (${Math.max(0, total - matches.length)} more)`}
+                {loadingMore
+                  ? "Loading…"
+                  : `View ${Math.min(PAGE_SIZE, Math.max(0, total - matches.length))} more · ${Math.max(0, total - matches.length)} left`}
               </Button>
             ) : (
               matches.length > 0 && (
