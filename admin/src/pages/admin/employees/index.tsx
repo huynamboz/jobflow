@@ -49,17 +49,17 @@ const STATUS_OPTS: { key: EmployeeStatus | "all"; label: string }[] = [
 
 type BadgeState = { label: string; bg: string; color: string; pulse?: boolean };
 
-function badgeFor(emp: Employee): BadgeState {
+function badgeFor(emp: Employee): BadgeState | null {
   const parsing = !emp.parsed_at && !emp.is_parse_failed;
   if (parsing) return { label: "Parsing…", bg: "#c8e5e5", color: "#0e5353", pulse: true };
   if (emp.is_parse_failed) return { label: "Parse failed", bg: T.danger50, color: T.danger };
   const map: Record<string, BadgeState> = {
-    bench: { label: "On bench", bg: T.surface3, color: T.ink2 },
     pursuing: { label: "Pursuing", bg: "#c8e5e5", color: "#0e5353" },
     placed: { label: "Placed", bg: T.success50, color: T.success },
     inactive: { label: "Inactive", bg: T.surface3, color: T.ink4 },
   };
-  return map[emp.status] ?? map.bench;
+  // "On bench" is the default — no badge for it.
+  return map[emp.status] ?? null;
 }
 
 function initials(name: string): string {
@@ -83,10 +83,12 @@ function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) 
       {parsing && <span style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg,transparent,#167a7a,transparent)", backgroundSize: "200% 100%", animation: "jb-shimmer 1.6s linear infinite" }} />}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: b.bg, color: b.color }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0, animation: b.pulse ? "jb-pulse 1.4s ease-in-out infinite" : undefined }} />
-          {b.label}
-        </span>
+        {b ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: b.bg, color: b.color }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0, animation: b.pulse ? "jb-pulse 1.4s ease-in-out infinite" : undefined }} />
+            {b.label}
+          </span>
+        ) : <span />}
         <span style={{ fontFamily: "monospace", fontSize: 11, color: T.ink4 }}>{fmtDate(emp.created_at)}</span>
       </div>
 
