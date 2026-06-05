@@ -158,7 +158,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
   }
   if (error || !data) {
     return (
-      <Card><CardBody className="py-6 text-sm text-danger">Không tải được dashboard staffing.</CardBody></Card>
+      <Card><CardBody className="py-6 text-sm text-danger">Failed to load the staffing dashboard.</CardBody></Card>
     );
   }
 
@@ -166,11 +166,11 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
   const goEmp = (id: number) => navigate(`/admin/employees/${id}`);
   const utilTone = kpi.utilization_pct >= 70 ? "success" : kpi.utilization_pct >= 40 ? "warning" : "danger";
   const funnelRows = [
-    { key: "suggested", label: "Gợi ý", color: "bg-default-400" },
-    { key: "pursuing", label: "Sẽ apply", color: "bg-primary-400" },
-    { key: "applied", label: "Đã apply", color: "bg-secondary-400" },
-    { key: "won", label: "Thắng", color: "bg-success-500" },
-    { key: "lost", label: "Thua", color: "bg-default-300" },
+    { key: "suggested", label: "Suggested", color: "bg-default-400" },
+    { key: "pursuing", label: "Pursuing", color: "bg-primary-400" },
+    { key: "applied", label: "Applied", color: "bg-secondary-400" },
+    { key: "won", label: "Won", color: "bg-success-500" },
+    { key: "lost", label: "Lost", color: "bg-default-300" },
   ] as const;
   const funnelMax = Math.max(1, ...funnelRows.map((f) => funnel[f.key]));
 
@@ -188,14 +188,14 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
         <StatCard
           label="Bench utilization"
           value={`${kpi.utilization_pct}%`}
-          hint="nhân viên có cơ hội"
+          hint="employees engaged"
           tone={utilTone}
           icon={<IconTargetArrow size={20} />}
         />
-        <StatCard label="Đang bench" value={kpi.bench_count} hint="cần kiếm việc" icon={<IconUsers size={20} />} />
-        <StatCard label="Cơ hội đang chạy" value={kpi.in_progress} hint="pursuing + applied" tone="primary" icon={<IconClockHour4 size={20} />} />
-        <StatCard label="Thắng tuần này" value={kpi.won_this_week} hint={`${kpi.lost_this_week} thua`} tone="success" icon={<IconTrophy size={20} />} />
-        <StatCard label="Job mới 24h" value={kpi.new_jobs_24h} hint={`${kpi.new_jobs_7d} trong 7 ngày`} icon={<IconBriefcase size={20} />} />
+        <StatCard label="On bench" value={kpi.bench_count} hint="need work" icon={<IconUsers size={20} />} />
+        <StatCard label="In progress" value={kpi.in_progress} hint="pursuing + applied" tone="primary" icon={<IconClockHour4 size={20} />} />
+        <StatCard label="Won this week" value={kpi.won_this_week} hint={`${kpi.lost_this_week} lost`} tone="success" icon={<IconTrophy size={20} />} />
+        <StatCard label="New jobs (24h)" value={kpi.new_jobs_24h} hint={`${kpi.new_jobs_7d} in 7 days`} icon={<IconBriefcase size={20} />} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -204,29 +204,29 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
           <CardBody className="gap-5 p-5">
             <div className="flex items-center gap-2">
               <IconSparkles size={18} className="text-primary-600" />
-              <h2 className="text-base font-bold text-foreground">Cần xử lý hôm nay</h2>
+              <h2 className="text-base font-bold text-foreground">To handle today</h2>
               {totalActions > 0 && (
-                <Chip size="sm" color="primary" variant="flat">{totalActions} việc</Chip>
+                <Chip size="sm" color="primary" variant="flat">{totalActions} items</Chip>
               )}
             </div>
 
             {totalActions === 0 && (
-              <EmptyHint>Tuyệt vời — không có việc nào cần xử lý ngay.</EmptyHint>
+              <EmptyHint>All clear — nothing needs your attention right now.</EmptyHint>
             )}
 
             {action_queue.top_new_matches.length > 0 && (
               <div>
                 <SectionTitle icon={<IconSparkles size={15} />} count={action_queue.top_new_matches.length}>
-                  Nhân viên có job mới
+                  Employees with new jobs
                 </SectionTitle>
                 <div className="space-y-0.5">
                   {action_queue.top_new_matches.map((e) => (
                     <ActionRow
                       key={e.id}
                       name={e.full_name}
-                      sub="có job phù hợp mới — xem & quyết định apply"
+                      sub="new matching jobs — review and decide to apply"
                       onClick={() => goEmp(e.id)}
-                      chip={<Chip size="sm" color="primary" variant="flat">{e.new_count} job mới</Chip>}
+                      chip={<Chip size="sm" color="primary" variant="flat">{e.new_count} new</Chip>}
                     />
                   ))}
                 </div>
@@ -236,16 +236,16 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
             {action_queue.bench_stale.length > 0 && (
               <div>
                 <SectionTitle icon={<IconHourglassHigh size={15} />} count={action_queue.bench_stale.length}>
-                  Bench lâu, chưa có cơ hội
+                  On bench, no opportunity yet
                 </SectionTitle>
                 <div className="space-y-0.5">
                   {action_queue.bench_stale.map((e) => (
                     <ActionRow
                       key={e.id}
                       name={e.full_name}
-                      sub="chưa có cơ hội nào — cần chủ động kiếm job"
+                      sub="no opportunity yet — proactively source a job"
                       onClick={() => goEmp(e.id)}
-                      chip={<Chip size="sm" color="warning" variant="flat">{e.days_on_bench} ngày</Chip>}
+                      chip={<Chip size="sm" color="warning" variant="flat">{e.days_on_bench}d</Chip>}
                     />
                   ))}
                 </div>
@@ -255,7 +255,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
             {action_queue.stale_applied.length > 0 && (
               <div>
                 <SectionTitle icon={<IconClockHour4 size={15} />} count={action_queue.stale_applied.length}>
-                  Đã apply lâu chưa cập nhật
+                  Applied a while ago, no update
                 </SectionTitle>
                 <div className="space-y-0.5">
                   {action_queue.stale_applied.map((m) => (
@@ -264,7 +264,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
                       name={m.employee_name}
                       sub={m.job_title}
                       onClick={() => goEmp(m.employee_id)}
-                      chip={<Chip size="sm" variant="flat">{m.days_since_applied}d chờ</Chip>}
+                      chip={<Chip size="sm" variant="flat">{m.days_since_applied}d waiting</Chip>}
                     />
                   ))}
                 </div>
@@ -278,7 +278,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
           <CardBody className="gap-3 p-5">
             <div className="flex items-center gap-2">
               <IconClockHour4 size={16} className="text-default-500" />
-              <h3 className="text-sm font-semibold text-foreground">Phễu pipeline</h3>
+              <h3 className="text-sm font-semibold text-foreground">Pipeline funnel</h3>
             </div>
             <div className="space-y-3 pt-1">
               {funnelRows.map((f) => (
@@ -306,13 +306,13 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
           <CardBody className="gap-4 p-5">
             <div className="flex items-center gap-2">
               <IconAlertTriangle size={16} className="text-warning-600" />
-              <h3 className="text-sm font-semibold text-warning-700">Cảnh báo &amp; rủi ro</h3>
+              <h3 className="text-sm font-semibold text-warning-700">Alerts &amp; risks</h3>
               <Chip size="sm" color="warning" variant="flat">{totalAlerts}</Chip>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               <AlertColumn
                 icon={<IconFileAlert size={14} />}
-                title="CV parse lỗi"
+                title="CV parse failed"
                 empty={alerts.parse_failed.length === 0}
                 items={alerts.parse_failed.map((e) => ({
                   key: e.id, name: e.full_name, onClick: () => goEmp(e.id),
@@ -320,7 +320,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
               />
               <AlertColumn
                 icon={<IconSparkles size={14} />}
-                title="Job điểm cao chưa apply"
+                title="High score, not applied"
                 empty={alerts.high_score_unapplied.length === 0}
                 items={alerts.high_score_unapplied.map((m) => ({
                   key: m.match_id, name: m.employee_name, sub: m.job_title,
@@ -330,7 +330,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
               />
               <AlertColumn
                 icon={<IconHourglassHigh size={14} />}
-                title="Job đang theo sắp hết hạn"
+                title="Pursued jobs expiring"
                 empty={alerts.expiring_pursuing.length === 0}
                 items={alerts.expiring_pursuing.map((m) => ({
                   key: m.match_id, name: m.employee_name, sub: m.job_title,
@@ -346,10 +346,10 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
       {/* ---- Recent activity ---- */}
       <Card radius="lg">
         <CardBody className="gap-4 p-5">
-          <h3 className="text-sm font-semibold text-foreground">Hoạt động gần đây</h3>
+          <h3 className="text-sm font-semibold text-foreground">Recent activity</h3>
           <div className="grid gap-5 text-sm md:grid-cols-3">
             <div>
-              <p className="mb-2 text-xs font-medium text-default-500">Cơ hội won / lost</p>
+              <p className="mb-2 text-xs font-medium text-default-500">Won / lost</p>
               {recent.won_lost.length === 0 && <p className="text-default-400">—</p>}
               <ul className="space-y-1.5">
                 {recent.won_lost.map((m) => (
@@ -361,7 +361,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
               </ul>
             </div>
             <div>
-              <p className="mb-2 text-xs font-medium text-default-500">Job mới crawl</p>
+              <p className="mb-2 text-xs font-medium text-default-500">Newly crawled jobs</p>
               {recent.new_jobs.length === 0 && <p className="text-default-400">—</p>}
               <ul className="space-y-1.5">
                 {recent.new_jobs.map((j) => (
@@ -372,7 +372,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
               </ul>
             </div>
             <div>
-              <p className="mb-2 text-xs font-medium text-default-500">Nhân viên mới</p>
+              <p className="mb-2 text-xs font-medium text-default-500">New employees</p>
               {recent.new_employees.length === 0 && <p className="text-default-400">—</p>}
               <ul className="space-y-1.5">
                 {recent.new_employees.map((e) => (
@@ -408,7 +408,7 @@ function AlertColumn({
         <span className="text-warning-600">{icon}</span>
         {title}
       </div>
-      {empty && <p className="text-sm text-default-400">Không có</p>}
+      {empty && <p className="text-sm text-default-400">None</p>}
       <ul className="space-y-0.5">
         {items.map((it) => (
           <li key={it.key}>

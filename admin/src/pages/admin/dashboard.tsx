@@ -36,7 +36,7 @@ export default function DashboardPage() {
               margin: "4px 0 0",
             }}
           >
-            Việc cần xử lý cho bench hôm nay — và sức khỏe hệ thống.
+            What the bench needs today — and system health.
           </p>
         </div>
         <button

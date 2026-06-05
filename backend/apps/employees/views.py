@@ -157,7 +157,7 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
                         "success": False,
                         "error": {
                             "code": "DUPLICATE_APPLY",
-                            "message": "Job này đã được apply bởi nhân viên khác.",
+                            "message": "This job has already been applied to by another employee.",
                             "frontman": {
                                 "employee_id": frontman.employee_id,
                                 "employee_name": frontman.employee.full_name,
