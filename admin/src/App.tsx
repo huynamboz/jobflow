@@ -5,6 +5,7 @@ import { PublicRoute } from "@/components/public-route";
 
 import LoginPage from "@/pages/login";
 import DashboardPage from "@/pages/admin/dashboard";
+import SystemPage from "@/pages/admin/system";
 import LabelingPage from "@/pages/admin/labeling";
 import ModelsPage from "@/pages/admin/models";
 import JobsPage from "@/pages/admin/jobs";
@@ -36,6 +37,7 @@ function App() {
     <Routes>
       <Route element={<AdminRoute />} path="/admin">
         <Route index element={<DashboardPage />} />
+        <Route path="system" element={<SystemPage />} />
         <Route path="labeling" element={<LabelingPage />} />
         <Route path="models" element={<ModelsPage />} />
         <Route path="jobs" element={<JobsPage />} />
