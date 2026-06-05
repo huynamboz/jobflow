@@ -2,9 +2,10 @@ import type { CSSProperties, MouseEventHandler, ReactNode } from "react";
 
 /**
  * Shared admin Card — the single source of truth for the howard-style card
- * surface: white background, soft slate-200/70 border, 16px radius, no resting
- * shadow (optional subtle hover lift via `hoverable`). Tweak the look once in
- * globals.css (--card-border / --card-radius) and every card follows.
+ * surface: white background, soft slate-200/70 border (`border-card-border`),
+ * 16px radius (`rounded-2xl`), no resting shadow, optional subtle hover lift.
+ * Built with Tailwind utilities for consistency; tweak the border token once
+ * in globals.css (--card-border) and every card follows.
  */
 export interface CardProps {
   children: ReactNode;
@@ -28,15 +29,14 @@ export function Card({
   return (
     <div
       onClick={onClick}
-      className={`${hoverable ? "jb-card-hover " : ""}${className}`}
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--card-border)",
-        borderRadius: "var(--card-radius)",
-        padding,
-        ...(hoverable ? { cursor: "pointer", transition: "transform 0.14s, box-shadow 0.14s" } : {}),
-        ...style,
-      }}
+      className={[
+        "rounded-2xl border border-card-border bg-white",
+        hoverable ? "jb-card-hover cursor-pointer transition-[transform,box-shadow]" : "",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={{ padding, ...style }}
     >
       {children}
     </div>

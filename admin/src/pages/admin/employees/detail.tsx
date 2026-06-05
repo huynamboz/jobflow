@@ -28,6 +28,7 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { employeeService } from "@/services/employee.service";
+import { jobService } from "@/services/job.service";
 import { matchService } from "@/services/match.service";
 import type { DuplicateApplyError, DuplicateApplyFrontman } from "@/services/match.service";
 import type { Employee } from "@/types/employee.types";
@@ -148,6 +149,19 @@ function JobDetailPanel({
 }) {
   const j = match.job;
   const salary = fmtSalary(j);
+  const [desc, setDesc] = useState<string | null>(null);
+  const [descLoading, setDescLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    setDescLoading(true);
+    setDesc(null);
+    jobService
+      .getJob(j.id)
+      .then((d) => { if (alive) setDesc(d.description || ""); })
+      .catch(() => { if (alive) setDesc(""); })
+      .finally(() => { if (alive) setDescLoading(false); });
+    return () => { alive = false; };
+  }, [j.id]);
   return (
     <div style={{ padding: 22 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
@@ -205,6 +219,18 @@ function JobDetailPanel({
         <div style={{ fontSize: 12.5, color: T.ink2 }}>
           <span style={{ color: T.ink3 }}>Seniority: </span>{seniorityGapLabel(match.seniority_gap)}
         </div>
+      </div>
+
+      {/* Job description */}
+      <div style={{ marginTop: 20 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink3, marginBottom: 8 }}>Job description</div>
+        {descLoading ? (
+          <div style={{ fontSize: 13, color: T.ink4 }}>Loading description…</div>
+        ) : desc ? (
+          <div style={{ fontSize: 13, lineHeight: 1.65, color: T.ink2, whiteSpace: "pre-line", maxHeight: 360, overflow: "auto", paddingRight: 4 }}>{desc}</div>
+        ) : (
+          <div style={{ fontSize: 13, color: T.ink4 }}>No description available.</div>
+        )}
       </div>
 
       {/* Actions */}

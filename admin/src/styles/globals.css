@@ -37,6 +37,7 @@
   --color-node-purple:    var(--purple);
   --color-node-green:     var(--green);
 
+  --color-card-border:    var(--card-border);
   --color-node-bg:        var(--bg);
   --color-node-surface:   var(--surface);
   --color-node-raised:    var(--raised);
