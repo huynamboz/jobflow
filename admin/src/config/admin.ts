@@ -35,11 +35,14 @@ export const adminConfig = {
   name: "JobFlow",
   navSections: [
     {
+      // Everything HR touches in the daily staffing workflow.
       title: "Staffing",
       items: [
         { label: "Dashboard", href: "/admin",           icon: IconLayoutDashboard },
         { label: "Employees", href: "/admin/employees", icon: IconUsers },
+        { label: "Jobs",      href: "/admin/jobs",      icon: IconBriefcase },
         { label: "Pipeline",  href: "/admin/pipeline",  icon: IconGitBranch },
+        { label: "Match a CV", href: "/admin/recommend", icon: IconSparkles },
       ],
     },
     {
@@ -49,9 +52,7 @@ export const adminConfig = {
         { label: "System overview", href: "/admin/system",        icon: IconActivity },
         { label: "Models",          href: "/admin/models",        icon: IconBrain },
         { label: "Labeling",        href: "/admin/labeling",      icon: IconTags },
-        { label: "Recommend",       href: "/admin/recommend",     icon: IconSparkles },
-        { label: "Jobs",            href: "/admin/jobs",          icon: IconBriefcase },
-        { label: "CVs",             href: "/admin/cvs",           icon: IconFiles },
+        { label: "CVs (dataset)",   href: "/admin/cvs",           icon: IconFiles },
         { label: "LLM Providers",   href: "/admin/llm-providers", icon: IconRobot },
         { label: "LLM Logs",        href: "/admin/llm-logs",      icon: IconClipboardList },
         { label: "JD Extract",      href: "/admin/jd-extract",    icon: IconScan },
