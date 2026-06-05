@@ -30,12 +30,15 @@ MAX_BULK_FILES = 50
 
 def _process_employee(employee_id: int) -> None:
     """Parse + match an employee, preferring Celery but falling back to a
-    synchronous run when the broker/worker is unavailable (e.g. dev)."""
-    from apps.employees.tasks import parse_and_match_employee
-
+    synchronous run when Celery is not installed or the broker/worker is
+    unavailable (e.g. dev)."""
     try:
+        # Import is inside the try on purpose: when Celery is absent the task
+        # symbol doesn't exist, and we still want the synchronous fallback.
+        from apps.employees.tasks import parse_and_match_employee
+
         parse_and_match_employee.delay(employee_id)
-    except Exception:  # noqa: BLE001 — broker down: do it inline so the CV is still parsed
+    except Exception:  # noqa: BLE001 — no Celery / broker down: parse inline
         from apps.employees.tasks import _do_parse_and_match
 
         _do_parse_and_match(employee_id)
