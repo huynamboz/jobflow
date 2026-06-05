@@ -219,6 +219,42 @@ class DuplicateApplyGuardTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
 
 
+class CvParserAdapterTests(APITestCase):
+    """Feature: wire the real CV parser into the Add-employee flow."""
+
+    def test_seniority_name_to_int_mapping(self):
+        from apps.employees.parsers import _seniority_to_int
+
+        self.assertEqual(_seniority_to_int("INTERN"), 0)
+        self.assertEqual(_seniority_to_int("mid"), 2)
+        self.assertEqual(_seniority_to_int("Senior"), 3)
+        self.assertEqual(_seniority_to_int("MANAGER"), 5)
+        self.assertEqual(_seniority_to_int(3), 3)
+        self.assertIsNone(_seniority_to_int(None))
+        self.assertIsNone(_seniority_to_int("unknown-grade"))
+
+    def test_adapter_maps_parser_output(self):
+        # Real parser stubbed so the test stays fast (no ML model load).
+        from unittest.mock import patch
+
+        from apps.employees import parsers
+
+        raw = {"skills": ["python", "django"], "seniority": "SENIOR", "experience_years": 6.0}
+        with patch("apps.matching.services.parse_cv_file", return_value=raw):
+            out = parsers.parse_cv_file("/tmp/cv.pdf")
+        self.assertEqual(out["skills"], ["python", "django"])
+        self.assertEqual(out["seniority"], 3)
+        self.assertEqual(out["experience_years"], 6.0)
+
+    def test_adapter_returns_empty_on_failure(self):
+        from unittest.mock import patch
+
+        from apps.employees import parsers
+
+        with patch("apps.matching.services.parse_cv_file", side_effect=RuntimeError("no engine")):
+            self.assertEqual(parsers.parse_cv_file("/tmp/cv.pdf"), {})
+
+
 class DashboardTests(APITestCase):
     @classmethod
     def setUpTestData(cls):

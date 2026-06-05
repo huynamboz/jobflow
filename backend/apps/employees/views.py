@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.db.models import Count, Q
@@ -22,7 +23,22 @@ from apps.employees.serializers import (
 )
 
 
+logger = logging.getLogger(__name__)
+
 MAX_BULK_FILES = 50
+
+
+def _process_employee(employee_id: int) -> None:
+    """Parse + match an employee, preferring Celery but falling back to a
+    synchronous run when the broker/worker is unavailable (e.g. dev)."""
+    from apps.employees.tasks import parse_and_match_employee
+
+    try:
+        parse_and_match_employee.delay(employee_id)
+    except Exception:  # noqa: BLE001 — broker down: do it inline so the CV is still parsed
+        from apps.employees.tasks import _do_parse_and_match
+
+        _do_parse_and_match(employee_id)
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
@@ -83,13 +99,11 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 cv_file=f,
                 created_by=request.user,
             )
-            # Enqueue async parse + match generation
+            # Parse + match (async via Celery, sync fallback when it is down).
             try:
-                from apps.employees.tasks import parse_and_match_employee
-
-                parse_and_match_employee.delay(emp.id)
-            except Exception:  # noqa: BLE001 — celery may be down in dev
-                pass
+                _process_employee(emp.id)
+            except Exception:  # noqa: BLE001 — never fail the upload over parsing
+                logger.warning("Parse/match failed for employee %s", emp.id, exc_info=True)
             created.append(emp)
 
         data = EmployeeListSerializer(created, many=True).data
@@ -98,9 +112,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="rescore")
     def rescore(self, request, pk=None):
         try:
-            from apps.employees.tasks import parse_and_match_employee
-
-            parse_and_match_employee.delay(int(pk))
+            _process_employee(int(pk))
             return Response({"success": True, "status": "queued"})
         except Exception as exc:  # noqa: BLE001
             return Response(
