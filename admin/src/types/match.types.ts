@@ -1,4 +1,4 @@
-export type MatchStatus = "suggested" | "pursuing" | "applied" | "won" | "lost";
+export type MatchStatus = "suggested" | "pursuing" | "applied" | "won" | "lost" | "dismissed";
 
 export interface JobLite {
   id: number;

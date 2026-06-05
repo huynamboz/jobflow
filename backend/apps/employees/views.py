@@ -197,9 +197,14 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
     filterset_fields = ["status", "employee", "job", "assigned_to"]
 
     def get_queryset(self):
-        return EmployeeJobMatch.objects.select_related(
+        qs = EmployeeJobMatch.objects.select_related(
             "employee", "job", "job__company", "assigned_to"
         )
+        # Dismissed ("not a fit") jobs are hidden everywhere unless explicitly
+        # requested with ?status=dismissed.
+        if self.request.query_params.get("status") != EmployeeJobMatch.Status.DISMISSED:
+            qs = qs.exclude(status=EmployeeJobMatch.Status.DISMISSED)
+        return qs
 
     def destroy(self, request, *args, **kwargs):
         if not IsAdminUserRole().has_permission(request, self):

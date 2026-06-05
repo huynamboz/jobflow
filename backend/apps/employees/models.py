@@ -74,6 +74,9 @@ class EmployeeJobMatch(models.Model):
         APPLIED = "applied", "Applied"
         WON = "won", "Won"
         LOST = "lost", "Lost"
+        # HR marked this job as a bad fit — hidden from the browser, kept out of
+        # re-ranking, and retained as a negative label for future training.
+        DISMISSED = "dismissed", "Not a fit"
 
     employee = models.ForeignKey(
         Employee, on_delete=models.CASCADE, related_name="matches"

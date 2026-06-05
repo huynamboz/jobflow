@@ -58,6 +58,7 @@ const STATUS_META: Record<MatchStatus, { label: string; bg: string; color: strin
   applied: { label: "Applied", bg: "oklch(0.94 0.05 280)", color: "oklch(0.45 0.16 280)" },
   won: { label: "Won", bg: T.success50, color: T.success },
   lost: { label: "Lost", bg: T.danger50, color: T.danger },
+  dismissed: { label: "Not a fit", bg: T.surface3, color: T.ink4 },
 };
 
 const TABS: { key: MatchStatus | "all"; label: string }[] = [
@@ -163,10 +164,12 @@ function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; s
 /* ---------------- right: job detail panel ---------------- */
 function JobDetailPanel({
   match,
-  onStatus,
+  onApply,
+  onDismiss,
 }: {
   match: EmployeeJobMatch;
-  onStatus: (status: MatchStatus) => void;
+  onApply: (m: EmployeeJobMatch) => void;
+  onDismiss: (m: EmployeeJobMatch) => void;
 }) {
   const j = match.job;
   const salary = fmtSalary(j);
@@ -257,31 +260,27 @@ function JobDetailPanel({
       </div>
 
       {/* Actions */}
-      <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12.5, color: T.ink3 }}>Pipeline:</span>
-        <Select
-          aria-label="Change status"
-          size="sm"
-          selectedKeys={[match.status]}
-          onSelectionChange={(keys) => {
-            const next = Array.from(keys)[0] as MatchStatus;
-            if (next !== match.status) onStatus(next);
-          }}
-          className="max-w-[160px]"
-        >
-          <SelectItem key="suggested">Suggested</SelectItem>
-          <SelectItem key="pursuing">Pursuing</SelectItem>
-          <SelectItem key="applied">Applied</SelectItem>
-          <SelectItem key="won">Won</SelectItem>
-          <SelectItem key="lost">Lost</SelectItem>
-        </Select>
-        {match.status === "suggested" && (
-          <Button size="sm" color="primary" startContent={<IconCheck size={14} />} onPress={() => onStatus("pursuing")}>
-            Pursue
-          </Button>
-        )}
-        {match.status === "pursuing" && (
-          <Button size="sm" color="primary" onPress={() => onStatus("applied")}>Mark applied</Button>
+      <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {match.status === "applied" || match.status === "won" || match.status === "lost" ? (
+          <>
+            <StatusChip status={match.status} />
+            <span style={{ fontSize: 12.5, color: T.ink3 }}>in job tracking</span>
+            {j.source_url && (
+              <a href={j.source_url} target="_blank" rel="noreferrer"
+                style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 600, color: T.accent, textDecoration: "none" }}>
+                Open posting <IconExternalLink size={13} />
+              </a>
+            )}
+          </>
+        ) : (
+          <>
+            <Button color="primary" startContent={<IconExternalLink size={15} />} onPress={() => onApply(match)}>
+              Apply
+            </Button>
+            <Button variant="bordered" color="danger" startContent={<IconX size={15} />} onPress={() => onDismiss(match)}>
+              Not a fit
+            </Button>
+          </>
         )}
       </div>
     </div>
@@ -303,7 +302,8 @@ export default function EmployeeDetailPage() {
   const [total, setTotal] = useState(0);
   const [tab, setTab] = useState<MatchStatus | "all">("all");
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [dup, setDup] = useState<{ matchId: number; frontman: DuplicateApplyFrontman } | null>(null);
+  const [dup, setDup] = useState<{ match: EmployeeJobMatch; frontman: DuplicateApplyFrontman } | null>(null);
+  const [applyTarget, setApplyTarget] = useState<EmployeeJobMatch | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<EditForm | null>(null);
   const [saving, setSaving] = useState(false);
@@ -363,19 +363,34 @@ export default function EmployeeDetailPage() {
 
   const selected = matches.find((m) => m.id === selectedId) || null;
 
-  const updateStatus = async (matchId: number, status: MatchStatus, confirmDuplicate = false) => {
+  // Apply: mark the match applied (saved to job tracking) and open the posting.
+  const applyToJob = async (match: EmployeeJobMatch, confirmDuplicate = false) => {
     try {
-      await matchService.update(matchId, { status, confirm_duplicate: confirmDuplicate });
-      addToast({ title: "Status updated", color: "success" });
+      await matchService.update(match.id, { status: "applied", confirm_duplicate: confirmDuplicate });
       setDup(null);
-      void reload();
+      setApplyTarget(null);
+      addToast({ title: "Applied — saved to job tracking", color: "success" });
+      if (match.job.source_url) window.open(match.job.source_url, "_blank", "noopener,noreferrer");
+      await reload();
     } catch (e: unknown) {
       const resp = (e as { response?: { status?: number; data?: { error?: DuplicateApplyError } } }).response;
       if (resp?.status === 409 && resp.data?.error?.code === "DUPLICATE_APPLY") {
-        setDup({ matchId, frontman: resp.data.error.frontman });
+        setApplyTarget(null);
+        setDup({ match, frontman: resp.data.error.frontman });
         return;
       }
-      addToast({ title: "Update failed", color: "danger" });
+      addToast({ title: "Apply failed", color: "danger" });
+    }
+  };
+
+  // Not a fit: hide from the list, keep out of re-ranking, store as a label.
+  const dismissMatch = async (match: EmployeeJobMatch) => {
+    try {
+      await matchService.update(match.id, { status: "dismissed" });
+      addToast({ title: "Marked as not a fit", description: "Hidden from this list and won't be re-ranked.", color: "default" });
+      await reload();
+    } catch {
+      addToast({ title: "Failed to update", color: "danger" });
     }
   };
 
@@ -488,7 +503,7 @@ export default function EmployeeDetailPage() {
         {TABS.map((t) => {
           const counts = employee.matches_count_by_status ?? {};
           const count = t.key === "all"
-            ? Object.values(counts).reduce((a, b) => a + b, 0)
+            ? Object.entries(counts).filter(([k]) => k !== "dismissed").reduce((a, [, v]) => a + v, 0)
             : (counts[t.key] ?? 0);
           const active = tab === t.key;
           return (
@@ -544,7 +559,7 @@ export default function EmployeeDetailPage() {
           {/* right detail */}
           <Card padding={0} style={{ height: "100%", overflow: "auto" }}>
             {selected ? (
-              <JobDetailPanel match={selected} onStatus={(s) => updateStatus(selected.id, s)} />
+              <JobDetailPanel match={selected} onApply={setApplyTarget} onDismiss={dismissMatch} />
             ) : (
               <div style={{ display: "grid", placeItems: "center", height: 200, color: T.ink4 }}>Select a job</div>
             )}
@@ -568,7 +583,30 @@ export default function EmployeeDetailPage() {
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={() => setDup(null)}>Cancel</Button>
-            <Button color="warning" onPress={() => dup && void updateStatus(dup.matchId, "applied", true)}>Apply anyway</Button>
+            <Button color="warning" onPress={() => dup && void applyToJob(dup.match, true)}>Apply anyway</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* apply confirm modal */}
+      <Modal isOpen={applyTarget !== null} onOpenChange={(open) => !open && setApplyTarget(null)} size="md">
+        <ModalContent>
+          <ModalHeader>Apply to this job?</ModalHeader>
+          <ModalBody className="text-sm">
+            {applyTarget && (
+              <p>
+                You'll be taken to the original posting for{" "}
+                <span className="font-semibold">{applyTarget.job.title}</span>
+                {applyTarget.job.company_name ? ` at ${applyTarget.job.company_name}` : ""}, and it will be
+                marked <span className="font-semibold">applied</span> and saved to job tracking.
+              </p>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={() => setApplyTarget(null)}>Cancel</Button>
+            <Button color="primary" startContent={<IconExternalLink size={14} />} onPress={() => applyTarget && void applyToJob(applyTarget)}>
+              Apply &amp; open posting
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

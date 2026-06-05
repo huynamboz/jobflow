@@ -137,6 +137,15 @@ class MatchTransitionTests(APITestCase):
         self.emp.refresh_from_db()
         self.assertEqual(self.emp.status, "placed")
 
+    def test_dismissed_hidden_from_list(self):
+        self.match.status = "dismissed"
+        self.match.save()
+        client = _auth_client(self.admin)
+        default = client.get(f"/api/admin/matches/?employee={self.emp.id}")
+        self.assertFalse(any(m["status"] == "dismissed" for m in default.data["results"]))
+        only = client.get(f"/api/admin/matches/?employee={self.emp.id}&status=dismissed")
+        self.assertTrue(any(m["status"] == "dismissed" for m in only.data["results"]))
+
     def test_applied_stamps_timestamp(self):
         resp = _auth_client(self.admin).patch(
             f"/api/admin/matches/{self.match.id}/",
