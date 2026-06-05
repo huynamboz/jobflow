@@ -282,6 +282,64 @@ class CvParserAdapterTests(APITestCase):
             self.assertEqual(parsers.parse_cv_file("/tmp/cv.pdf"), {})
 
 
+class RematchTests(APITestCase):
+    """Re-match must refresh scores without re-parsing the CV or resetting the
+    pipeline status (no-LLM path)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.platform = Platform.objects.create(name="LinkedIn", slug="linkedin")
+        cls.job = Job.objects.create(platform=cls.platform, title="Backend", description="...", seniority=3)
+        cls.emp = Employee.objects.create(full_name="Alice", status="bench", seniority=2, skills=["python"])
+
+    def test_persist_preserves_status_on_existing(self):
+        from apps.employees.tasks import _persist_matches
+
+        EmployeeJobMatch.objects.create(
+            employee=self.emp, job=self.job, status="applied", match_score=0.5, matched_skills=["python"]
+        )
+        res = _persist_matches(self.emp, [{
+            "job_id": self.job.id, "score": 0.91,
+            "matched_skills": ["python", "django"], "missing_skills": ["aws"],
+        }])
+        m = EmployeeJobMatch.objects.get(employee=self.emp, job=self.job)
+        self.assertEqual(m.status, "applied")          # HR progress preserved
+        self.assertAlmostEqual(m.match_score, 0.91)    # score refreshed
+        self.assertEqual(m.matched_skills, ["python", "django"])
+        self.assertEqual(res["matches_created"], 0)
+
+    def test_persist_creates_as_suggested_with_gap(self):
+        from apps.employees.tasks import _persist_matches
+
+        res = _persist_matches(self.emp, [{
+            "job_id": self.job.id, "score": 0.8, "matched_skills": ["python"], "missing_skills": [],
+        }])
+        m = EmployeeJobMatch.objects.get(employee=self.emp, job=self.job)
+        self.assertEqual(m.status, "suggested")
+        self.assertEqual(m.seniority_gap, 1)           # job 3 − emp 2
+        self.assertEqual(res["matches_created"], 1)
+
+    def test_rematch_uses_engine_not_llm_with_cv_text(self):
+        from unittest.mock import patch
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from apps.employees import matching
+
+        emp = Employee.objects.create(
+            full_name="Bob", status="bench", seniority=2, skills=["python", "django"],
+            cv_file=SimpleUploadedFile("cv.pdf", b"%PDF fake"),
+        )
+        fake = {"jobs": [{"job_id": self.job.id, "score": 0.7, "matched_skills": ["python"], "missing_skills": []}]}
+        with patch("apps.matching.services.match_cv_data", return_value=fake) as mcd, \
+             patch("apps.employees.parsers.extract_text_from_cv", return_value="real cv text"):
+            out = matching.rematch_employee(emp, top_k=10)
+
+        self.assertEqual([o["job_id"] for o in out], [self.job.id])
+        _, kwargs = mcd.call_args
+        self.assertEqual(kwargs["skills"], ["python", "django"])  # stored skills, no LLM
+        self.assertEqual(kwargs["text"], "real cv text")          # faithful CV text
+
+
 class DashboardTests(APITestCase):
     @classmethod
     def setUpTestData(cls):

@@ -238,6 +238,50 @@ def match_cv_file(file_path: str, top_k: int = 10) -> dict:
     return {"cv_info": _cv_info(cv_data), "jobs": _enrich(filtered)}
 
 
+def match_cv_data(
+    skills: list[str],
+    seniority: int,
+    experience_years: float = 0.0,
+    education: int = 2,
+    text: str | None = None,
+    top_k: int = 10,
+) -> dict:
+    """Match using already-structured CV fields, **skipping the LLM parse**, then
+    run the exact same GNN pipeline (``engine.match_cv``) as the full CV path.
+
+    ``text`` is the CV free-text used for the CV-node sentence embedding — pass
+    the original CV text (re-extracted from the file, no LLM) for parity with the
+    full path; it is truncated to 500 words exactly like ``LLMCVParser``. When no
+    text is given it falls back to a skills-joined string (skill graph signal is
+    unaffected either way). ``education``/proficiency default when not stored.
+    Returns {cv_info, jobs}."""
+    from ml_service.graph.schema import CVData, EducationLevel, SeniorityLevel
+
+    canonical = [s for s in (skills or []) if s]
+    if not canonical:
+        return {"cv_info": {}, "jobs": []}
+
+    if text:
+        words = text.split()
+        embed_text = " ".join(words[:500]) if len(words) > 500 else text
+    else:
+        embed_text = ", ".join(canonical)
+
+    cv = CVData(
+        cv_id=-1,
+        seniority=SeniorityLevel(max(0, min(5, int(seniority)))),
+        experience_years=float(experience_years or 0),
+        education=EducationLevel(education),
+        skills=tuple(canonical),
+        skill_proficiencies=tuple(3 for _ in canonical),
+        text=embed_text,
+    )
+    engine = _get_engine()
+    raw = engine.match_cv(cv, top_k=top_k * 2)
+    filtered = _apply_lifecycle_filter(raw)[:top_k]
+    return {"cv_info": _cv_info(cv), "jobs": _enrich(filtered)}
+
+
 def parse_cv_file(file_path: str) -> dict:
     """Parse CV file and return structured data (debug)."""
     parser = _get_parser()

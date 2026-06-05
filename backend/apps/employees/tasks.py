@@ -11,11 +11,62 @@ import logging
 
 from django.utils import timezone
 
-from apps.employees.matching import match_employee_to_jobs
+from apps.employees.matching import match_employee_to_jobs, rematch_employee
 from apps.employees.models import Employee, EmployeeJobMatch
 from apps.employees.parsers import parse_cv_file
 
 logger = logging.getLogger(__name__)
+
+
+def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
+    """Upsert match rows. New rows start as ``suggested``; existing rows keep
+    their HR-set pipeline status (only score/skills/gap are refreshed) — re-
+    matching must never reset pursuing/applied/won/lost."""
+    from apps.jobs.models import Job
+
+    created = 0
+    skipped = 0
+    for m in matches:
+        job = Job.objects.filter(pk=m["job_id"]).first()
+        if job is None:
+            # Engine job_id space may not map onto a Job row; skip rather than
+            # raise an integrity error so the rest of the batch still lands.
+            skipped += 1
+            continue
+        seniority_gap = None
+        if job.seniority is not None and emp.seniority is not None:
+            seniority_gap = int(job.seniority) - int(emp.seniority)
+        scores = {
+            "match_score": float(m.get("score", 0.0)),
+            "matched_skills": m.get("matched_skills", []),
+            "missing_skills": m.get("missing_skills", []),
+            "seniority_gap": seniority_gap,
+        }
+        _, was_created = EmployeeJobMatch.objects.update_or_create(
+            employee=emp,
+            job=job,
+            defaults=scores,  # update: refresh scores, preserve status
+            create_defaults={**scores, "status": EmployeeJobMatch.Status.SUGGESTED},
+        )
+        if was_created:
+            created += 1
+    return {
+        "employee_id": emp.id,
+        "matches_total": len(matches),
+        "matches_created": created,
+        "matches_skipped": skipped,
+    }
+
+
+def _do_rematch(employee_id: int) -> dict:
+    """Re-match only (no CV re-parse, no LLM) — fast, schedule-friendly."""
+    try:
+        emp = Employee.objects.get(pk=employee_id)
+    except Employee.DoesNotExist:
+        return {"employee_id": employee_id, "skipped": "not_found"}
+    if not emp.skills:
+        return {"employee_id": employee_id, "skipped": "no_skills"}
+    return _persist_matches(emp, rematch_employee(emp, top_k=30))
 
 
 def _do_parse_and_match(employee_id: int) -> dict:
@@ -49,40 +100,7 @@ def _do_parse_and_match(employee_id: int) -> dict:
         emp.is_parse_failed = bool(emp.cv_file)  # only mark failed if there was a file
     emp.save()
 
-    from apps.jobs.models import Job
-
-    matches = match_employee_to_jobs(emp, top_k=30)
-    created = 0
-    skipped = 0
-    for m in matches:
-        job = Job.objects.filter(pk=m["job_id"]).first()
-        if job is None:
-            # Engine job_id space may not map onto a Job row; skip rather than
-            # raise an integrity error so the rest of the batch still lands.
-            skipped += 1
-            continue
-        seniority_gap = None
-        if job.seniority is not None and emp.seniority is not None:
-            seniority_gap = int(job.seniority) - int(emp.seniority)
-        _, was_created = EmployeeJobMatch.objects.update_or_create(
-            employee=emp,
-            job=job,
-            defaults={
-                "status": EmployeeJobMatch.Status.SUGGESTED,
-                "match_score": float(m.get("score", 0.0)),
-                "matched_skills": m.get("matched_skills", []),
-                "missing_skills": m.get("missing_skills", []),
-                "seniority_gap": seniority_gap,
-            },
-        )
-        if was_created:
-            created += 1
-    return {
-        "employee_id": employee_id,
-        "matches_total": len(matches),
-        "matches_created": created,
-        "matches_skipped": skipped,
-    }
+    return _persist_matches(emp, match_employee_to_jobs(emp, top_k=30))
 
 
 try:

@@ -15,29 +15,54 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _jobs_to_dicts(result: Any) -> list[dict]:
+    jobs = result.get("jobs", []) if isinstance(result, dict) else (result or [])
+    return [
+        {
+            "job_id": j.get("job_id"),
+            "score": j.get("score", 0.0),
+            "matched_skills": j.get("matched_skills", []),
+            "missing_skills": j.get("missing_skills", []),
+        }
+        for j in jobs
+        if j.get("job_id") is not None
+    ]
+
+
 def match_employee_to_jobs(employee: Any, top_k: int = 30) -> list[dict]:
+    """Full match via the CV-text path (LLM parses the surrogate text). Used
+    right after a CV is (re)parsed."""
     try:
-        # Construct a "CV text" surrogate from the parsed employee fields and
-        # delegate to the matching engine. ``match_cv_text`` returns
-        # ``{"cv_info": {...}, "jobs": [{job_id, score, matched_skills,
-        # missing_skills, ...}]}``.
         from apps.matching.services import match_cv_text  # type: ignore
 
         cv_text = _employee_to_cv_text(employee)
-        result = match_cv_text(cv_text=cv_text, top_k=top_k)
-        jobs = result.get("jobs", []) if isinstance(result, dict) else (result or [])
-        return [
-            {
-                "job_id": j.get("job_id"),
-                "score": j.get("score", 0.0),
-                "matched_skills": j.get("matched_skills", []),
-                "missing_skills": j.get("missing_skills", []),
-            }
-            for j in jobs
-            if j.get("job_id") is not None
-        ]
+        return _jobs_to_dicts(match_cv_text(cv_text=cv_text, top_k=top_k))
     except Exception as exc:  # noqa: BLE001
         logger.warning("Matching service unavailable for employee %s: %s", employee.pk, exc)
+        return []
+
+
+def rematch_employee(employee: Any, top_k: int = 30) -> list[dict]:
+    """Re-match using the employee's already-parsed skills/seniority — **no LLM
+    call** — through the same GNN pipeline. The CV file's text is re-extracted
+    (no LLM) so the CV-node embedding matches the full path; falls back to a
+    skills-joined string for employees without a file. Cheap enough to run in
+    bulk / on a schedule when the catalog changes."""
+    try:
+        from apps.employees.parsers import extract_text_from_cv
+        from apps.matching.services import match_cv_data  # type: ignore
+
+        cv_text = extract_text_from_cv(employee.cv_file) if employee.cv_file else ""
+        result = match_cv_data(
+            skills=list(employee.skills or []),
+            seniority=int(employee.seniority),
+            experience_years=float(employee.experience_years or 0),
+            text=cv_text or None,
+            top_k=top_k,
+        )
+        return _jobs_to_dicts(result)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Re-match unavailable for employee %s: %s", employee.pk, exc)
         return []
 
 

@@ -370,6 +370,16 @@ export default function EmployeeDetailPage() {
     }
   };
 
+  const refreshJobs = async () => {
+    try {
+      await employeeService.rematch(empId);
+      addToast({ title: "Refreshing jobs…", description: "Re-matching against the current catalog. List updates shortly.", color: "success" });
+      setTimeout(() => void reload(), 4000);
+    } catch {
+      addToast({ title: "Refresh failed", color: "danger" });
+    }
+  };
+
   const startEdit = () => { if (employee) { setForm(toForm(employee)); setEditing(true); } };
   const saveEdit = async () => {
     if (!form) return;
@@ -425,6 +435,7 @@ export default function EmployeeDetailPage() {
           </div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <Button variant="bordered" size="sm" startContent={<IconBriefcase size={14} />} onPress={refreshJobs}>Refresh jobs</Button>
           <Button variant="bordered" size="sm" startContent={<IconRefresh size={14} />} onPress={rescore}>Re-score</Button>
           <Button variant="bordered" size="sm" startContent={<IconPencil size={14} />} onPress={startEdit}>Edit</Button>
           <Button variant="light" size="sm" color="danger" startContent={<IconTrash size={14} />} onPress={() => setDeleteOpen(true)}>Delete</Button>

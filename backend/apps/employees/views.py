@@ -152,6 +152,25 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 status=drf_status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
+    @action(detail=True, methods=["post"], url_path="rematch")
+    def rematch(self, request, pk=None):
+        """Refresh job matches against the current catalog — no CV re-parse / no
+        LLM, and keeps each match's pipeline status. Runs in the background pool."""
+        from apps.employees.tasks import _do_rematch
+
+        def _run() -> None:
+            try:
+                _do_rematch(int(pk))
+            except Exception:  # noqa: BLE001
+                logger.warning("Re-match failed for employee %s", pk, exc_info=True)
+            finally:
+                from django.db import connection
+
+                connection.close()
+
+        _get_parse_pool().submit(_run)
+        return Response({"success": True, "status": "queued"})
+
 
 class MatchPagination(PageNumberPagination):
     """Allow the client to choose the page size (e.g. the employee job browser

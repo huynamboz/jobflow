@@ -113,6 +113,23 @@ def _extract_text(path: Path) -> str:
     raise ValueError(f"Unsupported file type: {suffix}")
 
 
+def _resolve_path(file_obj: Any) -> Path:
+    # FieldFile.path raises for non-local storages — fall back to str().
+    return Path(getattr(file_obj, "path", None) or str(file_obj))
+
+
+def extract_text_from_cv(file_obj: Any) -> str:
+    """Raw text of an uploaded CV (PDF/DOCX/TXT) — **no LLM**. ``''`` on failure.
+
+    Used by the re-match path to feed the GNN the same CV text embedding the
+    full parse uses, without paying for another LLM call."""
+    try:
+        return _extract_text(_resolve_path(file_obj))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("CV text extraction failed for %s: %s", file_obj, exc)
+        return ""
+
+
 def parse_cv_file(file_obj: Any) -> dict:
     """Parse an uploaded CV into a full Employee field dict.
 
@@ -122,8 +139,7 @@ def parse_cv_file(file_obj: Any) -> dict:
     try:
         from apps.cvs.services.llm_cv_extractor import extract as llm_extract
 
-        path = Path(getattr(file_obj, "path", None) or str(file_obj))
-        text = _extract_text(path)
+        text = _extract_text(_resolve_path(file_obj))
         result = llm_extract(text)
 
         seniority = result.seniority if result.seniority is not None and result.seniority >= 0 else None

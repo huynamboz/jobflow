@@ -57,6 +57,11 @@ class EmployeeService {
   async rescore(id: number): Promise<void> {
     await apiClient.post<void>(`/admin/employees/${id}/rescore/`, {});
   }
+
+  /** Refresh job matches against the current catalog (no CV re-parse / no LLM). */
+  async rematch(id: number): Promise<void> {
+    await apiClient.post<void>(`/admin/employees/${id}/rematch/`, {});
+  }
 }
 
 export const employeeService = new EmployeeService();
