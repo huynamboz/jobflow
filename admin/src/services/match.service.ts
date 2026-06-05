@@ -7,6 +7,7 @@ interface ListParams {
   status?: MatchStatus;
   assigned_to?: number;
   page?: number;
+  page_size?: number;
 }
 
 interface ListResponse {

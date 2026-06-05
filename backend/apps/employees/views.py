@@ -11,6 +11,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.filters import SearchFilter
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -152,6 +153,15 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             )
 
 
+class MatchPagination(PageNumberPagination):
+    """Allow the client to choose the page size (e.g. the employee job browser
+    pulls the top 10 by score, then 10 more on demand)."""
+
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
     """List/update match records.
 
@@ -164,6 +174,7 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
 
     serializer_class = EmployeeJobMatchSerializer
     permission_classes = [IsAuthenticated, IsHRStaff]
+    pagination_class = MatchPagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["status", "employee", "job", "assigned_to"]
 

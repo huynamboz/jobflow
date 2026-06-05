@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
@@ -49,6 +49,8 @@ const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"
 
 // Temporarily hidden until the live matching pipeline is reliable. Flip to true.
 const SHOW_MATCH_PCT = false;
+
+const PAGE_SIZE = 10; // job list loads the top 10, then 10 more on demand
 
 const STATUS_META: Record<MatchStatus, { label: string; bg: string; color: string }> = {
   suggested: { label: "Suggested", bg: T.surface3, color: T.ink2 },
@@ -281,6 +283,9 @@ export default function EmployeeDetailPage() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [matches, setMatches] = useState<EmployeeJobMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [tab, setTab] = useState<MatchStatus | "all">("all");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [dup, setDup] = useState<{ matchId: number; frontman: DuplicateApplyFrontman } | null>(null);
@@ -290,34 +295,53 @@ export default function EmployeeDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Server-side status filter per tab; matches arrive ranked by score, paginated.
+  const listParams = useCallback(
+    (pg: number) => ({ employee: empId, ...(tab !== "all" ? { status: tab } : {}), page: pg, page_size: PAGE_SIZE }),
+    [empId, tab],
+  );
+
   const reload = useCallback(async () => {
     setLoading(true);
     try {
       const [emp, m] = await Promise.all([
         employeeService.get(empId),
-        matchService.list({ employee: empId }),
+        matchService.list(listParams(1)),
       ]);
       setEmployee(emp);
       setMatches(m.results);
+      setHasMore(!!m.next);
+      setPage(1);
     } catch {
       addToast({ title: "Failed to load employee", color: "danger" });
     } finally {
       setLoading(false);
     }
-  }, [empId]);
+  }, [empId, listParams]);
 
   useEffect(() => { void reload(); }, [reload]);
 
-  const visible = useMemo(
-    () => (tab === "all" ? matches : matches.filter((m) => m.status === tab)),
-    [matches, tab],
-  );
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const m = await matchService.list(listParams(next));
+      setMatches((prev) => [...prev, ...m.results]);
+      setHasMore(!!m.next);
+      setPage(next);
+    } catch {
+      addToast({ title: "Failed to load more jobs", color: "danger" });
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, page, listParams]);
 
   useEffect(() => {
-    if (visible.length && !visible.some((m) => m.id === selectedId)) {
-      setSelectedId(visible[0].id);
+    if (matches.length && !matches.some((m) => m.id === selectedId)) {
+      setSelectedId(matches[0].id);
     }
-  }, [visible, selectedId]);
+  }, [matches, selectedId]);
 
   const selected = matches.find((m) => m.id === selectedId) || null;
 
@@ -423,7 +447,10 @@ export default function EmployeeDetailPage() {
       {/* tabs */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {TABS.map((t) => {
-          const count = t.key === "all" ? matches.length : matches.filter((m) => m.status === t.key).length;
+          const counts = employee.matches_count_by_status ?? {};
+          const count = t.key === "all"
+            ? Object.values(counts).reduce((a, b) => a + b, 0)
+            : (counts[t.key] ?? 0);
           const active = tab === t.key;
           return (
             <button key={t.key} type="button" onClick={() => setTab(t.key)}
@@ -443,18 +470,32 @@ export default function EmployeeDetailPage() {
         <Card style={{ display: "grid", placeItems: "center", height: 240, color: T.ink3 }}>
           <div style={{ textAlign: "center" }}>
             <IconBriefcase size={30} style={{ margin: "0 auto 10px", color: T.ink4 }} />
-            <div style={{ fontWeight: 600 }}>No matched jobs yet</div>
-            <div style={{ fontSize: 13 }}>Re-score after the CV is parsed, or add jobs to the catalog.</div>
+            <div style={{ fontWeight: 600 }}>{tab === "all" ? "No matched jobs yet" : "No jobs in this status"}</div>
+            <div style={{ fontSize: 13 }}>{tab === "all" ? "Re-score after the CV is parsed, or add jobs to the catalog." : "Try another tab."}</div>
           </div>
         </Card>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 380px) 1fr", gap: 14, alignItems: "stretch", height: "calc(100vh - 220px)" }}>
           {/* left list */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0, overflow: "auto", paddingRight: 4 }}>
-            {visible.map((m) => (
+          <div
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) void loadMore();
+            }}
+            style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0, overflow: "auto", paddingRight: 4 }}
+          >
+            {matches.map((m) => (
               <JobListItem key={m.id} match={m} selected={m.id === selectedId} onSelect={() => setSelectedId(m.id)} />
             ))}
-            {visible.length === 0 && <div style={{ padding: 16, fontSize: 13, color: T.ink4 }}>No jobs in this status.</div>}
+            {hasMore ? (
+              <Button size="sm" variant="flat" className="mt-1" isLoading={loadingMore} onPress={() => void loadMore()}>
+                View more
+              </Button>
+            ) : (
+              matches.length > 0 && (
+                <div style={{ padding: "8px 4px", textAlign: "center", fontSize: 12, color: T.ink4 }}>No more jobs</div>
+              )
+            )}
           </div>
           {/* right detail */}
           <Card padding={0} style={{ height: "100%", overflow: "auto" }}>
