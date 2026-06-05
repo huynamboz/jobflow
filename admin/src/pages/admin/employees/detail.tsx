@@ -286,6 +286,7 @@ export default function EmployeeDetailPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
   const [tab, setTab] = useState<MatchStatus | "all">("all");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [dup, setDup] = useState<{ matchId: number; frontman: DuplicateApplyFrontman } | null>(null);
@@ -312,6 +313,7 @@ export default function EmployeeDetailPage() {
       setEmployee(emp);
       setMatches(m.results);
       setHasMore(!!m.next);
+      setTotal(m.count ?? m.results.length);
       setPage(1);
     } catch {
       addToast({ title: "Failed to load employee", color: "danger" });
@@ -330,6 +332,7 @@ export default function EmployeeDetailPage() {
       const m = await matchService.list(listParams(next));
       setMatches((prev) => [...prev, ...m.results]);
       setHasMore(!!m.next);
+      setTotal(m.count ?? 0);
       setPage(next);
     } catch {
       addToast({ title: "Failed to load more jobs", color: "danger" });
@@ -498,24 +501,27 @@ export default function EmployeeDetailPage() {
         </Card>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 380px) 1fr", gap: 14, alignItems: "stretch", height: "calc(100vh - 220px)" }}>
-          {/* left list */}
-          <div
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) void loadMore();
-            }}
-            style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0, overflow: "auto", paddingRight: 4 }}
-          >
+          {/* left list — explicit "View more" button (no auto-scroll load) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0, overflow: "auto", paddingRight: 4 }}>
             {matches.map((m) => (
               <JobListItem key={m.id} match={m} selected={m.id === selectedId} onSelect={() => setSelectedId(m.id)} />
             ))}
             {hasMore ? (
-              <Button size="sm" variant="flat" className="mt-1" isLoading={loadingMore} onPress={() => void loadMore()}>
-                View more
+              <Button
+                size="sm"
+                variant="flat"
+                fullWidth
+                className="mt-1 shrink-0"
+                isLoading={loadingMore}
+                onPress={() => void loadMore()}
+              >
+                {loadingMore ? "Loading…" : `View more (${Math.max(0, total - matches.length)} more)`}
               </Button>
             ) : (
               matches.length > 0 && (
-                <div style={{ padding: "8px 4px", textAlign: "center", fontSize: 12, color: T.ink4 }}>No more jobs</div>
+                <div style={{ padding: "8px 4px", textAlign: "center", fontSize: 12, color: T.ink4 }}>
+                  All {total} jobs shown
+                </div>
               )
             )}
           </div>
