@@ -49,18 +49,18 @@ export default function SettingsPage() {
           margin: "0 0 24px",
         }}
       >
-        Cài đặt
+        Settings
       </h1>
 
       <Card className="mb-4">
         <CardHeader className="flex gap-3">
           <User size={20} />
-          <span className="font-semibold">Thông tin tài khoản</span>
+          <span className="font-semibold">Account information</span>
         </CardHeader>
         <Divider />
         <CardBody className="gap-3">
           <div className="flex justify-between">
-            <span className="text-default-500">Tên đăng nhập</span>
+            <span className="text-default-500">Username</span>
             <span className="font-medium">{user?.username}</span>
           </div>
           <div className="flex justify-between">
@@ -68,7 +68,7 @@ export default function SettingsPage() {
             <span className="font-medium">{user?.email}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-default-500">Vai trò</span>
+            <span className="text-default-500">Role</span>
             <span className="font-medium capitalize">{user?.role}</span>
           </div>
         </CardBody>
@@ -77,16 +77,16 @@ export default function SettingsPage() {
       <Card className="mb-4">
         <CardHeader className="flex gap-3">
           <Bell size={20} />
-          <span className="font-semibold">Thông báo</span>
+          <span className="font-semibold">Notifications</span>
         </CardHeader>
         <Divider />
         <CardBody className="gap-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Email digest hằng ngày</p>
+              <p className="font-medium">Daily email digest</p>
               <p className="text-small text-default-400">
-                Nhận email tổng hợp các cặp nhân viên-công việc có điểm cao mỗi
-                sáng 8:00
+                Receive a daily summary email of high-scoring employee–job matches
+                every morning at 8:00
               </p>
             </div>
             <Switch
@@ -100,12 +100,12 @@ export default function SettingsPage() {
       <Card>
         <CardHeader className="flex gap-3">
           <Shield size={20} />
-          <span className="font-semibold">Bảo mật</span>
+          <span className="font-semibold">Security</span>
         </CardHeader>
         <Divider />
         <CardBody>
           <p className="text-small text-default-400">
-            Để đổi mật khẩu, sử dụng chức năng đổi mật khẩu qua API.
+            To change your password, use the password-change function via the API.
           </p>
         </CardBody>
       </Card>
@@ -113,7 +113,7 @@ export default function SettingsPage() {
       <div className="flex justify-end mt-4 gap-2">
         {saved && (
           <span className="text-success self-center text-small">
-            Đã lưu thành công
+            Saved successfully
           </span>
         )}
         <Button
@@ -121,7 +121,7 @@ export default function SettingsPage() {
           isLoading={saving}
           onPress={handleSave}
         >
-          Lưu thay đổi
+          Save changes
         </Button>
       </div>
     </div>

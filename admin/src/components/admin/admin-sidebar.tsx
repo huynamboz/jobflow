@@ -32,7 +32,8 @@ export interface AdminSidebarProps {
 export function AdminSidebar({ isOpen = true, onClose }: AdminSidebarProps) {
   const location = useLocation();
   const logout = useAuthStore((state) => state.logout);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // System (all technical tooling) starts collapsed so the staffing workflow leads.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ System: true });
 
   const toggleSection = (title: string) =>
     setCollapsed((prev) => ({ ...prev, [title]: !prev[title] }));

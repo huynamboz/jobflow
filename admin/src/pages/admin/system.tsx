@@ -1,9 +1,15 @@
 import { useCallback, useState } from "react";
 import { RefreshCcw } from "lucide-react";
 
-import StaffingDashboard from "@/components/dashboard/StaffingDashboard";
+import AuthStateBanner from "@/components/dashboard/AuthStateBanner";
+import CatalogComposition from "@/components/dashboard/CatalogComposition";
+import FreshnessActivity from "@/components/dashboard/FreshnessActivity";
+import KpiStrip from "@/components/dashboard/KpiStrip";
+import LabelingProgress from "@/components/dashboard/LabelingProgress";
+import ModelStatus from "@/components/dashboard/ModelStatus";
+import VerifierExtractorOps from "@/components/dashboard/VerifierExtractorOps";
 
-export default function DashboardPage() {
+export default function SystemPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -19,7 +25,7 @@ export default function DashboardPage() {
               margin: 0,
             }}
           >
-            Dashboard
+            System
           </h1>
           <p
             style={{
@@ -29,7 +35,7 @@ export default function DashboardPage() {
               margin: "4px 0 0",
             }}
           >
-            What the bench needs today.
+            System health, catalog, model and pipeline ops at a glance.
           </p>
         </div>
         <button
@@ -51,7 +57,20 @@ export default function DashboardPage() {
         </button>
       </header>
 
-      <StaffingDashboard refreshKey={refreshKey} />
+      <AuthStateBanner refreshKey={refreshKey} />
+      <KpiStrip refreshKey={refreshKey} />
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <CatalogComposition refreshKey={refreshKey} />
+        <FreshnessActivity refreshKey={refreshKey} />
+      </div>
+
+      <VerifierExtractorOps refreshKey={refreshKey} />
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <LabelingProgress refreshKey={refreshKey} />
+        <ModelStatus refreshKey={refreshKey} />
+      </div>
     </div>
   );
 }

@@ -46,6 +46,14 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
+    def perform_update(self, serializer):
+        # Feature 1.3: a manual HR edit means the record has been reviewed, so a
+        # prior parse failure is considered resolved.
+        instance = serializer.save()
+        if instance.is_parse_failed:
+            instance.is_parse_failed = False
+            instance.save(update_fields=["is_parse_failed", "updated_at"])
+
     def destroy(self, request, *args, **kwargs):
         if not IsAdminUserRole().has_permission(request, self):
             raise PermissionDenied("Only admin role can delete employees.")
@@ -149,7 +157,7 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
                         "success": False,
                         "error": {
                             "code": "DUPLICATE_APPLY",
-                            "message": "Job này đã được apply bởi nhân viên khác.",
+                            "message": "This job has already been applied to by another employee.",
                             "frontman": {
                                 "employee_id": frontman.employee_id,
                                 "employee_name": frontman.employee.full_name,
@@ -182,6 +190,178 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
             updates.append("lost_at")
         if updates:
             instance.save(update_fields=updates + ["updated_at"])
+
+
+class DashboardView(APIView):
+    """Operational HR-staffing dashboard (feature 016).
+
+    One round-trip returning the five blocks the morning workflow needs:
+    KPI strip, action queue, pipeline funnel, alerts, recent activity.
+    """
+
+    permission_classes = [IsAuthenticated, IsHRStaff]
+    STALE_APPLIED_DAYS = 7
+    HIGH_SCORE = 0.8
+
+    def get(self, request):
+        from apps.jobs.models import Job
+
+        now = timezone.now()
+        week_ago = now - timedelta(days=7)
+        day_ago = now - timedelta(days=1)
+        stale_before = now - timedelta(days=self.STALE_APPLIED_DAYS)
+
+        engaged_statuses = ["pursuing", "applied", "won"]
+
+        # --- Block 1: KPI strip ---
+        active_emp = Employee.objects.exclude(status="inactive").count()
+        engaged = (
+            Employee.objects.filter(matches__status__in=engaged_statuses)
+            .distinct()
+            .count()
+        )
+        kpi = {
+            "utilization_pct": round(100 * engaged / active_emp) if active_emp else 0,
+            "bench_count": Employee.objects.filter(status="bench").count(),
+            "in_progress": EmployeeJobMatch.objects.filter(
+                status__in=["pursuing", "applied"]
+            ).count(),
+            "won_this_week": EmployeeJobMatch.objects.filter(won_at__gte=week_ago).count(),
+            "lost_this_week": EmployeeJobMatch.objects.filter(lost_at__gte=week_ago).count(),
+            "new_jobs_24h": Job.objects.filter(created_at__gte=day_ago).count(),
+            "new_jobs_7d": Job.objects.filter(created_at__gte=week_ago).count(),
+        }
+
+        # --- Block 2: Action queue ---
+        top_new = list(
+            Employee.objects.annotate(
+                new_count=Count("matches", filter=Q(matches__status="suggested"))
+            )
+            .filter(new_count__gt=0)
+            .order_by("-new_count")[:5]
+            .values("id", "full_name", "new_count")
+        )
+        bench_stale_rows = (
+            Employee.objects.filter(status="bench")
+            .annotate(
+                active_opps=Count(
+                    "matches", filter=Q(matches__status__in=engaged_statuses)
+                )
+            )
+            .filter(active_opps=0)
+            .order_by("created_at")[:5]
+        )
+        bench_stale = [
+            {
+                "id": e.id,
+                "full_name": e.full_name,
+                "days_on_bench": (now - e.created_at).days,
+            }
+            for e in bench_stale_rows
+        ]
+        stale_applied = [
+            {
+                "match_id": m.id,
+                "employee_id": m.employee_id,
+                "employee_name": m.employee.full_name,
+                "job_title": m.job.title,
+                "days_since_applied": (now - m.applied_at).days if m.applied_at else None,
+            }
+            for m in EmployeeJobMatch.objects.filter(
+                status="applied", applied_at__lt=stale_before
+            ).select_related("employee", "job").order_by("applied_at")[:5]
+        ]
+        action_queue = {
+            "top_new_matches": top_new,
+            "bench_stale": bench_stale,
+            "stale_applied": stale_applied,
+        }
+
+        # --- Block 3: Pipeline funnel ---
+        funnel = {s: 0 for s in ["suggested", "pursuing", "applied", "won", "lost"]}
+        for row in EmployeeJobMatch.objects.values("status").annotate(c=Count("id")):
+            funnel[row["status"]] = row["c"]
+
+        # --- Block 4: Alerts ---
+        parse_failed = list(
+            Employee.objects.filter(is_parse_failed=True)[:10].values("id", "full_name")
+        )
+        high_score_unapplied = [
+            {
+                "match_id": m.id,
+                "employee_id": m.employee_id,
+                "employee_name": m.employee.full_name,
+                "job_title": m.job.title,
+                "score": round(m.match_score, 2),
+            }
+            for m in EmployeeJobMatch.objects.filter(
+                status="suggested", match_score__gte=self.HIGH_SCORE
+            ).select_related("employee", "job").order_by("-match_score")[:5]
+        ]
+        expiring_pursuing = [
+            {
+                "match_id": m.id,
+                "employee_id": m.employee_id,
+                "employee_name": m.employee.full_name,
+                "job_title": m.job.title,
+                "lifecycle": m.job.lifecycle,
+            }
+            for m in EmployeeJobMatch.objects.filter(
+                status__in=["pursuing", "applied"],
+                job__lifecycle__in=[Job.LIFECYCLE_STALE, Job.LIFECYCLE_EXPIRED],
+            ).select_related("employee", "job")[:5]
+        ]
+        alerts = {
+            "parse_failed": parse_failed,
+            "high_score_unapplied": high_score_unapplied,
+            "expiring_pursuing": expiring_pursuing,
+        }
+
+        # --- Block 5: Recent activity ---
+        recent_won_lost = [
+            {
+                "match_id": m.id,
+                "employee_name": m.employee.full_name,
+                "job_title": m.job.title,
+                "status": m.status,
+                "when": (m.won_at or m.lost_at or m.updated_at).isoformat(),
+            }
+            for m in EmployeeJobMatch.objects.filter(
+                status__in=["won", "lost"]
+            ).select_related("employee", "job").order_by("-updated_at")[:5]
+        ]
+        recent_jobs = [
+            {
+                "id": j.id,
+                "title": j.title,
+                "company": j.company.name if j.company else "",
+                "created_at": j.created_at.isoformat(),
+            }
+            for j in Job.objects.select_related("company").order_by("-created_at")[:5]
+        ]
+        recent_employees = list(
+            Employee.objects.order_by("-created_at")[:5].values(
+                "id", "full_name", "created_at"
+            )
+        )
+        recent = {
+            "won_lost": recent_won_lost,
+            "new_jobs": recent_jobs,
+            "new_employees": recent_employees,
+        }
+
+        return Response(
+            {
+                "success": True,
+                "data": {
+                    "kpi": kpi,
+                    "action_queue": action_queue,
+                    "funnel": funnel,
+                    "alerts": alerts,
+                    "recent": recent,
+                },
+            }
+        )
 
 
 class PipelineKpiView(APIView):

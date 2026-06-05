@@ -17,7 +17,7 @@
 |---|---|---|---|---|
 | 1.1 | Upload CV đơn + hàng loạt (zip/multi-file, ≤50) | ✅ | P1 | 012 |
 | 1.2 | Parse CV → skills, seniority, kinh nghiệm | ✅ | P1 | 012 |
-| 1.3 | Sửa tay khi parse lỗi (flag is_parse_failed) | 🟡 | P1 | 012 |
+| 1.3 | Sửa tay khi parse lỗi (flag is_parse_failed) | ✅ | P1 | 012/015 |
 | 1.4 | Trạng thái nhân viên (bench/placed/inactive) — **thủ công** | ✅ | P1 | 012/014 |
 | 1.5 | Thay/cập nhật CV mới (versioning) | 🔴 | P2 | — |
 | 1.6 | Trường "rảnh từ ngày" (available_from) | 🔴 | P2 | — |
@@ -51,7 +51,7 @@
 |---|---|---|---|---|
 | 4.1 | Email digest sáng "X job mới cho Y nhân viên" | ✅ | P1 | 012 |
 | 4.2 | Badge "Y job mới"/nhân viên trên dashboard/list | ✅ | P1 | 014 |
-| 4.3 | Cảnh báo job hot sắp hết hạn | 🔴 | P2 | — |
+| 4.3 | Cảnh báo job hot sắp hết hạn | 🟡 | P2 | 016 |
 | 4.4 | Nhắc nhân viên sắp rảnh → kiếm job trước | 🔴 | P3 | — |
 
 ### 5. Pipeline ứng tuyển
@@ -74,10 +74,10 @@
 ### 7. Báo cáo & KPI
 | # | Tính năng | TT | Ưu tiên | Nguồn |
 |---|---|---|---|---|
-| 7.1 | Bench utilization (% nhân viên có việc) | 🔴 | P2 | — |
+| 7.1 | Bench utilization (% nhân viên có việc) | ✅ | P2 | 016 |
 | 7.2 | Win-rate theo frontman / loại job | 🔴 | P2 | — |
 | 7.3 | Time-to-win trung bình | 🔴 | P2 | — |
-| 7.4 | Phễu pipeline (gợi ý→apply→PV→thắng) | 🔴 | P2 | — |
+| 7.4 | Phễu pipeline (gợi ý→apply→PV→thắng) | ✅ | P2 | 016 |
 | 7.5 | KPI cơ bản (số job/CV/match) + widget | ✅ | P3 | 012 |
 
 ### 8. Quản trị & Vận hành
@@ -107,7 +107,7 @@
 | **Danh sách nhân viên** | Bench, filter, upload, **badge "N new"** | ✅ | 012/014 |
 | **Chi tiết nhân viên + Job match** ⭐ | List job + điểm + **panel "Vì sao khớp"** + **cảnh báo apply trùng** | ✅ | 012/014 |
 | **Global pipeline** | Bảng tất cả match, filter/sort | ✅ | 012 |
-| **Dashboard (KPI widget)** | Đếm theo trạng thái | 🟡 | 012 |
+| **Dashboard staffing (KPI + action queue + funnel + alerts + recent)** | Luồng HR sáng | ✅ | 016 |
 | **Job catalog** | Browse/filter, freshness, verifier stats | ✅ | trước |
 | **Schedule daemon** | Cấu hình crawl/verify, log | ✅ | 005 |
 | **LLM logs / providers / models** | Vận hành ML | ✅ | trước |
@@ -116,7 +116,7 @@
 ### Cần làm mới / nâng cấp tiếp
 | Màn | Mục đích | TT | Ưu tiên | Tính năng liên quan |
 |---|---|---|---|---|
-| **Dashboard "Cần xem sáng nay"** 🔧 | Banner top nhân viên nhiều job mới + funnel | 🔴 | P1 | 4.2, 7 |
+| **Dashboard "Cần xem sáng nay"** | Banner top nhân viên nhiều job mới + funnel + cảnh báo | ✅ | P1 | 016 |
 | **Nhập job thủ công** 🆕 | Dán URL/nhập tay → extract → match | 🔴 | P1 | 2.2 |
 | **Pipeline Kanban** 🆕 | Kéo-thả cơ hội theo cột trạng thái | 🔴 | P2 | 5.x |
 | **Reverse match (Job→CV)** 🆕 | Từ 1 job tìm frontman mạnh nhất | 🔴 | P2 | 3.4 |
@@ -128,10 +128,10 @@
 
 ## C. THỨ TỰ ƯU TIÊN ĐỀ XUẤT (việc còn lại)
 
-1. **Spike 015 — Nối engine→employee live** (3.7) → để matching nhân viên có dữ liệu thật. *Chặn giá trị của 3.1/US1/US2.*
-2. **Nhập job thủ công** (2.2 + màn 🆕) → job thật từ client, P1.
-3. **Dashboard "Cần xem sáng nay"** → đóng trọn luồng sáng.
-4. **Báo cáo KPI** (7.1–7.4) → số liệu chứng minh giá trị cho sếp.
+1. ✅ ~~Dashboard "Cần xem sáng nay"~~ — đã làm (016).
+2. **Spike — Nối engine→employee live** (3.7) → để matching nhân viên có dữ liệu thật. *Chặn giá trị của 3.1/US1/US2.* (P1)
+3. **Nhập job thủ công** (2.2 + màn 🆕) → job thật từ client, P1.
+4. **Báo cáo KPI còn lại** (7.2 win-rate, 7.3 time-to-win) → số liệu cho sếp.
 5. **Pipeline Kanban** → trải nghiệm quản cơ hội tốt hơn.
 6. **Contract/giao hàng** (6.x) → quản dự án sau thắng.
 7. **Reverse match, skill gap, feedback loop** → tối ưu về sau.

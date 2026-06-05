@@ -128,7 +128,7 @@ function NewBatchModal({ isOpen, onClose, onCreated }: {
 
         <ModalBody>
           <p style={{ fontSize: 13, color: T.ink3, margin: "0 0 16px" }}>
-            LLM sẽ re-extract <strong style={{ color: T.ink }}>role_category</strong>, <strong style={{ color: T.ink }}>seniority</strong>, và <strong style={{ color: T.ink }}>skills</strong> từ raw text của từng CV và cập nhật trực tiếp vào record.
+            The LLM re-extracts <strong style={{ color: T.ink }}>role_category</strong>, <strong style={{ color: T.ink }}>seniority</strong>, and <strong style={{ color: T.ink }}>skills</strong> from each CV's raw text and updates the record directly.
           </p>
 
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: T.ink3, marginBottom: 8 }}>
@@ -151,7 +151,7 @@ function NewBatchModal({ isOpen, onClose, onCreated }: {
           </div>
 
           <p style={{ fontSize: 12, color: T.ink3, margin: 0 }}>
-            <strong style={{ color: T.ink }}>{selected.length}</strong> categories selected — uploaded CVs luôn được include.
+            <strong style={{ color: T.ink }}>{selected.length}</strong> categories selected — uploaded CVs are always included.
           </p>
         </ModalBody>
 
