@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 from django.db.models import Count, Q
+from django.http import StreamingHttpResponse
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status as drf_status
@@ -486,3 +487,80 @@ class PipelineKpiView(APIView):
                 },
             }
         )
+
+
+_SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"]
+
+EMAIL_SYSTEM_PROMPT = (
+    "You are an expert technical recruiter at an IT staffing agency. You write the "
+    "body of a short, professional job-application email that puts ONE of the "
+    "agency's engineers forward for a specific role.\n\n"
+    "Rules:\n"
+    "- Output ONLY the email body as plain text. No subject line, no markdown, no "
+    "bracketed placeholders, no '[Your Name]'.\n"
+    "- Open with a brief, warm greeting to the hiring team.\n"
+    "- In 2-3 short paragraphs, connect the candidate's REAL skills and experience "
+    "to what the job actually needs. Be specific and concrete; never invent skills "
+    "the candidate does not have.\n"
+    "- Keep it under ~180 words, confident but not boastful.\n"
+    "- End with a short sign-off that includes the candidate's name."
+)
+
+
+def _build_email_messages(emp: Employee, job) -> list[dict]:
+    seniority = (
+        _SENIORITY_LABELS[emp.seniority]
+        if emp.seniority is not None and 0 <= emp.seniority < len(_SENIORITY_LABELS)
+        else "—"
+    )
+    company = getattr(getattr(job, "company", None), "name", "") or "the company"
+    desc = (job.description or "").strip()[:1800]
+    user = (
+        "CANDIDATE\n"
+        f"Name: {emp.full_name}\n"
+        f"Title: {emp.position or '—'}\n"
+        f"Seniority: {seniority}\n"
+        f"Experience: {emp.experience_years or 0} years\n"
+        f"Skills: {', '.join(emp.skills or []) or '—'}\n\n"
+        "JOB\n"
+        f"Title: {job.title}\n"
+        f"Company: {company}\n"
+        f"Location: {job.location or '—'}\n"
+        f"Description:\n{desc or '(no description provided)'}\n\n"
+        "Write the application email body now."
+    )
+    return [
+        {"role": "system", "content": EMAIL_SYSTEM_PROMPT},
+        {"role": "user", "content": user},
+    ]
+
+
+class GenerateApplicationEmailView(APIView):
+    """Stream an LLM-written application email body (plain text) for an
+    employee + job, so the client can pipe tokens straight into the editor."""
+
+    permission_classes = [IsAuthenticated, IsHRStaff]
+
+    def post(self, request):
+        from apps.jobs.models import Job
+        from apps.llm.service import LLMService
+
+        emp = Employee.objects.filter(pk=request.data.get("employee")).first()
+        job = Job.objects.select_related("company").filter(pk=request.data.get("job")).first()
+        if emp is None or job is None:
+            return Response({"error": "employee and job are required"}, status=drf_status.HTTP_400_BAD_REQUEST)
+
+        messages = _build_email_messages(emp, job)
+
+        def token_stream():
+            try:
+                for delta in LLMService.stream(messages, feature="application_email", temperature=0.6, max_tokens=700):
+                    yield delta
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Email generation failed: %s", exc)
+                yield f"\n[Generation failed: {exc}]"
+
+        resp = StreamingHttpResponse(token_stream(), content_type="text/plain; charset=utf-8")
+        resp["X-Accel-Buffering"] = "no"  # disable proxy buffering for live streaming
+        resp["Cache-Control"] = "no-cache"
+        return resp

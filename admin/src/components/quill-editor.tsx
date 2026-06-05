@@ -1,27 +1,47 @@
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
+
+export interface QuillHandle {
+  /** Replace the whole document with plain text (used for streaming). */
+  setText: (text: string) => void;
+  /** Replace the whole document with HTML. */
+  setHTML: (html: string) => void;
+  getText: () => string;
+}
 
 /**
  * Thin React wrapper around vanilla Quill (avoids react-quill's React-18
  * findDOMNode issues). Uncontrolled: `initialHTML` seeds the editor once, then
- * `onChange` streams the current HTML + plain text out.
+ * `onChange` streams the current HTML + plain text out. Imperative `setText` /
+ * `setHTML` let callers push content in (e.g. LLM token streaming).
  */
-export function QuillEditor({
-  initialHTML = "",
-  placeholder,
-  onChange,
-  minHeight = 260,
-}: {
+export const QuillEditor = forwardRef<QuillHandle, {
   initialHTML?: string;
   placeholder?: string;
   onChange?: (html: string, text: string) => void;
   minHeight?: number;
-}) {
+}>(function QuillEditor({ initialHTML = "", placeholder, onChange, minHeight = 260 }, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const quillRef = useRef<Quill | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  useImperativeHandle(ref, () => ({
+    setText: (text: string) => {
+      const q = quillRef.current;
+      if (!q) return;
+      q.setText(text);
+      q.setSelection(q.getLength(), 0);
+    },
+    setHTML: (html: string) => {
+      const q = quillRef.current;
+      if (!q) return;
+      q.setText("");
+      q.clipboard.dangerouslyPasteHTML(html);
+    },
+    getText: () => quillRef.current?.getText() ?? "",
+  }), []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -65,6 +85,6 @@ export function QuillEditor({
       <div ref={hostRef} style={{ ["--ql-min" as string]: `${minHeight}px` }} />
     </div>
   );
-}
+});
 
 export default QuillEditor;

@@ -4,10 +4,11 @@ import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
-import { IconArrowLeft, IconBriefcase, IconBuilding, IconMail, IconMapPin, IconUser } from "@tabler/icons-react";
+import { IconArrowLeft, IconBriefcase, IconBuilding, IconMail, IconMapPin, IconSparkles, IconUser } from "@tabler/icons-react";
 
 import { Card } from "@/components/ui/card";
-import { QuillEditor } from "@/components/quill-editor";
+import { QuillEditor, type QuillHandle } from "@/components/quill-editor";
+import { API_CONFIG, STORAGE_KEYS } from "@/config/api";
 import { employeeService } from "@/services/employee.service";
 import { jobService } from "@/services/job.service";
 import { matchService } from "@/services/match.service";
@@ -57,6 +58,8 @@ export default function ApplyEmailPage() {
   const [bodyHTML, setBodyHTML] = useState("");
   const bodyText = useRef("");
   const [marking, setMarking] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const editorRef = useRef<QuillHandle>(null);
 
   useEffect(() => {
     let alive = true;
@@ -80,6 +83,37 @@ export default function ApplyEmailPage() {
     setBodyHTML(html);
     bodyText.current = text;
   }, []);
+
+  // Stream an LLM-written draft straight into the editor.
+  const generateEmail = async () => {
+    if (!employeeId || !jobId || generating) return;
+    setGenerating(true);
+    editorRef.current?.setText("");
+    try {
+      const token = localStorage.getItem(STORAGE_KEYS.accessToken);
+      const resp = await fetch(`${API_CONFIG.baseURL}/admin/application-email/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ employee: employeeId, job: jobId }),
+      });
+      if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        editorRef.current?.setText(acc);
+      }
+      bodyText.current = acc;
+    } catch {
+      addToast({ title: "Couldn't generate email", description: "Is an LLM provider active?", color: "danger" });
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const openInGmail = async () => {
     const body = bodyText.current || bodyHTML.replace(/<[^>]+>/g, " ");
@@ -164,8 +198,13 @@ export default function ApplyEmailPage() {
           <Input size="sm" label="To" placeholder="recruiter@company.com" value={to} onValueChange={setTo} type="email" />
           <Input size="sm" label="Subject" value={subject} onValueChange={setSubject} />
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: T.ink3, marginBottom: 6 }}>Message</div>
-            <QuillEditor initialHTML={bodyHTML} placeholder="Write your application email…" onChange={onEditorChange} minHeight={300} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: T.ink3 }}>Message</div>
+              <Button size="sm" variant="flat" color="primary" startContent={<IconSparkles size={14} />} isLoading={generating} onPress={generateEmail}>
+                {generating ? "Generating…" : "Generate email"}
+              </Button>
+            </div>
+            <QuillEditor ref={editorRef} initialHTML={bodyHTML} placeholder="Write your application email…" onChange={onEditorChange} minHeight={300} />
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <Button variant="light" onPress={() => navigate(-1)}>Cancel</Button>

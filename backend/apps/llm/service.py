@@ -69,6 +69,27 @@ class OpenAICompatibleClient:
                 parts.append(chunk.choices[0].delta.content)
         return "".join(parts)
 
+    def stream(
+        self,
+        messages: list[dict],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int = 1024,
+        **kwargs,
+    ):
+        """Yield content deltas as they arrive (token streaming)."""
+        stream = self._client.chat.completions.create(
+            model=self._model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=True,
+            **kwargs,
+        )
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
     def test_connection(self) -> tuple[bool, str]:
         try:
             result = self.complete(
@@ -136,6 +157,47 @@ class MessagesClient:
                 except _json.JSONDecodeError:
                     continue
         return "".join(parts)
+
+    def stream(
+        self,
+        messages: list[dict],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int = 1024,
+        **kwargs,
+    ):
+        """Yield text deltas as they arrive (token streaming)."""
+        import json as _json
+
+        import httpx
+
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self._model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True,
+        }
+        with httpx.stream("POST", self._url, json=payload, headers=headers, timeout=60) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if not line.startswith("data:"):
+                    continue
+                raw = line[5:].strip()
+                if raw == "[DONE]":
+                    break
+                try:
+                    chunk = _json.loads(raw)
+                    if chunk.get("type") == "content_block_delta":
+                        yield chunk.get("delta", {}).get("text") or ""
+                    elif chunk.get("choices"):
+                        yield chunk["choices"][0].get("delta", {}).get("content") or ""
+                except _json.JSONDecodeError:
+                    continue
 
     def test_connection(self) -> tuple[bool, str]:
         try:
@@ -245,5 +307,45 @@ class LLMService:
             _safe_log(
                 provider=provider, feature=feature, status="error",
                 input_preview=input_preview, error_message=str(exc)[:1000], duration_ms=duration_ms,
+            )
+            raise
+
+    @staticmethod
+    def stream(
+        messages: list[dict],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int = 1024,
+        feature: str = "",
+        **kwargs,
+    ):
+        """Yield response text deltas from the active provider, logging once done."""
+        import time
+
+        provider = LLMService.get_active_provider()
+        client = _build_client(provider)
+
+        input_preview = ""
+        for msg in reversed(messages):
+            if msg.get("role") == "user":
+                input_preview = str(msg.get("content", ""))[:1000]
+                break
+
+        start = time.time()
+        parts: list[str] = []
+        try:
+            for delta in client.stream(messages, temperature=temperature, max_tokens=max_tokens, **kwargs):
+                parts.append(delta)
+                yield delta
+            _safe_log(
+                provider=provider, feature=feature, status="success",
+                input_preview=input_preview, output="".join(parts),
+                duration_ms=int((time.time() - start) * 1000),
+            )
+        except Exception as exc:
+            _safe_log(
+                provider=provider, feature=feature, status="error",
+                input_preview=input_preview, error_message=str(exc)[:1000],
+                duration_ms=int((time.time() - start) * 1000),
             )
             raise
