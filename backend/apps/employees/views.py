@@ -1,4 +1,6 @@
 import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 from django.db.models import Count, Q
@@ -28,20 +30,46 @@ logger = logging.getLogger(__name__)
 MAX_BULK_FILES = 50
 
 
+_parse_pool: ThreadPoolExecutor | None = None
+_parse_pool_lock = threading.Lock()
+
+
+def _get_parse_pool() -> ThreadPoolExecutor:
+    global _parse_pool
+    if _parse_pool is None:
+        with _parse_pool_lock:
+            if _parse_pool is None:
+                _parse_pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="cvparse")
+    return _parse_pool
+
+
 def _process_employee(employee_id: int) -> None:
-    """Parse + match an employee, preferring Celery but falling back to a
-    synchronous run when Celery is not installed or the broker/worker is
-    unavailable (e.g. dev)."""
+    """Kick off parse + match without blocking the request.
+
+    Prefers Celery; when it isn't installed / the broker is down (dev), the work
+    runs in a small background thread pool so the upload returns immediately and
+    the UI can poll for results.
+    """
     try:
-        # Import is inside the try on purpose: when Celery is absent the task
-        # symbol doesn't exist, and we still want the synchronous fallback.
+        # Import inside the try: when Celery is absent the task symbol doesn't
+        # exist, and we still want the background fallback.
         from apps.employees.tasks import parse_and_match_employee
 
         parse_and_match_employee.delay(employee_id)
-    except Exception:  # noqa: BLE001 — no Celery / broker down: parse inline
+    except Exception:  # noqa: BLE001 — no Celery / broker down: parse in a thread
         from apps.employees.tasks import _do_parse_and_match
 
-        _do_parse_and_match(employee_id)
+        def _run() -> None:
+            try:
+                _do_parse_and_match(employee_id)
+            except Exception:  # noqa: BLE001
+                logger.warning("Background parse failed for %s", employee_id, exc_info=True)
+            finally:
+                from django.db import connection
+
+                connection.close()
+
+        _get_parse_pool().submit(_run)
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):

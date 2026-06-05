@@ -12,7 +12,7 @@ class EmployeeListSerializer(serializers.ModelSerializer):
         fields = (
             "id", "full_name", "email", "position", "seniority",
             "experience_years", "skills", "status",
-            "is_parse_failed", "match_count", "created_at",
+            "is_parse_failed", "parsed_at", "match_count", "created_at",
         )
 
 
