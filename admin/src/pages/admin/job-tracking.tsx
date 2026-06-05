@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
+import { Select, SelectItem } from "@heroui/select";
 import { Spinner } from "@heroui/spinner";
-import { IconBriefcase, IconCheck, IconExternalLink, IconX } from "@tabler/icons-react";
+import { IconBriefcase, IconExternalLink } from "@tabler/icons-react";
 
 import { Card } from "@/components/ui/card";
 import { matchService } from "@/services/match.service";
@@ -13,37 +14,49 @@ const T = {
   accent: "#167a7a",
   success: "oklch(0.62 0.17 155)", success50: "oklch(0.96 0.04 155)",
   danger: "oklch(0.60 0.22 25)", danger50: "oklch(0.96 0.03 25)",
+  warning: "oklch(0.55 0.12 70)", warning50: "oklch(0.96 0.05 75)",
   ink: "oklch(0.18 0.02 265)", ink2: "oklch(0.38 0.015 265)",
   ink3: "oklch(0.56 0.012 265)", ink4: "oklch(0.72 0.008 265)",
   line: "rgba(226,232,240,0.7)",
 };
 
 const PAGE_SIZE = 20;
-const TRACKED = "applied,won,lost";
+const TRACKED = "applied,won,in_progress,completed,lost";
 
-type TrackTab = "all" | "in_progress" | "complete" | "won" | "lost";
+type TrackTab = "all" | "applied" | "won" | "in_progress" | "completed" | "lost";
 const TABS: { key: TrackTab; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "in_progress", label: "In progress" },
-  { key: "complete", label: "Complete" },
+  { key: "applied", label: "Applied" },
   { key: "won", label: "Accepted" },
+  { key: "in_progress", label: "In progress" },
+  { key: "completed", label: "Completed" },
   { key: "lost", label: "Rejected" },
 ];
 
-// Each tab → the status filter it sends to the match API.
 const TAB_FILTER: Record<TrackTab, { status?: MatchStatus; statuses?: string }> = {
   all: { statuses: TRACKED },
-  in_progress: { status: "applied" },
-  complete: { statuses: "won,lost" },
+  applied: { status: "applied" },
   won: { status: "won" },
+  in_progress: { status: "in_progress" },
+  completed: { status: "completed" },
   lost: { status: "lost" },
 };
 
 const STATUS_CHIP: Record<string, { label: string; bg: string; color: string }> = {
   applied: { label: "Applied", bg: "oklch(0.94 0.05 280)", color: "oklch(0.45 0.16 280)" },
-  won: { label: "Accepted", bg: T.success50, color: T.success },
+  won: { label: "Accepted", bg: "#e8f4f4", color: "#0e5353" },
+  in_progress: { label: "In progress", bg: T.warning50, color: T.warning },
+  completed: { label: "Completed", bg: T.success50, color: T.success },
   lost: { label: "Rejected", bg: T.danger50, color: T.danger },
 };
+
+const STATUS_OPTIONS: { key: MatchStatus; label: string }[] = [
+  { key: "applied", label: "Applied" },
+  { key: "won", label: "Accepted" },
+  { key: "in_progress", label: "In progress" },
+  { key: "completed", label: "Completed" },
+  { key: "lost", label: "Rejected" },
+];
 
 function initials(name: string): string {
   const p = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -57,7 +70,9 @@ function fmtDate(iso: string | null): string {
 }
 
 function dateFor(m: EmployeeJobMatch): string | null {
-  return m.status === "won" ? m.won_at : m.status === "lost" ? m.lost_at : m.applied_at;
+  if (m.status === "lost") return m.lost_at;
+  if (m.status === "won" || m.status === "in_progress" || m.status === "completed") return m.won_at;
+  return m.applied_at;
 }
 
 export default function JobTrackingPage() {
@@ -110,7 +125,7 @@ export default function JobTrackingPage() {
           Job <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>Tracking</span>
         </h1>
         <p style={{ margin: "4px 0 0", color: T.ink3, fontSize: 14 }}>
-          Every job your bench has applied to — move them to won or rejected as clients respond.
+          Applied → accepted → in progress → completed. Drive each project through its lifecycle.
         </p>
       </div>
 
@@ -178,22 +193,21 @@ export default function JobTrackingPage() {
                       </a>
                     )}
 
-                    {m.status === "applied" ? (
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <Button size="sm" color="success" variant="flat" isLoading={busy === m.id}
-                          startContent={<IconCheck size={14} />} onPress={() => setStatus(m, "won", "accepted")}>
-                          Accepted
-                        </Button>
-                        <Button size="sm" color="danger" variant="light" isLoading={busy === m.id}
-                          startContent={<IconX size={14} />} onPress={() => setStatus(m, "lost", "rejected")}>
-                          Rejected
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button size="sm" variant="light" onPress={() => setStatus(m, "applied", "applied")} isLoading={busy === m.id}>
-                        Reopen
-                      </Button>
-                    )}
+                    <Select
+                      aria-label="Change status"
+                      size="sm"
+                      selectedKeys={[m.status]}
+                      isDisabled={busy === m.id}
+                      onSelectionChange={(keys) => {
+                        const next = Array.from(keys)[0] as MatchStatus;
+                        if (next && next !== m.status) {
+                          setStatus(m, next, STATUS_OPTIONS.find((o) => o.key === next)?.label ?? next);
+                        }
+                      }}
+                      className="w-[150px] shrink-0"
+                    >
+                      {STATUS_OPTIONS.map((o) => <SelectItem key={o.key}>{o.label}</SelectItem>)}
+                    </Select>
                   </div>
                 </li>
               );

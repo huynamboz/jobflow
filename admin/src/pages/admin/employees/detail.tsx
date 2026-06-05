@@ -56,7 +56,9 @@ const STATUS_META: Record<MatchStatus, { label: string; bg: string; color: strin
   suggested: { label: "Suggested", bg: T.surface3, color: T.ink2 },
   pursuing: { label: "Pursuing", bg: T.accent100, color: "#0e5353" },
   applied: { label: "Applied", bg: "oklch(0.94 0.05 280)", color: "oklch(0.45 0.16 280)" },
-  won: { label: "Accepted", bg: T.success50, color: T.success },
+  won: { label: "Accepted", bg: T.accent100, color: "#0e5353" },
+  in_progress: { label: "In progress", bg: T.warning50, color: "oklch(0.55 0.12 70)" },
+  completed: { label: "Completed", bg: T.success50, color: T.success },
   lost: { label: "Rejected", bg: T.danger50, color: T.danger },
   dismissed: { label: "Not a fit", bg: T.surface3, color: T.ink4 },
 };

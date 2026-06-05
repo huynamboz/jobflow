@@ -71,9 +71,11 @@ class EmployeeJobMatch(models.Model):
     class Status(models.TextChoices):
         SUGGESTED = "suggested", "Suggested"
         PURSUING = "pursuing", "Pursuing"
-        APPLIED = "applied", "Applied"
-        WON = "won", "Won"
-        LOST = "lost", "Lost"
+        APPLIED = "applied", "Applied"            # submitted, awaiting client
+        WON = "won", "Accepted"                   # client accepted → project won
+        IN_PROGRESS = "in_progress", "In progress"  # team is delivering the project
+        COMPLETED = "completed", "Completed"      # project delivered / done
+        LOST = "lost", "Rejected"                 # client rejected
         # HR marked this job as a bad fit — hidden from the browser, kept out of
         # re-ranking, and retained as a negative label for future training.
         DISMISSED = "dismissed", "Not a fit"
