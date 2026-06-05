@@ -6,6 +6,7 @@ import { Card, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { Input } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
+import { Spinner } from "@heroui/spinner";
 import {
   Modal,
   ModalBody,
@@ -14,18 +15,20 @@ import {
   ModalHeader,
 } from "@heroui/modal";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableColumn,
-  TableHeader,
-  TableRow,
-} from "@heroui/table";
-import { IconCloudUpload, IconSearch, IconUserPlus } from "@tabler/icons-react";
+  IconAlertTriangle,
+  IconChevronRight,
+  IconCloudUpload,
+  IconSearch,
+  IconSparkles,
+  IconUserPlus,
+  IconUsers,
+} from "@tabler/icons-react";
 
 import { EmployeeStatusChip } from "@/components/employee-status-chip";
 import { employeeService } from "@/services/employee.service";
 import type { Employee, EmployeeStatus } from "@/types/employee.types";
+
+const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
 
 const STATUS_OPTS: { key: EmployeeStatus | "all"; label: string }[] = [
   { key: "all", label: "All statuses" },
@@ -37,9 +40,92 @@ const STATUS_OPTS: { key: EmployeeStatus | "all"; label: string }[] = [
 
 const MAX_FILES = 50;
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function StatTile({ label, value, tone = "default" }: { label: string; value: number; tone?: string }) {
+  const toneText: Record<string, string> = {
+    default: "text-foreground",
+    primary: "text-primary-600",
+    warning: "text-warning-600",
+    success: "text-success-700",
+  };
+  return (
+    <Card shadow="sm" radius="lg">
+      <CardBody className="px-4 py-3">
+        <div className={`text-xl font-bold leading-none ${toneText[tone]}`}>{value}</div>
+        <div className="mt-1 text-xs font-medium text-default-500">{label}</div>
+      </CardBody>
+    </Card>
+  );
+}
+
+function EmployeeRow({ emp, onClick }: { emp: Employee; onClick: () => void }) {
+  const skills = emp.skills ?? [];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full cursor-pointer items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-default-50"
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
+        {initials(emp.full_name)}
+      </span>
+
+      {/* identity */}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="truncate font-medium text-foreground">{emp.full_name}</span>
+          {emp.is_parse_failed && (
+            <Chip size="sm" color="warning" variant="flat" startContent={<IconAlertTriangle size={12} />}>
+              parse failed
+            </Chip>
+          )}
+        </span>
+        <span className="block truncate text-xs text-default-500">
+          {emp.position || "—"}{emp.email ? ` · ${emp.email}` : ""}
+        </span>
+      </span>
+
+      {/* skills (hidden on small) */}
+      <span className="hidden max-w-[280px] flex-wrap gap-1 lg:flex">
+        {skills.slice(0, 3).map((s) => (
+          <Chip key={s} size="sm" variant="flat">{s}</Chip>
+        ))}
+        {skills.length > 3 && (
+          <span className="self-center text-xs text-default-400">+{skills.length - 3}</span>
+        )}
+      </span>
+
+      {/* meta */}
+      <span className="hidden w-16 shrink-0 text-right text-xs text-default-500 sm:block">
+        {SENIORITY_LABELS[emp.seniority] ?? emp.seniority}
+      </span>
+      <span className="w-24 shrink-0 text-right">
+        {emp.match_count ? (
+          <Chip size="sm" color="primary" variant="flat" startContent={<IconSparkles size={12} />}>
+            {emp.match_count} new
+          </Chip>
+        ) : (
+          <span className="text-default-300">—</span>
+        )}
+      </span>
+      <span className="hidden w-20 shrink-0 sm:flex sm:justify-end">
+        <EmployeeStatusChip status={emp.status} />
+      </span>
+      <IconChevronRight size={16} className="shrink-0 text-default-300 transition-colors group-hover:text-default-500" />
+    </button>
+  );
+}
+
 export default function EmployeesPage() {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<EmployeeStatus | "all">("all");
   const [search, setSearch] = useState("");
@@ -53,7 +139,8 @@ export default function EmployeesPage() {
       if (search) params.search = search;
       const res = await employeeService.list(params as never);
       setEmployees(res.results);
-    } catch (e) {
+      setTotal(res.count ?? res.results.length);
+    } catch {
       addToast({ title: "Failed to load employees", color: "danger" });
     } finally {
       setLoading(false);
@@ -62,13 +149,21 @@ export default function EmployeesPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const onBench = employees.filter((e) => e.status === "bench").length;
+  const withNewJobs = employees.filter((e) => (e.match_count ?? 0) > 0).length;
+  const parseErrors = employees.filter((e) => e.is_parse_failed).length;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-5">
+      {/* header */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Employees</h1>
-          <p className="text-sm text-default-500">
-            Manage your company's bench — upload CVs, track placements.
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">Employees</h1>
+            <Chip size="sm" variant="flat">{total}</Chip>
+          </div>
+          <p className="mt-1 text-sm text-default-500">
+            Your company's bench — upload CVs, review matches, drive applications.
           </p>
         </div>
         <Button color="primary" startContent={<IconUserPlus size={16} />} onPress={() => setUploadOpen(true)}>
@@ -76,86 +171,64 @@ export default function EmployeesPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardBody className="flex flex-row gap-3">
-          <Input
-            placeholder="Search by name, email, position"
-            startContent={<IconSearch size={16} />}
-            value={search}
-            onValueChange={setSearch}
-            className="max-w-xs"
-          />
-          <Select
-            label="Status"
-            size="sm"
-            selectedKeys={[status]}
-            onSelectionChange={(keys) => setStatus(Array.from(keys)[0] as EmployeeStatus | "all")}
-            className="max-w-[200px]"
-          >
-            {STATUS_OPTS.map((opt) => (
-              <SelectItem key={opt.key}>{opt.label}</SelectItem>
-            ))}
-          </Select>
-        </CardBody>
-      </Card>
+      {/* summary */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile label="Loaded" value={employees.length} />
+        <StatTile label="On bench" value={onBench} tone="primary" />
+        <StatTile label="With new jobs" value={withNewJobs} tone="success" />
+        <StatTile label="Parse errors" value={parseErrors} tone={parseErrors ? "warning" : "default"} />
+      </div>
 
-      <Card>
+      {/* toolbar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Input
+          placeholder="Search name, email, position…"
+          startContent={<IconSearch size={16} className="text-default-400" />}
+          value={search}
+          onValueChange={setSearch}
+          className="max-w-xs"
+          isClearable
+          onClear={() => setSearch("")}
+        />
+        <Select
+          aria-label="Filter by status"
+          size="md"
+          selectedKeys={[status]}
+          onSelectionChange={(keys) => setStatus(Array.from(keys)[0] as EmployeeStatus | "all")}
+          className="max-w-[180px]"
+        >
+          {STATUS_OPTS.map((opt) => (
+            <SelectItem key={opt.key}>{opt.label}</SelectItem>
+          ))}
+        </Select>
+      </div>
+
+      {/* list */}
+      <Card radius="lg">
         <CardBody className="p-0">
-          <Table aria-label="Employees" removeWrapper>
-            <TableHeader>
-              <TableColumn>Name</TableColumn>
-              <TableColumn>Position</TableColumn>
-              <TableColumn>Skills</TableColumn>
-              <TableColumn>Status</TableColumn>
-              <TableColumn>New jobs</TableColumn>
-              <TableColumn>Created</TableColumn>
-            </TableHeader>
-            <TableBody
-              items={employees}
-              isLoading={loading}
-              loadingContent="Loading…"
-              emptyContent="No employees yet. Click 'Add employees' to upload CVs."
-            >
-              {(emp) => (
-                <TableRow
-                  key={emp.id}
-                  onClick={() => navigate(`/admin/employees/${emp.id}`)}
-                  className="cursor-pointer hover:bg-default-50"
-                >
-                  <TableCell>
-                    <p className="font-medium">{emp.full_name}</p>
-                    <p className="text-xs text-default-500">{emp.email || "—"}</p>
-                  </TableCell>
-                  <TableCell>{emp.position || "—"}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {(emp.skills ?? []).slice(0, 4).map((s) => (
-                        <Chip key={s} size="sm" variant="flat">{s}</Chip>
-                      ))}
-                      {(emp.skills ?? []).length > 4 && (
-                        <span className="text-xs text-default-400 self-center">
-                          +{emp.skills.length - 4}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell><EmployeeStatusChip status={emp.status} /></TableCell>
-                  <TableCell>
-                    {emp.match_count ? (
-                      <Chip size="sm" color="primary" variant="flat">
-                        {emp.match_count} new
-                      </Chip>
-                    ) : (
-                      <span className="text-default-300">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs text-default-500">
-                    {new Date(emp.created_at).toLocaleDateString()}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          {loading ? (
+            <div className="flex items-center justify-center py-16"><Spinner /></div>
+          ) : employees.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-16 text-center">
+              <span className="grid size-12 place-items-center rounded-full bg-default-100 text-default-400">
+                <IconUsers size={22} />
+              </span>
+              <p className="text-sm font-medium text-foreground">No employees found</p>
+              <p className="max-w-sm text-xs text-default-500">
+                {search || status !== "all"
+                  ? "Try clearing the search or status filter."
+                  : "Click “Add employees” to upload CVs — they'll be parsed and matched automatically."}
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-default-100">
+              {employees.map((emp) => (
+                <li key={emp.id}>
+                  <EmployeeRow emp={emp} onClick={() => navigate(`/admin/employees/${emp.id}`)} />
+                </li>
+              ))}
+            </ul>
+          )}
         </CardBody>
       </Card>
 

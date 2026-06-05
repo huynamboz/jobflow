@@ -42,6 +42,13 @@ import type { EmployeeJobMatch, MatchStatus } from "@/types/match.types";
 
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
 
+function employeeInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 interface EditForm {
   full_name: string;
   email: string;
@@ -223,12 +230,24 @@ export default function EmployeeDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <Button variant="light" isIconOnly onPress={() => navigate("/admin/employees")}>
           <IconArrowLeft size={18} />
         </Button>
-        <h1 className="text-2xl font-bold">{employee.full_name}</h1>
-        <EmployeeStatusChip status={employee.status} />
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-100 text-base font-semibold text-primary-700">
+          {employeeInitials(employee.full_name)}
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="truncate text-2xl font-bold">{employee.full_name}</h1>
+            <EmployeeStatusChip status={employee.status} />
+          </div>
+          <p className="truncate text-sm text-default-500">
+            {employee.position || "—"}
+            {" · "}{SENIORITY_LABELS[employee.seniority] ?? employee.seniority}
+            {employee.experience_years != null && ` · ${employee.experience_years}y exp`}
+          </p>
+        </div>
         <div className="ml-auto flex gap-2">
           <Button variant="bordered" size="sm" startContent={<IconRefresh size={14} />} onPress={rescore}>
             Re-score
