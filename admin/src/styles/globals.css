@@ -148,3 +148,26 @@ html, body {
 }
 
 @config "../../tailwind.config.js";
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Howard theme override (re-theme to howard-websites/web look)
+ *   slate cool-grey scale + deep-teal brand + Inter (already loaded).
+ *   Declared after node-tokens import so these win. To revert: delete block.
+ * ───────────────────────────────────────────────────────────────────── */
+:root {
+  --c1: #ffffff;   /* surface / card */
+  --c2: #f8fafc;   /* slate-50 — page background */
+  --c3: #f1f5f9;   /* slate-100 — sunken / chip / track */
+  --c4: #e2e8f0;   /* slate-200 — line */
+  --c5: #cbd5e1;   /* slate-300 — line-strong */
+  --c6: #64748b;   /* slate-500 — muted */
+  --c7: #334155;   /* slate-700 — ink-soft */
+  --c8: #1e293b;   /* slate-800 */
+  --c9: #0f172a;   /* slate-900 — ink */
+
+  --blue:   #167a7a;   /* brand → deep teal (howard brand-500) */
+  --brand:  #167a7a;
+  --brand-hover: #126767;
+  --cyan:   #22d3ee;   /* sidebar accent */
+  --accent-yellow: #efbe2c;
+}

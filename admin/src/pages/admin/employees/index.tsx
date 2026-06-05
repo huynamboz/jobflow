@@ -24,7 +24,7 @@ import { employeeService } from "@/services/employee.service";
 import type { Employee, EmployeeStatus } from "@/types/employee.types";
 
 const T = {
-  accent: "oklch(0.55 0.20 240)", accent50: "oklch(0.97 0.03 240)",
+  accent: "#167a7a", accent50: "#e8f4f4",
   success: "oklch(0.62 0.17 155)", success50: "oklch(0.96 0.04 155)",
   danger: "oklch(0.60 0.22 25)", danger50: "oklch(0.96 0.03 25)",
   warning: "oklch(0.62 0.13 70)", warning50: "oklch(0.97 0.04 75)",

@@ -9,18 +9,19 @@ const SIDEBAR_WIDTH = 272;
 
 // Dark sidebar palette — sits against the soft-grey app body.
 // Anchored on NODE --c8/--c9 inks; tinted whites for foreground tiers.
+// Howard-style admin sidebar — deep navy surface with a cyan accent.
 const T = {
-  bg:        "#121212",                    // var(--c9) NODE ink — primary sidebar surface
-  surface:   "#1a1a1a",                    // slightly lifted
+  bg:        "#0f1b3f",                    // deep navy (howard sidebar)
+  surface:   "#16244d",                    // slightly lifted
   surface2:  "rgba(255,255,255,0.06)",     // hover surface on dark
   line:      "rgba(255,255,255,0.08)",     // subtle separator
   ink:       "#ffffff",                    // active text / strongest
-  ink2:      "rgba(255,255,255,0.78)",     // default nav text
-  ink3:      "rgba(255,255,255,0.60)",     // icon / close button
-  ink4:      "rgba(255,255,255,0.45)",     // section caps / very muted
-  accent:    "#3582ff",                    // var(--blue)
-  accent600: "#1e6cf0",
-  accent50:  "rgba(53,130,255,0.12)",      // accent tint for active state
+  ink2:      "#cbd5e1",                    // slate-300 — default nav text
+  ink3:      "#94a3b8",                    // slate-400 — icon / close button
+  ink4:      "#64748b",                    // slate-500 — section caps / very muted
+  accent:    "#22d3ee",                    // cyan-400
+  accent600: "#06b6d4",                    // cyan-500
+  accent50:  "rgba(34,211,238,0.14)",      // accent tint for active state
 };
 
 

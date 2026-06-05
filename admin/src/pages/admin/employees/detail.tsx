@@ -33,7 +33,7 @@ import type { Employee } from "@/types/employee.types";
 import type { EmployeeJobMatch, JobLite, MatchStatus } from "@/types/match.types";
 
 const T = {
-  accent: "oklch(0.55 0.20 240)", accent50: "oklch(0.97 0.03 240)", accent100: "oklch(0.93 0.05 240)",
+  accent: "#167a7a", accent50: "#e8f4f4", accent100: "#c8e5e5",
   success: "oklch(0.62 0.17 155)", success50: "oklch(0.96 0.04 155)",
   danger: "oklch(0.60 0.22 25)", danger50: "oklch(0.96 0.03 25)",
   warning: "oklch(0.62 0.13 70)", warning50: "oklch(0.97 0.04 75)",

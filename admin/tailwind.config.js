@@ -29,31 +29,31 @@ export default {
       themes: {
         light: {
           colors: {
-            background: "#fcfcfc",                          // --bg / --c1
-            foreground: "#121212",                          // --ink / --c9
+            background: "#f8fafc",                          // slate-50 page bg
+            foreground: "#0f172a",                          // slate-900 ink
             primary: {
-              DEFAULT: "#3582ff",                           // --blue
+              DEFAULT: "#167a7a",                           // howard brand teal
               foreground: "#ffffff",
             },
             success: {
-              DEFAULT: "#49ba61",                           // --green
+              DEFAULT: "#15803d",                           // emerald-700
               foreground: "#ffffff",
             },
             warning: {
-              DEFAULT: "#ffb73a",                           // --yellow
-              foreground: "#121212",
+              DEFAULT: "#efbe2c",                           // howard accent yellow
+              foreground: "#0f172a",
             },
             danger: {
-              DEFAULT: "#fe5938",                           // --red
+              DEFAULT: "#dc2626",                           // red-600
               foreground: "#ffffff",
             },
             secondary: {
-              DEFAULT: "#8755e9",                           // --purple
-              foreground: "#ffffff",
+              DEFAULT: "#0f172a",                           // slate-900 dark CTA
+              foreground: "#f8fafc",
             },
             default: {
-              DEFAULT: "#f1f1f1",                           // --c3 / --sunken
-              foreground: "#121212",
+              DEFAULT: "#f1f5f9",                           // slate-100
+              foreground: "#0f172a",
             },
           },
         },
