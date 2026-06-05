@@ -18,6 +18,7 @@ import {
   IconCalendar,
   IconCheck,
   IconExternalLink,
+  IconMail,
   IconMapPin,
   IconPencil,
   IconRefresh,
@@ -385,6 +386,12 @@ export default function EmployeeDetailPage() {
     }
   };
 
+  // Write email: open the composer with employee + job + match context.
+  const goWriteEmail = (match: EmployeeJobMatch) => {
+    setApplyTarget(null);
+    navigate(`/admin/apply-email?employee=${empId}&job=${match.job.id}&match=${match.id}`);
+  };
+
   // Not a fit: hide from the list, keep out of re-ranking, store as a label.
   const dismissMatch = async (match: EmployeeJobMatch) => {
     try {
@@ -577,25 +584,36 @@ export default function EmployeeDetailPage() {
         </ModalContent>
       </Modal>
 
-      {/* apply confirm modal */}
+      {/* apply options modal */}
       <Modal isOpen={applyTarget !== null} onOpenChange={(open) => !open && setApplyTarget(null)} size="md">
         <ModalContent>
-          <ModalHeader>Apply to this job?</ModalHeader>
+          <ModalHeader>Apply to this job</ModalHeader>
           <ModalBody className="text-sm">
-            {applyTarget && (
-              <p>
-                You'll be taken to the original posting for{" "}
-                <span className="font-semibold">{applyTarget.job.title}</span>
-                {applyTarget.job.company_name ? ` at ${applyTarget.job.company_name}` : ""}, and it will be
-                marked <span className="font-semibold">applied</span> and saved to job tracking.
-              </p>
-            )}
+            <p className="text-default-500">
+              How do you want to apply for{" "}
+              <span className="font-semibold text-foreground">{applyTarget?.job.title}</span>?
+            </p>
+            <div className="flex flex-col gap-2 pb-1">
+              <Button variant="flat" color="primary" className="h-auto justify-start py-3"
+                startContent={<IconExternalLink size={18} />}
+                onPress={() => applyTarget && void applyToJob(applyTarget)}>
+                <span className="text-left">
+                  <span className="block font-semibold">Open job posting</span>
+                  <span className="block text-xs opacity-70">Apply yourself on the site — marks this job applied.</span>
+                </span>
+              </Button>
+              <Button variant="flat" className="h-auto justify-start py-3"
+                startContent={<IconMail size={18} />}
+                onPress={() => applyTarget && goWriteEmail(applyTarget)}>
+                <span className="text-left">
+                  <span className="block font-semibold">Write email</span>
+                  <span className="block text-xs opacity-70">Compose an application email and open it in Gmail.</span>
+                </span>
+              </Button>
+            </div>
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={() => setApplyTarget(null)}>Cancel</Button>
-            <Button color="primary" startContent={<IconExternalLink size={14} />} onPress={() => applyTarget && void applyToJob(applyTarget)}>
-              Apply &amp; open posting
-            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

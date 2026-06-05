@@ -176,3 +176,9 @@ html, body {
   --card-border: rgba(226,232,240,0.7);   /* slate-200 / 70% */
   --card-radius: 16px;
 }
+
+/* Quill editor — match the howard card surface */
+.jf-quill .ql-toolbar.ql-snow,
+.jf-quill .ql-container.ql-snow { border-color: var(--card-border); }
+.jf-quill .ql-editor { min-height: var(--ql-min, 240px); font-size: 14px; line-height: 1.6; color: var(--c9); }
+.jf-quill .ql-editor.ql-blank::before { color: var(--c6); font-style: normal; }
