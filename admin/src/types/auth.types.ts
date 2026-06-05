@@ -6,6 +6,7 @@ export interface User {
   email: string;
   role: UserRole;
   is_staff: boolean;
+  notify_daily_digest?: boolean;
 }
 
 // Django simplejwt response

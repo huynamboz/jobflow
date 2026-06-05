@@ -8,6 +8,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -29,6 +30,16 @@ def _ensure_log_dir() -> Path:
 def _is_process_alive(pid: int | None) -> bool:
     if not pid:
         return False
+    # Best-effort zombie reap. Only works when the caller is the spawner's
+    # parent (e.g. schedule_runner that did the Popen). Ignored otherwise.
+    try:
+        wpid, _ = os.waitpid(pid, os.WNOHANG)
+        if wpid == pid:
+            return False
+    except ChildProcessError:
+        pass  # not our child — fall back to kill(0)
+    except OSError:
+        pass
     try:
         os.kill(pid, 0)
         return True
@@ -74,6 +85,8 @@ def start_run(row: VerifierSchedule, *, force: bool = False) -> tuple[bool, str]
     ]
     if row.use_no_auth_check:
         cmd.append("--no-auth-check")
+    if not row.headless:
+        cmd.append("--headed")
 
     logger.info("Spawning schedule run: %s → %s", shlex.join(cmd), log_path)
     # Open log file, redirect stdout+stderr.
@@ -102,18 +115,51 @@ def start_run(row: VerifierSchedule, *, force: bool = False) -> tuple[bool, str]
     return True, f"Started pid={proc.pid}"
 
 
-def stop_run(row: VerifierSchedule) -> tuple[bool, str]:
-    """Send SIGTERM to the active subprocess group."""
+def stop_run(row: VerifierSchedule, *, grace_seconds: float = 3.0) -> tuple[bool, str]:
+    """Stop the active subprocess group: SIGTERM, then SIGKILL after grace.
+
+    LinkedIn verifier/extractor loops have per-URL ``except Exception``
+    blocks that swallow Playwright's TargetClosedError. SIGTERM alone may
+    let Python continue iterating with every page.goto failing — so we
+    escalate to SIGKILL after ``grace_seconds`` if the process is still
+    alive. SIGKILL is uncatchable, guaranteeing the Stop button works.
+    """
     pid = row.current_run_pid
     if not pid or not _is_process_alive(pid):
         row.current_run_pid = None
         row.save(update_fields=["current_run_pid"])
         return False, "No active run"
     try:
-        os.killpg(os.getpgid(pid), signal.SIGTERM)
+        pgid = os.getpgid(pid)
+    except ProcessLookupError:
+        row.current_run_pid = None
+        row.save(update_fields=["current_run_pid"])
+        return False, "Process gone"
+
+    try:
+        os.killpg(pgid, signal.SIGTERM)
     except (ProcessLookupError, PermissionError) as exc:
-        return False, f"Kill failed: {exc!r}"
-    return True, f"SIGTERM sent to pid={pid}"
+        return False, f"SIGTERM failed: {exc!r}"
+
+    deadline = time.monotonic() + max(0.0, grace_seconds)
+    while time.monotonic() < deadline:
+        if not _is_process_alive(pid):
+            row.current_run_pid = None
+            row.save(update_fields=["current_run_pid"])
+            return True, f"SIGTERM stopped pid={pid}"
+        time.sleep(0.2)
+
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    # SIGKILL is uncatchable — the PID is dead (or a zombie when this
+    # web process isn't the spawner's parent). Either way the run is
+    # over. Proactively clear the active-run pointer so UI flips state
+    # immediately instead of waiting for the zombie to be reaped.
+    row.current_run_pid = None
+    row.save(update_fields=["current_run_pid"])
+    return True, f"SIGKILL sent to pid={pid} after {grace_seconds:.1f}s grace"
 
 
 def tail_live_log(row: VerifierSchedule, since_bytes: int = 0) -> tuple[bytes, int]:

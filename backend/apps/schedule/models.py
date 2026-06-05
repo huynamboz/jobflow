@@ -27,6 +27,7 @@ class VerifierSchedule(models.Model):
     # Explicit hours-of-day in UTC; takes priority over batches_per_day when set.
     hours_utc = models.JSONField(default=_default_hours)
     use_no_auth_check = models.BooleanField(default=False)
+    headless = models.BooleanField(default=True)
     platform = models.CharField(max_length=32, default="linkedin")
 
     # Active-run trio. Set when a subprocess is spawned; cleared on exit.

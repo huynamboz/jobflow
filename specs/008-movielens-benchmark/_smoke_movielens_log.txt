@@ -1,0 +1,49 @@
+Failed to mark orphaned JD batches: connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+
+Failed to resume orphaned batches: connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+
+2026-05-21 08:38:28,579 | smoke_test_movielens | INFO | Loading MovieLens-1M (cache=/home/dana/huynam/jobflow-gnn/Dataset/movielens-1m, k=5, subsample=1000) ...
+2026-05-21 08:38:28,580 | ml_benchmark.data.movielens_loader | INFO | Using cached MovieLens-1M at /home/dana/huynam/jobflow-gnn/Dataset/movielens-1m/ml-1m
+2026-05-21 08:38:28,580 | ml_benchmark.data.movielens_loader | INFO | Parsing ratings.dat ...
+2026-05-21 08:38:29,146 | apps.matching.services.matching_service | INFO | Loading ML engine from /home/dana/huynam/jobflow-gnn/backend/checkpoints/latest...
+2026-05-21 08:38:29,548 | ml_benchmark.data.movielens_loader | INFO |   loaded 1000209 raw ratings
+2026-05-21 08:38:29,651 | ml_benchmark.data.movielens_loader | INFO |   after rating>=4 filter: 575281 positives
+2026-05-21 08:38:29,734 | ml_benchmark.data.movielens_loader | INFO |   subsampled to 1000 users: 92156 positives
+2026-05-21 08:38:29,734 | ml_benchmark.data.movielens_loader | INFO | Applying k-core filter (k=5) ...
+2026-05-21 08:38:29,793 | ml_benchmark.data.movielens_loader | INFO |   k-core iter 1: 92156 → 90067 interactions
+2026-05-21 08:38:29,850 | ml_benchmark.data.movielens_loader | INFO |   k-core iter 2: 90067 → 90067 interactions
+2026-05-21 08:38:29,860 | ml_benchmark.data.movielens_loader | INFO |   after k-core: 999 users, 2069 movies, 90067 interactions
+2026-05-21 08:38:29,878 | ml_benchmark.data.movielens_loader | INFO | Building leave-one-out split per user ...
+2026-05-21 08:38:29,923 | ml_benchmark.data.movielens_loader | INFO |   train=88069 val=999 test=999
+2026-05-21 08:38:30,016 | smoke_test_movielens | INFO | Dataset ready: 999 users, 2069 movies, 88069 train pairs, 999 val, 999 test
+2026-05-21 08:38:30,016 | ml_benchmark.training.trainer | INFO | Device: cuda
+2026-05-21 08:38:30,156 | sentence_transformers.SentenceTransformer | INFO | Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2026-05-21 08:38:32,253 | ml_benchmark.training.trainer | INFO | Epoch 0 — loss=0.6932 val_ndcg@20=0.0047 val_recall@20=0.0140 val_hr@20=0.0140
+/home/dana/huynam/jobflow-gnn/backend/.venv/lib/python3.11/site-packages/transformers/tokenization_utils_base.py:1601: FutureWarning: `clean_up_tokenization_spaces` was not set. It will be set to `True` by default. This behavior will be depracted in transformers v4.45, and will be then set to `False` by default. For more details check this issue: https://github.com/huggingface/transformers/issues/31884
+  warnings.warn(
+2026-05-21 08:38:33,368 | sentence_transformers.SentenceTransformer | INFO | Use pytorch device_name: cuda
+2026-05-21 08:38:34,090 | ml_service.inference.checkpoint | INFO | Checkpoint loaded from /home/dana/huynam/jobflow-gnn/backend/checkpoints/latest (364 CVs, 6251 jobs)
+2026-05-21 08:38:34,302 | ml_service.inference.engine | INFO | Precomputing text embeddings for 6251 jobs...
+2026-05-21 08:38:35,852 | ml_benchmark.training.trainer | INFO | Epoch 1 — loss=0.6931 val_ndcg@20=0.0041 val_recall@20=0.0100 val_hr@20=0.0100
+2026-05-21 08:38:38,684 | ml_benchmark.training.trainer | INFO | Epoch 2 — loss=0.6931 val_ndcg@20=0.0044 val_recall@20=0.0110 val_hr@20=0.0110
+2026-05-21 08:38:41,510 | ml_benchmark.training.trainer | INFO | Epoch 3 — loss=0.6931 val_ndcg@20=0.0043 val_recall@20=0.0110 val_hr@20=0.0110
+2026-05-21 08:38:44,296 | ml_service.reranker.ranker | INFO | Reranker loaded from /home/dana/huynam/jobflow-gnn/backend/checkpoints/latest (ordinal=True)
+2026-05-21 08:38:44,297 | ml_service.reranker.calibration | INFO | Calibration loaded: a=1.016, b=-1.078
+2026-05-21 08:38:44,297 | ml_service.inference.engine | INFO | InferenceEngine ready: 364 CVs, 6251 jobs, 5806 skill-pairs, reranker=trained
+2026-05-21 08:38:44,297 | apps.matching.services.matching_service | INFO | ML engine ready: 364 CVs, 6251 jobs
+2026-05-21 08:38:44,470 | apps.matching.services.matching_service | WARNING | Job skill refresh skipped: connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+
+2026-05-21 08:38:44,471 | apps.matching.apps | INFO | Inference engine warmed up.
+2026-05-21 08:38:44,715 | ml_benchmark.training.trainer | INFO | Epoch 4 — loss=0.6931 val_ndcg@20=0.0053 val_recall@20=0.0140 val_hr@20=0.0140
+
+============================================================
+✓ Smoke test MovieLens completed
+  Wall time:   17.3s
+  Best epoch:  4
+  Final loss:  0.6931
+  Test:        recall@20=0.0110, ndcg@20=0.0042, hr@20=0.0110, mrr=0.0050
+  NaN check:   OK
+============================================================

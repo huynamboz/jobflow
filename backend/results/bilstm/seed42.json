@@ -1,0 +1,56 @@
+{
+  "feature": "011-thesis-defense-prep",
+  "dataset": "CareerBuilder12",
+  "variant": "bipartite",
+  "preprocessing": {
+    "subsample_users": 50000,
+    "subsample_seed": 42,
+    "k_core": 10,
+    "split": "leave-one-out per user (timestamp)"
+  },
+  "model": "BiLSTM",
+  "config": {
+    "embed_dim": 64,
+    "hidden_dim": 64,
+    "num_layers": 1,
+    "bidirectional": true,
+    "vocab_size": 30000,
+    "vocab_actual_size": 16803,
+    "max_seq_len": 200,
+    "dropout": 0.3,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "batch_size": 256,
+    "max_epochs": 100,
+    "early_stopping_patience": 20,
+    "seed": 42
+  },
+  "stats": {
+    "num_users": 3063,
+    "num_jobs": 3267,
+    "num_train_pairs": 54140,
+    "num_val_pairs": 3063,
+    "num_test_pairs": 3063,
+    "avg_user_seq_len": 27.126672744750977,
+    "avg_job_seq_len": 147.70614624023438
+  },
+  "training": {
+    "best_epoch": 95,
+    "epochs_run": 100,
+    "final_train_loss": 0.07491000926227502,
+    "wall_time_seconds": 1504.12,
+    "device": "cuda"
+  },
+  "test_metrics": {
+    "recall@20": 0.2288605941887039,
+    "ndcg@20": 0.09002511189180848,
+    "hr@20": 0.2288605941887039,
+    "mrr": 0.06195949052542283
+  },
+  "versions": {
+    "python": "3.11.12",
+    "torch": "2.4.1+cu121",
+    "torch_geometric": "2.7.0",
+    "numpy": "1.26.3"
+  }
+}

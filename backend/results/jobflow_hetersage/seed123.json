@@ -1,0 +1,45 @@
+{
+  "feature": "010-lightgcn-baseline",
+  "dataset": "JobFlow",
+  "variant": "bipartite",
+  "preprocessing": {
+    "min_positives_per_cv": 3,
+    "split": "leave-one-out per CV (insertion order)"
+  },
+  "model": "HeteroGraphSAGE",
+  "config": {
+    "hidden_channels": 64,
+    "num_layers": 2,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "max_epochs": 500,
+    "early_stopping_patience": 50,
+    "seed": 123
+  },
+  "stats": {
+    "num_users": 271,
+    "num_jobs": 1467,
+    "num_train_pairs": 1683,
+    "num_val_pairs": 271,
+    "num_test_pairs": 271
+  },
+  "training": {
+    "best_epoch": 40,
+    "epochs_run": 91,
+    "final_train_loss": 0.20226427912712097,
+    "wall_time_seconds": 13.57,
+    "device": "cuda"
+  },
+  "test_metrics": {
+    "recall@20": 0.025830258302583026,
+    "ndcg@20": 0.008110693020134395,
+    "hr@20": 0.025830258302583026,
+    "mrr": 0.006438879069367018
+  },
+  "versions": {
+    "python": "3.11.12",
+    "torch": "2.4.1+cu121",
+    "torch_geometric": "2.7.0",
+    "numpy": "1.26.3"
+  }
+}

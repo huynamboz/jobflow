@@ -45,6 +45,9 @@ INSTALLED_APPS = [
     "apps.llm",
     "apps.admin_dashboard",
     "apps.schedule",
+    # Employee MVP (feature 012)
+    "apps.employees",
+    "apps.notifications",
 ]
 
 # ---------------------------------------------------------------------------
@@ -181,3 +184,21 @@ ML_SKILL_ALIAS_PATH = os.environ.get(
     "ML_SKILL_ALIAS_PATH",
     str(BASE_DIR / "ml_service" / "data" / "skill-alias.json"),
 )
+
+# ---------------------------------------------------------------------------
+# Candidate MVP (feature 012): Celery + Email
+# ---------------------------------------------------------------------------
+
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6380/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6380/0")
+CELERY_TIMEZONE = "Asia/Ho_Chi_Minh"
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "0") == "1"
+
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend",
+)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@jobflow.local")
+
+# Frontend base URL (used in email links — unsubscribe + job CTA)
+FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:3000")

@@ -95,6 +95,8 @@ export default function SchedulePage({ command, title, description }: Props) {
   const [history, setHistory] = useState<ScheduleHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Editable form state mirrors `config` until save.
@@ -103,6 +105,7 @@ export default function SchedulePage({ command, title, description }: Props) {
     batch_size: 100,
     hours_utc: "2,14",            // text input — parsed to int[]
     use_no_auth_check: false,
+    headless: true,
   });
 
   // Live log state
@@ -126,6 +129,7 @@ export default function SchedulePage({ command, title, description }: Props) {
         batch_size: c.batch_size,
         hours_utc: c.hours_utc.join(","),
         use_no_auth_check: c.use_no_auth_check,
+        headless: c.headless,
       });
     } catch (e: any) {
       setError(e?.message || "Failed to load");
@@ -180,6 +184,7 @@ export default function SchedulePage({ command, title, description }: Props) {
         batch_size: form.batch_size,
         hours_utc: hours,
         use_no_auth_check: form.use_no_auth_check,
+        headless: form.headless,
       });
       setConfig(updated);
     } catch (e: any) {
@@ -191,6 +196,7 @@ export default function SchedulePage({ command, title, description }: Props) {
 
   const handleStart = async () => {
     setError(null);
+    setStarting(true);
     try {
       const updated = await scheduleService.start(command);
       setConfig(updated);
@@ -198,16 +204,21 @@ export default function SchedulePage({ command, title, description }: Props) {
       setLogText("");
     } catch (e: any) {
       setError(e?.response?.data?.error?.message || e?.message || "Start failed");
+    } finally {
+      setStarting(false);
     }
   };
 
   const handleStop = async () => {
     setError(null);
+    setStopping(true);
     try {
       const updated = await scheduleService.stop(command);
       setConfig(updated);
     } catch (e: any) {
       setError(e?.response?.data?.error?.message || e?.message || "Stop failed");
+    } finally {
+      setStopping(false);
     }
   };
 
@@ -225,6 +236,28 @@ export default function SchedulePage({ command, title, description }: Props) {
         </div>
         <GhostBtn icon={<RefreshCcw className="size-3.5" />} onClick={refresh}>Refresh</GhostBtn>
       </header>
+
+      {/* ── Pending workload ── */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <section style={CARD}>
+          <p style={LABEL}>Jobs needing verify</p>
+          <p style={{ ...VALUE, fontSize: 28 }}>
+            {config?.pending?.verify?.toLocaleString() ?? "—"}
+          </p>
+          <p style={{ font: "400 11px/16px var(--font-node-mono)", color: "var(--muted)" }}>
+            active|stale ∩ backoff cleared
+          </p>
+        </section>
+        <section style={CARD}>
+          <p style={LABEL}>Jobs needing date parse</p>
+          <p style={{ ...VALUE, fontSize: 28 }}>
+            {config?.pending?.extract?.toLocaleString() ?? "—"}
+          </p>
+          <p style={{ font: "400 11px/16px var(--font-node-mono)", color: "var(--muted)" }}>
+            same set ∩ date_posted IS NULL
+          </p>
+        </section>
+      </div>
 
       {error && (
         <div
@@ -315,6 +348,19 @@ export default function SchedulePage({ command, title, description }: Props) {
               </span>
             </label>
 
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.headless}
+                onChange={(e) => setForm({ ...form, headless: e.target.checked })}
+                style={{ accentColor: "var(--blue)", width: 16, height: 16 }}
+              />
+              <span style={{ font: "500 13px/18px var(--font-node-sans)", color: "var(--ink)" }}>Headless</span>
+              <span style={{ font: "400 12px/16px var(--font-node-sans)", color: "var(--muted)" }}>
+                — uncheck to see the Chromium window
+              </span>
+            </label>
+
             <div className="flex items-center gap-2 pt-1">
               <GhostBtn
                 icon={<Save className="size-3.5" />}
@@ -371,18 +417,18 @@ export default function SchedulePage({ command, title, description }: Props) {
               <GhostBtn
                 icon={<PlayCircle className="size-3.5" />}
                 onClick={handleStart}
-                disabled={!!config?.active_run.is_alive}
+                disabled={!!config?.active_run.is_alive || starting || stopping}
                 tone="success"
               >
-                Run now
+                {starting ? "Starting…" : "Run now"}
               </GhostBtn>
               <GhostBtn
                 icon={<Square className="size-3.5" />}
                 onClick={handleStop}
-                disabled={!config?.active_run.is_alive}
+                disabled={!config?.active_run.is_alive || stopping || starting}
                 tone="danger"
               >
-                Stop
+                {stopping ? "Stopping…" : "Stop"}
               </GhostBtn>
             </div>
           </div>

@@ -1,0 +1,49 @@
+{
+  "feature": "009-careerbuilder-benchmark",
+  "dataset": "CareerBuilder12",
+  "variant": "bipartite",
+  "preprocessing": {
+    "subsample_users": 50000,
+    "subsample_seed": 2024,
+    "k_core": 10,
+    "split": "leave-one-out per user (timestamp)"
+  },
+  "model": "HeteroGraphSAGE",
+  "config": {
+    "hidden_channels": 64,
+    "num_layers": 2,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "max_epochs": 500,
+    "early_stopping_patience": 50,
+    "seed": 2024
+  },
+  "stats": {
+    "num_users": 2860,
+    "num_jobs": 3034,
+    "num_skills": 0,
+    "num_seniority": 0,
+    "num_train_pairs": 50558,
+    "num_val_pairs": 2860,
+    "num_test_pairs": 2860
+  },
+  "training": {
+    "best_epoch": 175,
+    "epochs_run": 226,
+    "final_train_loss": 0.03856370970606804,
+    "wall_time_seconds": 122.63,
+    "device": "cuda"
+  },
+  "test_metrics": {
+    "recall@20": 0.45104895104895104,
+    "ndcg@20": 0.17037712577339653,
+    "hr@20": 0.45104895104895104,
+    "mrr": 0.10805176421478911
+  },
+  "versions": {
+    "python": "3.11.12",
+    "torch": "2.4.1+cu121",
+    "torch_geometric": "2.7.0",
+    "numpy": "1.26.3"
+  }
+}

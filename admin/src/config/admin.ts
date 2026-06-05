@@ -7,6 +7,7 @@ import {
   IconClipboardList,
   IconClock,
   IconFiles,
+  IconGitBranch,
   IconLayoutDashboard,
   IconFileStack,
   IconRobot,
@@ -14,6 +15,7 @@ import {
   IconSparkles,
   IconTags,
   IconUserScan,
+  IconUsers,
   IconTagStarred,
 } from "@tabler/icons-react";
 
@@ -45,6 +47,13 @@ export const adminConfig = {
       items: [
         { label: "Jobs", href: "/admin/jobs", icon: IconBriefcase },
         { label: "CVs",  href: "/admin/cvs",  icon: IconFiles },
+      ],
+    },
+    {
+      title: "Staffing",
+      items: [
+        { label: "Employees", href: "/admin/employees", icon: IconUsers },
+        { label: "Pipeline",  href: "/admin/pipeline",  icon: IconGitBranch },
       ],
     },
     {

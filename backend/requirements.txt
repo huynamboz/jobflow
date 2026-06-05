@@ -5,6 +5,7 @@ djangorestframework-simplejwt>=5.3
 django-cors-headers>=4.0
 django-filter>=23.0
 psycopg2-binary>=2.9
+drf-spectacular>=0.27
 
 # ML service
 pydantic-settings>=2.0
@@ -24,8 +25,15 @@ datasets>=4.0
 # After installing, run: patchright install chromium
 patchright>=1.59
 
+# Candidate MVP (feature 012): async tasks + email digest
+celery[redis]>=5.4
+django-celery-beat>=2.6
+django-anymail[sendgrid]>=11.0
+redis>=5.0
+
 # Dev
 pytest>=7.0
+pytest-django>=4.7
 pytest-cov>=4.0
 ruff>=0.4
 openai>=1.0
