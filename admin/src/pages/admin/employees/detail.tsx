@@ -76,6 +76,17 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function jobPostedLabel(j: JobLite): string {
+  const iso = j.date_posted || j.created_at;
+  if (!iso) return "";
+  const d = new Date(iso);
+  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "1d ago";
+  if (days < 30) return `${days}d ago`;
+  return d.toLocaleDateString("vi-VN", { dateStyle: "short" });
+}
+
 function fmtSalary(j: JobLite): string {
   const c = j.salary_currency || "$";
   const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`);
@@ -137,10 +148,13 @@ function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; s
         {j.company_name || "—"}{j.location ? ` · ${j.location}` : ""}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-        <StatusChip status={match.status} />
+        {match.status !== "suggested" && <StatusChip status={match.status} />}
         <span style={{ fontSize: 11.5, color: T.ink4 }}>
           {matched} match{missing ? ` · ${missing} missing` : ""}
         </span>
+        {jobPostedLabel(j) && (
+          <span style={{ marginLeft: "auto", fontSize: 11.5, color: T.ink4 }}>{jobPostedLabel(j)}</span>
+        )}
       </div>
     </button>
   );
