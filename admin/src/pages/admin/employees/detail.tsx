@@ -509,7 +509,7 @@ export default function EmployeeDetailPage() {
             {hasMore ? (
               <Button
                 size="sm"
-                variant="flat"
+                color="primary"
                 fullWidth
                 className="mt-1 shrink-0"
                 isLoading={loadingMore}
