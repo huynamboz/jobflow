@@ -5,6 +5,7 @@ interface ListParams {
   employee?: number;
   job?: number;
   status?: MatchStatus;
+  statuses?: string; // comma-separated, e.g. "applied,won,lost"
   assigned_to?: number;
   page?: number;
   page_size?: number;

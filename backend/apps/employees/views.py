@@ -200,6 +200,12 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
         qs = EmployeeJobMatch.objects.select_related(
             "employee", "job", "job__company", "assigned_to"
         )
+        # Multi-status filter for the job-tracking view, e.g.
+        # ?statuses=applied,won,lost.
+        statuses = self.request.query_params.get("statuses")
+        if statuses:
+            wanted = [s.strip() for s in statuses.split(",") if s.strip()]
+            return qs.filter(status__in=wanted)
         # Dismissed ("not a fit") jobs are hidden everywhere unless explicitly
         # requested with ?status=dismissed.
         if self.request.query_params.get("status") != EmployeeJobMatch.Status.DISMISSED:

@@ -15,12 +15,15 @@ const T = {
   danger: "oklch(0.60 0.22 25)", danger50: "oklch(0.96 0.03 25)",
   ink: "oklch(0.18 0.02 265)", ink2: "oklch(0.38 0.015 265)",
   ink3: "oklch(0.56 0.012 265)", ink4: "oklch(0.72 0.008 265)",
-  line: "rgba(226,232,240,0.7)", surface2: "oklch(0.97 0.005 85)",
+  line: "rgba(226,232,240,0.7)",
 };
 
 const PAGE_SIZE = 20;
+const TRACKED = "applied,won,lost";
 
-const TABS: { key: Extract<MatchStatus, "applied" | "won" | "lost">; label: string }[] = [
+type TrackTab = "all" | "applied" | "won" | "lost";
+const TABS: { key: TrackTab; label: string }[] = [
+  { key: "all", label: "All" },
   { key: "applied", label: "Applied" },
   { key: "won", label: "Won" },
   { key: "lost", label: "Lost" },
@@ -43,9 +46,13 @@ function fmtDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("vi-VN", { dateStyle: "medium" });
 }
 
+function dateFor(m: EmployeeJobMatch): string | null {
+  return m.status === "won" ? m.won_at : m.status === "lost" ? m.lost_at : m.applied_at;
+}
+
 export default function JobTrackingPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"applied" | "won" | "lost">("applied");
+  const [tab, setTab] = useState<TrackTab>("all");
   const [items, setItems] = useState<EmployeeJobMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<number | null>(null);
@@ -57,7 +64,8 @@ export default function JobTrackingPage() {
     async (pg = 1, append = false) => {
       if (!append) setLoading(true);
       try {
-        const m = await matchService.list({ status: tab, page: pg, page_size: PAGE_SIZE });
+        const filter = tab === "all" ? { statuses: TRACKED } : { status: tab as MatchStatus };
+        const m = await matchService.list({ ...filter, page: pg, page_size: PAGE_SIZE });
         setItems((prev) => (append ? [...prev, ...m.results] : m.results));
         setHasMore(!!m.next);
         setTotal(m.count ?? m.results.length);
@@ -86,9 +94,6 @@ export default function JobTrackingPage() {
     }
   };
 
-  const dateFor = (m: EmployeeJobMatch) =>
-    tab === "won" ? m.won_at : tab === "lost" ? m.lost_at : m.applied_at;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
@@ -96,7 +101,7 @@ export default function JobTrackingPage() {
           Job <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>Tracking</span>
         </h1>
         <p style={{ margin: "4px 0 0", color: T.ink3, fontSize: 14 }}>
-          Jobs your bench has applied to — move them to won or rejected as clients respond.
+          Every job your bench has applied to — move them to won or rejected as clients respond.
         </p>
       </div>
 
@@ -123,10 +128,8 @@ export default function JobTrackingPage() {
         <Card style={{ display: "grid", placeItems: "center", height: 240, color: T.ink3 }}>
           <div style={{ textAlign: "center" }}>
             <IconBriefcase size={30} style={{ margin: "0 auto 10px", color: T.ink4 }} />
-            <div style={{ fontWeight: 600 }}>No {tab} jobs</div>
-            <div style={{ fontSize: 13 }}>
-              {tab === "applied" ? "Apply to jobs from an employee's job browser." : "Nothing here yet."}
-            </div>
+            <div style={{ fontWeight: 600 }}>No jobs here yet</div>
+            <div style={{ fontSize: 13 }}>Apply to jobs from an employee's job browser to start tracking.</div>
           </div>
         </Card>
       ) : (
@@ -150,7 +153,7 @@ export default function JobTrackingPage() {
                           {m.employee_name} · {m.job.title}
                         </span>
                         <span style={{ display: "block", fontSize: 12.5, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {m.job.company_name || "—"} · {tab === "applied" ? "applied" : tab} {fmtDate(dateFor(m))}
+                          {m.job.company_name || "—"} · {m.status} {fmtDate(dateFor(m))}
                         </span>
                       </span>
                     </button>
@@ -166,7 +169,7 @@ export default function JobTrackingPage() {
                       </a>
                     )}
 
-                    {tab === "applied" && (
+                    {m.status === "applied" ? (
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                         <Button size="sm" color="success" variant="flat" isLoading={busy === m.id}
                           startContent={<IconCheck size={14} />} onPress={() => setStatus(m, "won", "won")}>
@@ -177,8 +180,7 @@ export default function JobTrackingPage() {
                           Rejected
                         </Button>
                       </div>
-                    )}
-                    {tab !== "applied" && (
+                    ) : (
                       <Button size="sm" variant="light" onPress={() => setStatus(m, "applied", "applied")} isLoading={busy === m.id}>
                         Reopen
                       </Button>
