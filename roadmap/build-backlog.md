@@ -16,7 +16,7 @@
 | # | Tính năng | TT | Ưu tiên | Nguồn |
 |---|---|---|---|---|
 | 1.1 | Upload CV đơn + hàng loạt (zip/multi-file, ≤50) | ✅ | P1 | 012 |
-| 1.2 | Parse CV → skills, seniority, kinh nghiệm | ✅ | P1 | 012 |
+| 1.2 | Parse CV → skills, seniority, kinh nghiệm | ✅ | P1 | 012/017 |
 | 1.3 | Sửa tay khi parse lỗi (flag is_parse_failed) | ✅ | P1 | 012/015 |
 | 1.4 | Trạng thái nhân viên (bench/placed/inactive) — **thủ công** | ✅ | P1 | 012/014 |
 | 1.5 | Thay/cập nhật CV mới (versioning) | 🔴 | P2 | — |
