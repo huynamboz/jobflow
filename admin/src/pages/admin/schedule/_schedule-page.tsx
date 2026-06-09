@@ -12,6 +12,9 @@ interface Props {
   command: ScheduleCommand;
   title: string;
   description: string;
+  /** Crawl/verify commands expose batch-size + browser flags; simpler commands
+   *  (e.g. morning_refresh) only need the enable toggle + hours. */
+  showCrawlOptions?: boolean;
 }
 
 /* ─── Re-usable NODE bits ────────────────────────────────────────── */
@@ -90,7 +93,7 @@ function timeAgo(iso: string | null | undefined): string {
 
 /* ─── Page ───────────────────────────────────────────────────────── */
 
-export default function SchedulePage({ command, title, description }: Props) {
+export default function SchedulePage({ command, title, description, showCrawlOptions = true }: Props) {
   const [config, setConfig] = useState<ScheduleConfig | null>(null);
   const [history, setHistory] = useState<ScheduleHistory | null>(null);
   const [loading, setLoading] = useState(true);
@@ -303,22 +306,24 @@ export default function SchedulePage({ command, title, description }: Props) {
             </label>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <p style={LABEL}>Batch size</p>
-                <input
-                  type="number"
-                  min={1}
-                  max={1000}
-                  value={form.batch_size}
-                  onChange={(e) => setForm({ ...form, batch_size: parseInt(e.target.value || "0", 10) })}
-                  style={{
-                    width: "100%", height: 36, marginTop: 4,
-                    borderRadius: 12, border: "1px solid var(--line)", background: "#ffffff",
-                    padding: "0 10px", font: "500 13px/16px var(--font-node-mono)", color: "var(--ink)",
-                    outline: "none",
-                  }}
-                />
-              </div>
+              {showCrawlOptions && (
+                <div>
+                  <p style={LABEL}>Batch size</p>
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    value={form.batch_size}
+                    onChange={(e) => setForm({ ...form, batch_size: parseInt(e.target.value || "0", 10) })}
+                    style={{
+                      width: "100%", height: 36, marginTop: 4,
+                      borderRadius: 12, border: "1px solid var(--line)", background: "#ffffff",
+                      padding: "0 10px", font: "500 13px/16px var(--font-node-mono)", color: "var(--ink)",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+              )}
               <div>
                 <p style={LABEL}>Hours (UTC, comma-sep)</p>
                 <input
@@ -336,30 +341,34 @@ export default function SchedulePage({ command, title, description }: Props) {
               </div>
             </div>
 
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.use_no_auth_check}
-                onChange={(e) => setForm({ ...form, use_no_auth_check: e.target.checked })}
-                style={{ accentColor: "var(--blue)", width: 16, height: 16 }}
-              />
-              <span style={{ font: "500 13px/18px var(--font-node-sans)", color: "var(--ink)" }}>
-                Use --no-auth-check (guest mode)
-              </span>
-            </label>
+            {showCrawlOptions && (
+              <>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={form.use_no_auth_check}
+                    onChange={(e) => setForm({ ...form, use_no_auth_check: e.target.checked })}
+                    style={{ accentColor: "var(--blue)", width: 16, height: 16 }}
+                  />
+                  <span style={{ font: "500 13px/18px var(--font-node-sans)", color: "var(--ink)" }}>
+                    Use --no-auth-check (guest mode)
+                  </span>
+                </label>
 
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.headless}
-                onChange={(e) => setForm({ ...form, headless: e.target.checked })}
-                style={{ accentColor: "var(--blue)", width: 16, height: 16 }}
-              />
-              <span style={{ font: "500 13px/18px var(--font-node-sans)", color: "var(--ink)" }}>Headless</span>
-              <span style={{ font: "400 12px/16px var(--font-node-sans)", color: "var(--muted)" }}>
-                — uncheck to see the Chromium window
-              </span>
-            </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={form.headless}
+                    onChange={(e) => setForm({ ...form, headless: e.target.checked })}
+                    style={{ accentColor: "var(--blue)", width: 16, height: 16 }}
+                  />
+                  <span style={{ font: "500 13px/18px var(--font-node-sans)", color: "var(--ink)" }}>Headless</span>
+                  <span style={{ font: "400 12px/16px var(--font-node-sans)", color: "var(--muted)" }}>
+                    — uncheck to see the Chromium window
+                  </span>
+                </label>
+              </>
+            )}
 
             <div className="flex items-center gap-2 pt-1">
               <GhostBtn

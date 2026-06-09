@@ -66,6 +66,19 @@ def is_active_run(row: VerifierSchedule) -> bool:
     return bool(row.current_run_pid and _is_process_alive(row.current_run_pid))
 
 
+def _command_args(row: VerifierSchedule) -> list[str]:
+    """CLI args per command. Crawl/verify take platform/batch + browser flags;
+    the morning refresh just re-matches bench employees and sends the digest."""
+    if row.command == VerifierSchedule.COMMAND_MORNING:
+        return ["--status", "bench"]
+    args = ["--platform", row.platform, "--batch", str(row.batch_size)]
+    if row.use_no_auth_check:
+        args.append("--no-auth-check")
+    if not row.headless:
+        args.append("--headed")
+    return args
+
+
 def start_run(row: VerifierSchedule, *, force: bool = False) -> tuple[bool, str]:
     """Spawn the subprocess. Returns (ok, message).
 
@@ -78,15 +91,7 @@ def start_run(row: VerifierSchedule, *, force: bool = False) -> tuple[bool, str]
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     log_path = LOG_DIR / f"{row.command}_{ts}.log"
 
-    cmd: list[str] = [
-        sys.executable, "manage.py", row.command,
-        "--platform", row.platform,
-        "--batch", str(row.batch_size),
-    ]
-    if row.use_no_auth_check:
-        cmd.append("--no-auth-check")
-    if not row.headless:
-        cmd.append("--headed")
+    cmd: list[str] = [sys.executable, "manage.py", row.command] + _command_args(row)
 
     logger.info("Spawning schedule run: %s → %s", shlex.join(cmd), log_path)
     # Open log file, redirect stdout+stderr.

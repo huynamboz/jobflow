@@ -14,7 +14,11 @@ from apps.jobs.models import Job, VerifierRunLog
 from apps.schedule import services
 from apps.schedule.models import VerifierSchedule
 
-ALLOWED_COMMANDS = {VerifierSchedule.COMMAND_VERIFY, VerifierSchedule.COMMAND_EXTRACT}
+ALLOWED_COMMANDS = {
+    VerifierSchedule.COMMAND_VERIFY,
+    VerifierSchedule.COMMAND_EXTRACT,
+    VerifierSchedule.COMMAND_MORNING,
+}
 
 
 def _pending_counts(platform: str) -> dict[str, int]:

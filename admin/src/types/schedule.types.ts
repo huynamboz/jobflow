@@ -1,4 +1,4 @@
-export type ScheduleCommand = "verify_job_status" | "extract_job_dates";
+export type ScheduleCommand = "verify_job_status" | "extract_job_dates" | "morning_refresh";
 
 export interface ScheduleActiveRun {
   pid: number | null;
