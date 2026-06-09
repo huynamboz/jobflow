@@ -317,9 +317,15 @@ class DashboardView(APIView):
         }
 
         # --- Block 2: Action queue ---
+        # "New jobs" = suggested matches that landed in the last 24h (i.e. brought
+        # in by the latest crawl + re-match), matching the digest's definition —
+        # NOT the whole unreviewed backlog.
         top_new = list(
             Employee.objects.annotate(
-                new_count=Count("matches", filter=Q(matches__status="suggested"))
+                new_count=Count(
+                    "matches",
+                    filter=Q(matches__status="suggested", matches__created_at__gte=day_ago),
+                )
             )
             .filter(new_count__gt=0)
             .order_by("-new_count")[:5]
