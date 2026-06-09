@@ -46,7 +46,7 @@ export interface EmployeeJobMatch {
 }
 
 export interface PipelineKpi {
-  employees: Record<string, number>;
+  total_employees: number;
   matches_this_week: Record<string, number>;
   top_employees_pursuing: { id: number; full_name: string; active_matches: number }[];
 }

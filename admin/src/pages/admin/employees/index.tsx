@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
-import { Select, SelectItem } from "@heroui/select";
 import {
   Modal,
   ModalBody,
@@ -22,7 +21,7 @@ import {
 
 import { Card } from "@/components/ui/card";
 import { employeeService } from "@/services/employee.service";
-import type { Employee, EmployeeStatus } from "@/types/employee.types";
+import type { Employee } from "@/types/employee.types";
 
 const T = {
   accent: "#167a7a", accent50: "#e8f4f4",
@@ -39,27 +38,13 @@ const POLL_INTERVAL = 3000;
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
 const MAX_FILES = 50;
 
-const STATUS_OPTS: { key: EmployeeStatus | "all"; label: string }[] = [
-  { key: "all", label: "All statuses" },
-  { key: "bench", label: "On bench" },
-  { key: "pursuing", label: "Pursuing" },
-  { key: "placed", label: "Placed" },
-  { key: "inactive", label: "Inactive" },
-];
-
 type BadgeState = { label: string; bg: string; color: string; pulse?: boolean };
 
 function badgeFor(emp: Employee): BadgeState | null {
   const parsing = !emp.parsed_at && !emp.is_parse_failed;
   if (parsing) return { label: "Parsing…", bg: "#c8e5e5", color: "#0e5353", pulse: true };
   if (emp.is_parse_failed) return { label: "Parse failed", bg: T.danger50, color: T.danger };
-  const map: Record<string, BadgeState> = {
-    pursuing: { label: "Pursuing", bg: "#c8e5e5", color: "#0e5353" },
-    placed: { label: "Placed", bg: T.success50, color: T.success },
-    inactive: { label: "Inactive", bg: T.surface3, color: T.ink4 },
-  };
-  // "On bench" is the default — no badge for it.
-  return map[emp.status] ?? null;
+  return null;
 }
 
 function initials(name: string): string {
@@ -147,14 +132,12 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<EmployeeStatus | "all">("all");
   const [search, setSearch] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const params: Record<string, string> = {};
-      if (status !== "all") params.status = status;
       if (search) params.search = search;
       const res = await employeeService.list(params as never);
       setEmployees(res.results);
@@ -164,7 +147,7 @@ export default function EmployeesPage() {
     } finally {
       setLoading(false);
     }
-  }, [status, search]);
+  }, [search]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -176,13 +159,11 @@ export default function EmployeesPage() {
     return () => clearInterval(id);
   }, [anyParsing, load]);
 
-  const onBench = employees.filter((e) => e.status === "bench").length;
   const withNewJobs = employees.filter((e) => (e.match_count ?? 0) > 0).length;
   const parsing = employees.filter((e) => !e.parsed_at && !e.is_parse_failed).length;
 
   const stats = [
     { label: "Total", value: total, unit: "employees" },
-    { label: "On bench", value: onBench, unit: "available" },
     { label: "With new jobs", value: withNewJobs, unit: "to review" },
     { label: "Parsing", value: parsing, unit: "in progress", accent: parsing > 0 },
   ];
@@ -199,7 +180,7 @@ export default function EmployeesPage() {
       <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, color: T.ink }}>
-            Employee <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>Bench</span>
+            <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>Employees</span>
           </h1>
           <p style={{ margin: "4px 0 0", color: T.ink3, fontSize: 14 }}>
             Upload CVs, review AI-parsed profiles and matched jobs.
@@ -237,14 +218,6 @@ export default function EmployeesPage() {
           isClearable
           onClear={() => setSearch("")}
         />
-        <Select
-          aria-label="Filter by status"
-          selectedKeys={[status]}
-          onSelectionChange={(keys) => setStatus(Array.from(keys)[0] as EmployeeStatus | "all")}
-          className="max-w-[180px]"
-        >
-          {STATUS_OPTS.map((opt) => <SelectItem key={opt.key}>{opt.label}</SelectItem>)}
-        </Select>
       </div>
 
       {loading ? (
@@ -256,10 +229,10 @@ export default function EmployeesPage() {
           <div style={{ textAlign: "center" }}>
             <IconUsers size={32} style={{ margin: "0 auto 12px", color: T.ink4 }} />
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
-              {search || status !== "all" ? "No matching employees" : "No employees yet"}
+              {search ? "No matching employees" : "No employees yet"}
             </div>
             <div style={{ fontSize: 13 }}>
-              {search || status !== "all" ? "Try clearing the search or status filter." : "Click “Add employees” to upload CVs — they're parsed automatically."}
+              {search ? "Try clearing the search." : "Click “Add employees” to upload CVs — they're parsed automatically."}
             </div>
           </div>
         </div>

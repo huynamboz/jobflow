@@ -68,9 +68,9 @@ def is_active_run(row: VerifierSchedule) -> bool:
 
 def _command_args(row: VerifierSchedule) -> list[str]:
     """CLI args per command. Crawl/verify take platform/batch + browser flags;
-    the morning refresh just re-matches bench employees and sends the digest."""
+    the morning refresh re-matches all employees and sends the digest."""
     if row.command == VerifierSchedule.COMMAND_MORNING:
-        return ["--status", "bench"]
+        return []
     args = ["--platform", row.platform, "--batch", str(row.batch_size)]
     if row.use_no_auth_check:
         args.append("--no-auth-check")

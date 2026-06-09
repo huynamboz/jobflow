@@ -1,5 +1,3 @@
-export type EmployeeStatus = "bench" | "pursuing" | "placed" | "inactive";
-
 export interface Employee {
   id: number;
   full_name: string;
@@ -9,7 +7,6 @@ export interface Employee {
   seniority: number;
   experience_years: number | null;
   skills: string[];
-  status: EmployeeStatus;
   cv_file: string | null;
   is_parse_failed: boolean;
   parsed_at: string | null;

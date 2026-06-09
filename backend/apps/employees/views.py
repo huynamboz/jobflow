@@ -79,7 +79,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsAuthenticated, IsHRStaff]
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ["status", "seniority"]
+    filterset_fields = ["seniority"]
     search_fields = ["full_name", "email", "position"]
 
     def get_queryset(self):
@@ -185,8 +185,7 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
     """List/update match records.
 
     Shadow model (feature 014):
-    - Employee.status is NEVER changed automatically by a match transition; HR
-      sets it manually. A frontman who wins a job stays on bench to apply again.
+    - Application progress lives entirely on the match; employees have no status.
     - Marking a match ``applied`` guards against another employee already
       fronting the same job (soft warning via HTTP 409 unless ``confirm_duplicate``).
     """
@@ -295,18 +294,9 @@ class DashboardView(APIView):
         day_ago = now - timedelta(days=1)
         stale_before = now - timedelta(days=self.STALE_APPLIED_DAYS)
 
-        engaged_statuses = ["pursuing", "applied", "won"]
-
         # --- Block 1: KPI strip ---
-        active_emp = Employee.objects.exclude(status="inactive").count()
-        engaged = (
-            Employee.objects.filter(matches__status__in=engaged_statuses)
-            .distinct()
-            .count()
-        )
         kpi = {
-            "utilization_pct": round(100 * engaged / active_emp) if active_emp else 0,
-            "bench_count": Employee.objects.filter(status="bench").count(),
+            "total_employees": Employee.objects.count(),
             "in_progress": EmployeeJobMatch.objects.filter(
                 status__in=["pursuing", "applied"]
             ).count(),
@@ -331,24 +321,6 @@ class DashboardView(APIView):
             .order_by("-new_count")[:5]
             .values("id", "full_name", "new_count")
         )
-        bench_stale_rows = (
-            Employee.objects.filter(status="bench")
-            .annotate(
-                active_opps=Count(
-                    "matches", filter=Q(matches__status__in=engaged_statuses)
-                )
-            )
-            .filter(active_opps=0)
-            .order_by("created_at")[:5]
-        )
-        bench_stale = [
-            {
-                "id": e.id,
-                "full_name": e.full_name,
-                "days_on_bench": (now - e.created_at).days,
-            }
-            for e in bench_stale_rows
-        ]
         stale_applied = [
             {
                 "match_id": m.id,
@@ -363,7 +335,6 @@ class DashboardView(APIView):
         ]
         action_queue = {
             "top_new_matches": top_new,
-            "bench_stale": bench_stale,
             "stale_applied": stale_applied,
         }
 
@@ -461,9 +432,6 @@ class PipelineKpiView(APIView):
         now = timezone.now()
         week_ago = now - timedelta(days=7)
 
-        emp_rows = Employee.objects.values("status").annotate(c=Count("id"))
-        emp_status = {row["status"]: row["c"] for row in emp_rows}
-
         match_rows = (
             EmployeeJobMatch.objects.filter(updated_at__gte=week_ago)
             .values("status")
@@ -471,14 +439,15 @@ class PipelineKpiView(APIView):
         )
         match_status = {row["status"]: row["c"] for row in match_rows}
 
+        # Employees currently being worked = those with a pursuing/applied match.
         top_pursuing = list(
-            Employee.objects.filter(status="pursuing")
-            .annotate(
+            Employee.objects.annotate(
                 active_matches=Count(
                     "matches",
                     filter=Q(matches__status__in=["pursuing", "applied"]),
                 )
             )
+            .filter(active_matches__gt=0)
             .order_by("-active_matches")[:10]
             .values("id", "full_name", "active_matches")
         )
@@ -487,7 +456,7 @@ class PipelineKpiView(APIView):
             {
                 "success": True,
                 "data": {
-                    "employees": emp_status,
+                    "total_employees": Employee.objects.count(),
                     "matches_this_week": match_status,
                     "top_employees_pursuing": top_pursuing,
                 },

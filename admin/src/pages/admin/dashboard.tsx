@@ -29,7 +29,7 @@ export default function DashboardPage() {
               margin: "4px 0 0",
             }}
           >
-            What the bench needs today.
+            What your team needs to handle today.
           </p>
         </div>
         <button

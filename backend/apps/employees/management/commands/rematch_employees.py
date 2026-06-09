@@ -3,8 +3,7 @@
 Run after a crawl or on a schedule so new jobs flow into each employee's
 suggested list without resetting HR's pipeline progress.
 
-    python manage.py rematch_employees                # all bench employees
-    python manage.py rematch_employees --status all   # everyone with skills
+    python manage.py rematch_employees                # everyone with skills
     python manage.py rematch_employees --employee 12  # a single employee
 """
 
@@ -21,18 +20,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--employee", type=int, default=None, help="Re-match a single employee id.")
-        parser.add_argument(
-            "--status",
-            default="bench",
-            help="Employee status to re-match (default 'bench'; use 'all' for everyone with skills).",
-        )
 
     def handle(self, *args, **opts):
         qs = Employee.objects.filter(is_parse_failed=False).exclude(skills=[])
         if opts["employee"]:
             qs = qs.filter(pk=opts["employee"])
-        elif opts["status"] != "all":
-            qs = qs.filter(status=opts["status"])
 
         total = qs.count()
         self.stdout.write(f"Re-matching {total} employee(s)…")

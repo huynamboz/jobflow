@@ -11,7 +11,7 @@ class EmployeeListSerializer(serializers.ModelSerializer):
         model = Employee
         fields = (
             "id", "full_name", "email", "position", "seniority",
-            "experience_years", "skills", "status",
+            "experience_years", "skills",
             "is_parse_failed", "parsed_at", "match_count", "created_at",
         )
 
@@ -25,7 +25,7 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
             "id", "full_name", "email", "phone", "position",
             "seniority", "experience_years", "skills",
             "cv_file", "parsed_at", "is_parse_failed",
-            "status", "notes", "created_by",
+            "notes", "created_by",
             "matches_count_by_status",
             "created_at", "updated_at",
         )

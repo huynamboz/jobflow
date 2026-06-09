@@ -8,14 +8,9 @@ from apps.jobs.models import Job
 class Employee(models.Model):
     """A staffer of the company whose CV is on file. Not a Django User.
 
-    Owned + managed by HR/admin users; tracked through bench/pursuing/placed.
+    Owned + managed by HR/admin users. Application progress lives on each
+    EmployeeJobMatch (the job pipeline), not on the employee.
     """
-
-    class Status(models.TextChoices):
-        BENCH = "bench", "On bench"
-        PURSUING = "pursuing", "Pursuing"
-        PLACED = "placed", "Placed"
-        INACTIVE = "inactive", "Inactive"
 
     full_name = models.CharField(max_length=200)
     email = models.EmailField(blank=True, default="")
@@ -32,9 +27,6 @@ class Employee(models.Model):
     parsed_at = models.DateTimeField(null=True, blank=True)
     is_parse_failed = models.BooleanField(default=False)
 
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.BENCH, db_index=True
-    )
     notes = models.TextField(blank=True, default="")
 
     created_by = models.ForeignKey(
@@ -58,7 +50,7 @@ class Employee(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["status", "-created_at"]),
+            models.Index(fields=["-created_at"]),
         ]
 
     def __str__(self) -> str:

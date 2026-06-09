@@ -3,11 +3,9 @@ import type {
   BulkUploadResponse,
   Employee,
   EmployeeListResponse,
-  EmployeeStatus,
 } from "@/types/employee.types";
 
 interface ListParams {
-  status?: EmployeeStatus;
   seniority?: number;
   search?: string;
   page?: number;

@@ -10,7 +10,6 @@ import {
   IconFileAlert,
   IconHourglassHigh,
   IconSparkles,
-  IconTargetArrow,
   IconTrophy,
   IconUsers,
 } from "@tabler/icons-react";
@@ -154,7 +153,6 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
 
   const { kpi, action_queue, funnel, alerts, recent } = data;
   const goEmp = (id: number) => navigate(`/admin/employees/${id}`);
-  const utilTone: Tone = kpi.utilization_pct >= 70 ? "success" : kpi.utilization_pct >= 40 ? "warning" : "danger";
   const funnelRows = [
     { key: "suggested", label: "Suggested", color: "bg-default-400" },
     { key: "pursuing", label: "Pursuing", color: "bg-primary-400" },
@@ -165,16 +163,15 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
   const funnelMax = Math.max(1, ...funnelRows.map((f) => funnel[f.key]));
 
   const totalActions =
-    action_queue.top_new_matches.length + action_queue.bench_stale.length + action_queue.stale_applied.length;
+    action_queue.top_new_matches.length + action_queue.stale_applied.length;
   const totalAlerts =
     alerts.parse_failed.length + alerts.high_score_unapplied.length + alerts.expiring_pursuing.length;
 
   return (
     <div className="space-y-5">
       {/* ---- KPI row ---- */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        <StatCard label="Bench utilization" value={`${kpi.utilization_pct}%`} hint="employees engaged" tone={utilTone} icon={<IconTargetArrow size={20} />} />
-        <StatCard label="On bench" value={kpi.bench_count} hint="need work" icon={<IconUsers size={20} />} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Employees" value={kpi.total_employees} hint="with a CV on file" icon={<IconUsers size={20} />} />
         <StatCard label="In progress" value={kpi.in_progress} hint="pursuing + applied" tone="primary" icon={<IconClockHour4 size={20} />} />
         <StatCard label="Accepted this week" value={kpi.won_this_week} hint={`${kpi.lost_this_week} rejected`} tone="success" icon={<IconTrophy size={20} />} />
         <StatCard label="New jobs (24h)" value={kpi.new_jobs_24h} hint={`${kpi.new_jobs_7d} in 7 days`} icon={<IconBriefcase size={20} />} />
@@ -202,20 +199,6 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
                 {action_queue.top_new_matches.map((e) => (
                   <ActionRow key={e.id} name={e.full_name} sub="new matching jobs — review and decide to apply" onClick={() => goEmp(e.id)}
                     chip={<Chip size="sm" color="primary" variant="flat">{e.new_count} new</Chip>} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {action_queue.bench_stale.length > 0 && (
-            <div>
-              <SectionTitle icon={<IconHourglassHigh size={15} />} count={action_queue.bench_stale.length}>
-                On bench, no opportunity yet
-              </SectionTitle>
-              <div className="space-y-0.5">
-                {action_queue.bench_stale.map((e) => (
-                  <ActionRow key={e.id} name={e.full_name} sub="no opportunity yet — proactively source a job" onClick={() => goEmp(e.id)}
-                    chip={<Chip size="sm" color="warning" variant="flat">{e.days_on_bench}d</Chip>} />
                 ))}
               </div>
             </div>

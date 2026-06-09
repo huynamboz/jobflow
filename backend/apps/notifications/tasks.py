@@ -23,7 +23,7 @@ User = get_user_model()
 
 def _build_digest_context(user) -> dict | None:
     """Gather content for one HR recipient. Returns None if nothing to send."""
-    from apps.employees.models import Employee, EmployeeJobMatch
+    from apps.employees.models import EmployeeJobMatch
 
     yesterday = timezone.now() - timedelta(days=1)
 
@@ -42,10 +42,12 @@ def _build_digest_context(user) -> dict | None:
         return None
 
     kpi = {
-        "bench": Employee.objects.filter(status="bench").count(),
-        "pursuing": Employee.objects.filter(status="pursuing").count(),
-        "placed_week": Employee.objects.filter(
-            status="placed", updated_at__gte=yesterday
+        "new_jobs": len(new_matches),
+        "applied": EmployeeJobMatch.objects.filter(
+            status="applied", updated_at__gte=yesterday
+        ).count(),
+        "accepted": EmployeeJobMatch.objects.filter(
+            status="won", updated_at__gte=yesterday
         ).count(),
     }
 

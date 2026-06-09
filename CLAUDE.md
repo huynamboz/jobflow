@@ -37,7 +37,7 @@ to crawled jobs with a GNN, and HR drives applications.
 - **ML** (`backend/ml_service/`): PyTorch + PyTorch-Geometric **HeteroGraphSAGE** GNN, `sentence-transformers` (all-MiniLM-L6-v2) embeddings, an MLP reranker. Two-stage retrieve→rerank in `ml_service/inference/`.
 - **LLM**: provider-agnostic `apps.llm.service.LLMService` (configurable providers in DB → admin "LLM Providers"; every call logged to `LLMCallLog` → admin "LLM Logs"). Used for **CV extraction** (`apps/cvs/services/llm_cv_extractor.py`, `LLMCVParser`) and JD extraction.
 - **Parsing/crawling**: pdfplumber (PDF), python-docx (DOCX); crawlers for Indeed (JobSpy), LinkedIn (Playwright), Adzuna, Remotive; Playwright job verifier.
-- **Key apps** (`backend/apps/`): `employees` (bench + matches, the active surface), `matching` (CV↔job engine + parse/match services), `jobs` (catalog + admin job CRUD), `cvs` (labeling dataset + LLM extractor), `skills`, `users`, `labeling`, `llm`, `schedule`, `notifications`, `admin_dashboard`.
+- **Key apps** (`backend/apps/`): `employees` (staff CVs + job matches, the active surface), `matching` (CV↔job engine + parse/match services), `jobs` (catalog + admin job CRUD), `cvs` (labeling dataset + LLM extractor), `skills`, `users`, `labeling`, `llm`, `schedule`, `notifications`, `admin_dashboard`.
 
 ## Frontend — `admin/` (React admin SPA)
 

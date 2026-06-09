@@ -5,8 +5,8 @@ from apps.employees.models import Employee, EmployeeJobMatch
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ("id", "full_name", "email", "position", "seniority", "status", "created_at")
-    list_filter = ("status", "seniority", "is_parse_failed")
+    list_display = ("id", "full_name", "email", "position", "seniority", "created_at")
+    list_filter = ("seniority", "is_parse_failed")
     search_fields = ("full_name", "email", "position")
     readonly_fields = ("parsed_at", "is_parse_failed", "created_at", "updated_at")
 

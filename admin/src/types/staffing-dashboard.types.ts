@@ -1,6 +1,5 @@
 export interface DashboardKpi {
-  utilization_pct: number;
-  bench_count: number;
+  total_employees: number;
   in_progress: number;
   won_this_week: number;
   lost_this_week: number;
@@ -14,12 +13,6 @@ export interface TopNewMatch {
   new_count: number;
 }
 
-export interface BenchStale {
-  id: number;
-  full_name: string;
-  days_on_bench: number;
-}
-
 export interface StaleApplied {
   match_id: number;
   employee_id: number;
@@ -30,7 +23,6 @@ export interface StaleApplied {
 
 export interface DashboardActionQueue {
   top_new_matches: TopNewMatch[];
-  bench_stale: BenchStale[];
   stale_applied: StaleApplied[];
 }
 

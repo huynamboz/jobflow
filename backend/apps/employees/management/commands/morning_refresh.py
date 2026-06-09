@@ -1,16 +1,15 @@
 """Morning refresh — the daily HR pipeline tick.
 
-1. Re-match every bench employee against the current job catalog (no CV
-   re-parse, no LLM) so freshly-crawled jobs flow into each employee's
-   suggested list. Upserts, so no duplicate jobs and HR pipeline status is
-   preserved.
+1. Re-match every employee (with parsed skills) against the current job
+   catalog (no CV re-parse, no LLM) so freshly-crawled jobs flow into each
+   employee's suggested list. Upserts, so no duplicate jobs and the job
+   pipeline status is preserved.
 2. Send the HR daily digest so recipients get "CV X has Y new jobs".
 
 Designed to be run once each morning (after the overnight crawl) by the
 schedule daemon or OS cron::
 
-    python manage.py morning_refresh                 # bench employees + digest
-    python manage.py morning_refresh --status all     # everyone with skills
+    python manage.py morning_refresh                 # everyone with skills + digest
     python manage.py morning_refresh --no-digest      # re-match only
 """
 
@@ -21,14 +20,9 @@ from django.utils import timezone
 
 
 class Command(BaseCommand):
-    help = "Daily morning refresh: re-match bench employees, then send the HR digest."
+    help = "Daily morning refresh: re-match all employees, then send the HR digest."
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--status",
-            default="bench",
-            help="Employee status to re-match (default 'bench'; 'all' = everyone with skills).",
-        )
         parser.add_argument("--no-digest", action="store_true", help="Skip the digest email step.")
 
     def handle(self, *args, **opts):
@@ -40,11 +34,9 @@ class Command(BaseCommand):
 
         # --- 1. Re-match -------------------------------------------------
         qs = Employee.objects.filter(is_parse_failed=False).exclude(skills=[])
-        if opts["status"] != "all":
-            qs = qs.filter(status=opts["status"])
 
         total = qs.count()
-        self.stdout.write(f"[1/2] Re-matching {total} employee(s) (status={opts['status']})…")
+        self.stdout.write(f"[1/2] Re-matching {total} employee(s)…")
         created_total = 0
         for emp in qs.iterator():
             res = _do_rematch(emp.id)

@@ -87,8 +87,7 @@ class EmployeeAuthorizationTests(APITestCase):
 
 
 class MatchTransitionTests(APITestCase):
-    """Shadow model (feature 014): match transitions never auto-change
-    Employee.status; the frontman stays on bench to apply again."""
+    """Application progress lives entirely on the job match (no employee status)."""
 
     @classmethod
     def setUpTestData(cls):
@@ -97,45 +96,20 @@ class MatchTransitionTests(APITestCase):
         )
         cls.platform = Platform.objects.create(name="LinkedIn", slug="linkedin")
         cls.job = Job.objects.create(platform=cls.platform, title="Job", description="...")
-        cls.emp = Employee.objects.create(full_name="Alice", status="bench")
+        cls.emp = Employee.objects.create(full_name="Alice")
         cls.match = EmployeeJobMatch.objects.create(
             employee=cls.emp, job=cls.job, status="suggested", match_score=0.8
         )
 
-    def test_won_does_not_place_employee(self):
-        # US4: winning a job records won_at but leaves the frontman on bench.
+    def test_won_stamps_won_at(self):
         resp = _auth_client(self.admin).patch(
             f"/api/admin/matches/{self.match.id}/",
             {"status": "won"},
             format="json",
         )
         self.assertEqual(resp.status_code, 200)
-        self.emp.refresh_from_db()
         self.match.refresh_from_db()
-        self.assertEqual(self.emp.status, "bench")
         self.assertIsNotNone(self.match.won_at)
-
-    def test_pursuing_does_not_change_employee_status(self):
-        # US4: Employee.status is fully manual now.
-        resp = _auth_client(self.admin).patch(
-            f"/api/admin/matches/{self.match.id}/",
-            {"status": "pursuing"},
-            format="json",
-        )
-        self.assertEqual(resp.status_code, 200)
-        self.emp.refresh_from_db()
-        self.assertEqual(self.emp.status, "bench")
-
-    def test_manual_status_change_allowed(self):
-        # US4/FR-011: HR can still mark an employee busy (placed) manually.
-        resp = _auth_client(self.admin).patch(
-            f"/api/admin/employees/{self.emp.id}/",
-            {"status": "placed"},
-            format="json",
-        )
-        self.assertEqual(resp.status_code, 200)
-        self.emp.refresh_from_db()
-        self.assertEqual(self.emp.status, "placed")
 
     def test_dismissed_hidden_from_list(self):
         self.match.status = "dismissed"
@@ -181,8 +155,8 @@ class DuplicateApplyGuardTests(APITestCase):
         )
         cls.platform = Platform.objects.create(name="LinkedIn", slug="linkedin")
         cls.job = Job.objects.create(platform=cls.platform, title="Job", description="...")
-        cls.emp1 = Employee.objects.create(full_name="Alice", status="bench")
-        cls.emp2 = Employee.objects.create(full_name="Bob", status="bench")
+        cls.emp1 = Employee.objects.create(full_name="Alice")
+        cls.emp2 = Employee.objects.create(full_name="Bob")
         cls.match1 = EmployeeJobMatch.objects.create(
             employee=cls.emp1, job=cls.job, status="applied", match_score=0.8
         )
@@ -214,7 +188,7 @@ class DuplicateApplyGuardTests(APITestCase):
 
     def test_first_apply_no_warning(self):
         # A job with no prior frontman applies cleanly.
-        emp3 = Employee.objects.create(full_name="Cara", status="bench")
+        emp3 = Employee.objects.create(full_name="Cara")
         platform2 = Platform.objects.create(name="Indeed", slug="indeed")
         job2 = Job.objects.create(platform=platform2, title="Other", description="...")
         match3 = EmployeeJobMatch.objects.create(
@@ -299,7 +273,7 @@ class RematchTests(APITestCase):
     def setUpTestData(cls):
         cls.platform = Platform.objects.create(name="LinkedIn", slug="linkedin")
         cls.job = Job.objects.create(platform=cls.platform, title="Backend", description="...", seniority=3)
-        cls.emp = Employee.objects.create(full_name="Alice", status="bench", seniority=2, skills=["python"])
+        cls.emp = Employee.objects.create(full_name="Alice", seniority=2, skills=["python"])
 
     def test_persist_preserves_status_on_existing(self):
         from apps.employees.tasks import _persist_matches
@@ -335,7 +309,7 @@ class RematchTests(APITestCase):
         from apps.employees import matching
 
         emp = Employee.objects.create(
-            full_name="Bob", status="bench", seniority=2, skills=["python", "django"],
+            full_name="Bob", seniority=2, skills=["python", "django"],
             cv_file=SimpleUploadedFile("cv.pdf", b"%PDF fake"),
         )
         fake = {"jobs": [{"job_id": self.job.id, "score": 0.7, "matched_skills": ["python"], "missing_skills": []}]}
@@ -357,7 +331,7 @@ class DashboardTests(APITestCase):
         )
         cls.platform = Platform.objects.create(name="LinkedIn", slug="linkedin")
         cls.job = Job.objects.create(platform=cls.platform, title="Job", description="...")
-        cls.bench = Employee.objects.create(full_name="BenchGuy", status="bench")
+        cls.bench = Employee.objects.create(full_name="BenchGuy")
         cls.broken = Employee.objects.create(full_name="Broken", is_parse_failed=True)
         EmployeeJobMatch.objects.create(
             employee=cls.bench, job=cls.job, status="suggested", match_score=0.9
@@ -403,6 +377,6 @@ class KpiTests(APITestCase):
         )
         resp = _auth_client(admin).get("/api/admin/pipeline/kpi/")
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("employees", resp.data["data"])
+        self.assertIn("total_employees", resp.data["data"])
         self.assertIn("matches_this_week", resp.data["data"])
         self.assertIn("top_employees_pursuing", resp.data["data"])

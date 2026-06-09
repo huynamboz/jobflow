@@ -60,10 +60,10 @@ export default function PipelinePage() {
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard label="On bench"      value={kpi?.employees?.bench ?? 0}      tone="default" />
-        <KpiCard label="Pursuing"      value={kpi?.employees?.pursuing ?? 0}   tone="primary" />
-        <KpiCard label="Applied (7d)"  value={kpi?.matches_this_week?.applied ?? 0} tone="secondary" />
-        <KpiCard label="Won (7d)"      value={kpi?.matches_this_week?.won ?? 0} tone="success" />
+        <KpiCard label="Employees"     value={kpi?.total_employees ?? 0}            tone="default" />
+        <KpiCard label="Pursuing (7d)" value={kpi?.matches_this_week?.pursuing ?? 0} tone="primary" />
+        <KpiCard label="Applied (7d)"  value={kpi?.matches_this_week?.applied ?? 0}  tone="secondary" />
+        <KpiCard label="Accepted (7d)" value={kpi?.matches_this_week?.won ?? 0}      tone="success" />
       </div>
 
       <Card>
