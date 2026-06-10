@@ -1,0 +1,8 @@
+{
+  "num_pairs": 22,
+  "num_chunks": 1,
+  "chunk_size": 22,
+  "buckets": {
+    "seniority_hard_neg": 22
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "num_pairs": 176,
+  "num_chunks": 8,
+  "chunk_size": 22,
+  "buckets": {
+    "random": 22,
+    "related_skill_positive": 22,
+    "seniority_hard_neg": 22,
+    "boundary_medium": 22,
+    "cross_domain_hard_neg": 22,
+    "high_overlap": 22,
+    "hard_negative": 22,
+    "missing_must_have": 22
+  }
+}
