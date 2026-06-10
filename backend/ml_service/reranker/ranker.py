@@ -287,12 +287,24 @@ class Reranker:
         path.mkdir(parents=True, exist_ok=True)
         if self._model is not None:
             torch.save(self._model.state_dict(), path / "reranker.pt")
+        # 023/3.6 (A14): stamp the hybrid weights present at TRAIN time — the
+        # stage1_score feature was computed with them. If serving weights ever
+        # differ, the reranker sees a distribution it never learned; the engine
+        # warns loudly on load.
+        trained_with = None
+        meta_path = path / "metadata.json"
+        if meta_path.exists():
+            try:
+                trained_with = json.loads(meta_path.read_text()).get("hybrid_weights")
+            except Exception:  # noqa: BLE001
+                pass
         with open(path / "reranker_meta.json", "w") as f:
             json.dump({
                 "trained": self._trained,
                 "input_dim": len(FeatureExtractor.FEATURE_NAMES),
                 "ordinal": self._ordinal,
                 "num_classes": 3 if self._ordinal else 1,
+                "trained_with_weights": trained_with,
             }, f)
         logger.info("Reranker saved to %s", path)
 

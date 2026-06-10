@@ -319,3 +319,16 @@ class JobPoolSnapshotTests(TestCase):
         with self.assertRaises(ValueError):
             job_pool_snapshot.save(self.dir, self._jobs(2), torch.randn(1, 8),
                                    np.random.rand(2, 384).astype("float32"), "sig-A")
+
+
+class RerankerWeightSyncTests(TestCase):
+    """023/3.6 (A14): reranker must be trained with the serving hybrid weights."""
+
+    def test_sync_detection(self):
+        from ml_service.inference.engine import InferenceEngine
+        w = {"alpha": 0.05, "beta": 0.35, "gamma": 0.2, "delta": 0.4}
+        ok = InferenceEngine._reranker_weights_in_sync
+        self.assertTrue(ok(w, dict(w)))
+        self.assertFalse(ok(w, {**w, "delta": 0.1}))     # tuned after training → stale
+        self.assertFalse(ok(w, None))                     # old checkpoint, no stamp → warn
+        self.assertFalse(ok(None, w))

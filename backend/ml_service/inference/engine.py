@@ -141,6 +141,7 @@ class InferenceEngine:
         # FIX 1: Load reranker + calibration from correct checkpoint dir
         if (self._checkpoint_dir / "reranker.pt").exists():
             self._reranker.load(self._checkpoint_dir)
+            self._warn_if_reranker_weights_stale()  # 023/3.6 (A14 guard)
         if (self._checkpoint_dir / "calibration.json").exists():
             self._calibrator.load(self._checkpoint_dir)
 
@@ -268,6 +269,39 @@ class InferenceEngine:
         ("data_ml", "data_eng"), ("data_eng", "data_ml"),
         ("mobile", "frontend"), ("frontend", "mobile"),
     }
+
+    @staticmethod
+    def _reranker_weights_in_sync(serving: dict | None, trained_with: dict | None,
+                                  tol: float = 1e-6) -> bool:
+        """023/3.6 (A14): the reranker's stage1_score feature was computed with
+        the weights active at TRAIN time — serving with different weights feeds
+        it a distribution it never learned. None trained_with (old checkpoints)
+        → unknown, treated as out-of-sync (warn)."""
+        if not trained_with or not serving:
+            return False
+        keys = ("alpha", "beta", "gamma", "delta")
+        return all(abs(float(serving.get(k, 0)) - float(trained_with.get(k, 0))) <= tol
+                   for k in keys)
+
+    def _warn_if_reranker_weights_stale(self) -> None:
+        import json as _json
+        meta_p = self._checkpoint_dir / "metadata.json"
+        rmeta_p = self._checkpoint_dir / "reranker_meta.json"
+        if not (meta_p.exists() and rmeta_p.exists()):
+            return
+        try:
+            serving = _json.loads(meta_p.read_text()).get("hybrid_weights")
+            trained_with = _json.loads(rmeta_p.read_text()).get("trained_with_weights")
+        except Exception:  # noqa: BLE001
+            return
+        if not self._reranker_weights_in_sync(serving, trained_with):
+            logger.warning(
+                "RERANKER WEIGHT SKEW (A14): reranker was trained with hybrid "
+                "weights %s but serving uses %s — its stage1_score feature is "
+                "off-distribution. Retrain the reranker after tuning weights "
+                "(train_reranker.py, ~5 min on the GPU server).",
+                trained_with, serving,
+            )
 
     @staticmethod
     def _role_domain_fit(cv_role: str, job: JobData) -> float:
