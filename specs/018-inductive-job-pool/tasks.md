@@ -19,7 +19,7 @@ description: "Task list — Inductive Live-Catalog Job Ranking"
 
 **Purpose**: Capture a regression baseline before touching the engine.
 
-- [ ] T001 Capture ranking baseline: script in `backend/` that runs `match_cv_data` for ~3 fixed employees against the CURRENT engine and saves their top-10 `(job_id, score)` to `specs/018-inductive-job-pool/baseline.json` (used by the SC-004 sanity-check in T011).
+- [x] T001 Capture ranking baseline: script in `backend/` that runs `match_cv_data` for ~3 fixed employees against the CURRENT engine and saves their top-10 `(job_id, score)` to `specs/018-inductive-job-pool/baseline.json` (used by the SC-004 sanity-check in T011).
 
 ---
 
@@ -29,12 +29,12 @@ description: "Task list — Inductive Live-Catalog Job Ranking"
 
 ⚠️ No user story can be completed until this phase is done.
 
-- [ ] T002 [P] Factor the 397-dim job-node feature recipe into a shared helper `build_job_node_features(jobs, embed)` in `backend/ml_service/graph/builder.py` (text emb[384] + minmax(salary_min)+minmax(salary_max) + role_onehot[11], `_ROLE_CATEGORIES` order preserved) and call it from `JobGraphBuilder.build()` — single source of truth.
-- [ ] T003 Add `_inductive_gnn_encode_jobs(jobs)` to `backend/ml_service/inference/engine.py` (mirror `_inductive_gnn_encode_cv`, batched): copy graph via `_strip_label_edges`, append job nodes using T002 helper, add `requires_skill` (attr=importance, skills in `skill_to_idx` only) + `requires_seniority` edges, `prepare_data_for_gnn` → one `model.encode()` → return new-job slice of `z_dict["job"]` + skipped-skill-edge count.
-- [ ] T004 Add `InferenceEngine.rebuild_job_pool(jobs)` to `backend/ml_service/inference/engine.py`: call T003, compute `job_text_vecs = self._embed.encode([j.text for j in jobs])`, then under `self._inductive_lock` atomically swap `self._jobs`, `self._job_embeddings`, `self._job_text_vecs`; return `RebuildReport{num_jobs, skill_skipped_edges, encode_seconds}`; raise on dim mismatch.
-- [ ] T005 [P] Create `backend/ml_service/inference/job_pool_snapshot.py` with `save(dir, jobs, embeddings, text_vecs, model_sig, skipped)` (atomic: write temp sibling dir → `os.replace`) and `load(dir, model_sig) -> (jobs, embeddings, text_vecs) | None` (validate length invariant + `model_sig`); files `jobs.json` (reuse `checkpoint._job_to_dict`), `job_embeddings.pt`, `job_text_vecs.npy`, `meta.json`.
-- [ ] T006 Add `build_jobdata_from_db()` to `backend/apps/matching/services/matching_service.py`: `Job` + `JobSkill` → `JobData` per `data-model.md` (job_id=`Job.id`, normalized skills + importances, seniority, salary_min/max, text=title+description, role_category); exclude jobs with no catalog-mappable skill.
-- [ ] T007 Create management command `backend/apps/matching/management/commands/rebuild_job_pool.py`: `build_jobdata_from_db()` → `_get_engine().rebuild_job_pool(jobs)` → `job_pool_snapshot.save(...)`; flags `--limit`, `--dry-run`, `--no-save`; print `built N, S skipped-edges, encode T s, snapshot=path`; non-zero exit on empty set / dim mismatch.
+- [x] T002 [P] Factor the 397-dim job-node feature recipe into a shared helper `build_job_node_features(jobs, embed)` in `backend/ml_service/graph/builder.py` (text emb[384] + minmax(salary_min)+minmax(salary_max) + role_onehot[11], `_ROLE_CATEGORIES` order preserved) and call it from `JobGraphBuilder.build()` — single source of truth.
+- [x] T003 Add `_inductive_gnn_encode_jobs(jobs)` to `backend/ml_service/inference/engine.py` (mirror `_inductive_gnn_encode_cv`, batched): copy graph via `_strip_label_edges`, append job nodes using T002 helper, add `requires_skill` (attr=importance, skills in `skill_to_idx` only) + `requires_seniority` edges, `prepare_data_for_gnn` → one `model.encode()` → return new-job slice of `z_dict["job"]` + skipped-skill-edge count.
+- [x] T004 Add `InferenceEngine.rebuild_job_pool(jobs)` to `backend/ml_service/inference/engine.py`: call T003, compute `job_text_vecs = self._embed.encode([j.text for j in jobs])`, then under `self._inductive_lock` atomically swap `self._jobs`, `self._job_embeddings`, `self._job_text_vecs`; return `RebuildReport{num_jobs, skill_skipped_edges, encode_seconds}`; raise on dim mismatch.
+- [x] T005 [P] Create `backend/ml_service/inference/job_pool_snapshot.py` with `save(dir, jobs, embeddings, text_vecs, model_sig, skipped)` (atomic: write temp sibling dir → `os.replace`) and `load(dir, model_sig) -> (jobs, embeddings, text_vecs) | None` (validate length invariant + `model_sig`); files `jobs.json` (reuse `checkpoint._job_to_dict`), `job_embeddings.pt`, `job_text_vecs.npy`, `meta.json`.
+- [x] T006 Add `build_jobdata_from_db()` to `backend/apps/matching/services/matching_service.py`: `Job` + `JobSkill` → `JobData` per `data-model.md` (job_id=`Job.id`, normalized skills + importances, seniority, salary_min/max, text=title+description, role_category); exclude jobs with no catalog-mappable skill.
+- [x] T007 Create management command `backend/apps/matching/management/commands/rebuild_job_pool.py`: `build_jobdata_from_db()` → `_get_engine().rebuild_job_pool(jobs)` → `job_pool_snapshot.save(...)`; flags `--limit`, `--dry-run`, `--no-save`; print `built N, S skipped-edges, encode T s, snapshot=path`; non-zero exit on empty set / dim mismatch.
 
 **Checkpoint**: `python manage.py rebuild_job_pool --limit 50 --dry-run` runs and reports counts.
 
@@ -46,11 +46,11 @@ description: "Task list — Inductive Live-Catalog Job Ranking"
 
 **Independent test**: Insert a post-checkpoint `Job` (with skills) → `rebuild_job_pool` → `rematch_employees --employee X` → the new job appears in X's matches with **0 skipped**.
 
-- [ ] T008 [US1] Update `_enrich` in `backend/apps/matching/services/matching_service.py` to read job metadata from `Job` by `Job.id` (title/company/location/salary/source_url) instead of `JDExtractionRecord`/`LabelingJob`.
-- [ ] T009 [US1] Update `_persist_matches` in `backend/apps/employees/tasks.py` to resolve the engine `job_id` directly to `Job` by primary key (new pool = `Job.id`); keep `update_or_create` idempotency + pipeline-status preservation.
-- [ ] T010 [US1] Wire `rebuild_job_pool` as step `[0]` in `backend/apps/employees/management/commands/morning_refresh.py` (before the re-match step); update help text + per-step logging.
-- [ ] T011 [US1] Sanity-check harness (R7/SC-004): script that re-runs the T001 sample on the rebuilt pool, diffs top-K vs `baseline.json` for already-covered jobs, and asserts overlap ≥ tolerance (e.g. ≥0.6); document the result. **Gate**: do not enable T010 in production until this passes.
-- [ ] T012 [US1] Integration verification: insert a synthetic post-checkpoint `Job`+`JobSkill` fitting a known employee → `rebuild_job_pool` → `rematch_employees --employee <ID>` → assert the new `Job.id` is in the stored matches and `matches_skipped == 0`.
+- [x] T008 [US1] Update `_enrich` in `backend/apps/matching/services/matching_service.py` to read job metadata from `Job` by `Job.id` (title/company/location/salary/source_url) instead of `JDExtractionRecord`/`LabelingJob`.
+- [x] T009 [US1] Update `_persist_matches` in `backend/apps/employees/tasks.py` to resolve the engine `job_id` directly to `Job` by primary key (new pool = `Job.id`); keep `update_or_create` idempotency + pipeline-status preservation.
+- [x] T010 [US1] Wire `rebuild_job_pool` as step `[0]` in `backend/apps/employees/management/commands/morning_refresh.py` (before the re-match step); update help text + per-step logging.
+- [x] T011 [US1] Sanity-check harness (R7/SC-004): script that re-runs the T001 sample on the rebuilt pool, diffs top-K vs `baseline.json` for already-covered jobs, and asserts overlap ≥ tolerance (e.g. ≥0.6); document the result. **Gate**: do not enable T010 in production until this passes.
+- [x] T012 [US1] Integration verification: insert a synthetic post-checkpoint `Job`+`JobSkill` fitting a known employee → `rebuild_job_pool` → `rematch_employees --employee <ID>` → assert the new `Job.id` is in the stored matches and `matches_skipped == 0`.
 
 **Checkpoint**: US1 independently delivers value via `morning_refresh` (digest shows genuinely new jobs) even if US2/US3 are not done.
 
@@ -62,9 +62,9 @@ description: "Task list — Inductive Live-Catalog Job Ranking"
 
 **Independent test**: With the server running, run `rebuild_job_pool` in another process → call match / "Refresh jobs" → the new pool is reflected without restarting the server.
 
-- [ ] T013 [US2] Modify `InferenceEngine.from_checkpoint` in `backend/ml_service/inference/engine.py` to load the job pool from the snapshot (override checkpoint jobs) when present and `model_sig` matches; else keep current frozen-checkpoint behaviour (backward compatible).
-- [ ] T014 [US2] Add snapshot mtime reload to `_get_engine()` in `backend/apps/matching/services/matching_service.py`: stat `checkpoints/job_pool/meta.json`; if newer than the loaded snapshot, reload the 3 pool structures into the existing engine under the engine lock (no full re-init).
-- [ ] T015 [US2] Verify realtime: start the server, `rebuild_job_pool` from a second shell, hit the match path (or employee "Refresh jobs"), assert the new pool size / a new job is served without restart.
+- [x] T013 [US2] Modify `InferenceEngine.from_checkpoint` in `backend/ml_service/inference/engine.py` to load the job pool from the snapshot (override checkpoint jobs) when present and `model_sig` matches; else keep current frozen-checkpoint behaviour (backward compatible).
+- [x] T014 [US2] Add snapshot mtime reload to `_get_engine()` in `backend/apps/matching/services/matching_service.py`: stat `checkpoints/job_pool/meta.json`; if newer than the loaded snapshot, reload the 3 pool structures into the existing engine under the engine lock (no full re-init).
+- [x] T015 [US2] Verify realtime: start the server, `rebuild_job_pool` from a second shell, hit the match path (or employee "Refresh jobs"), assert the new pool size / a new job is served without restart.
 
 ---
 
@@ -74,19 +74,19 @@ description: "Task list — Inductive Live-Catalog Job Ranking"
 
 **Independent test**: Re-match sample employees → every returned candidate resolves to a real `Job` and `matches_skipped == 0`.
 
-- [ ] T016 [US3] Remove the now-dead `source_url` resolution fallback in `_persist_matches` (`backend/apps/employees/tasks.py`) and drop `source_url` from `_jobs_to_dicts`/adapter output if unused after T008/T009.
-- [ ] T017 [US3] Confirm SC-002 across a sample (`rematch_employees`): assert `matches_skipped == 0`; remove the "engine job_id ≠ Job.id / skipped" gotcha from `CLAUDE.md`.
+- [x] T016 [US3] Remove the now-dead `source_url` resolution fallback in `_persist_matches` (`backend/apps/employees/tasks.py`) and drop `source_url` from `_jobs_to_dicts`/adapter output if unused after T008/T009.
+- [x] T017 [US3] Confirm SC-002 across a sample (`rematch_employees`): assert `matches_skipped == 0`; remove the "engine job_id ≠ Job.id / skipped" gotcha from `CLAUDE.md`.
 
 ---
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T018 [P] Django test: `build_jobdata_from_db` mapping (skills+importances aligned, text=title+description, role_category, salary) in `backend/apps/matching/tests.py`.
-- [ ] T019 [P] Test: `job_pool_snapshot` save→load roundtrip + length invariant + `model_sig` mismatch → `None` + atomic temp cleanup, in `backend/ml_service/inference/` test module.
-- [ ] T020 [P] Test: `_persist_matches` resolves by `Job.id` + preserves applied/accepted status (mock engine), in `backend/apps/employees/tests.py`.
-- [ ] T021 Observability: surface `num_jobs`, `skill_skipped_edges`, `encode_seconds` in the `rebuild_job_pool` summary + a log line in `morning_refresh`.
-- [ ] T022 [P] Docs: update `CLAUDE.md` gotchas (engine pool = live catalog via snapshot; realtime reload) and cross-check `quickstart.md` commands.
-- [ ] T023 Performance check (SC-005): time a full rebuild (~6.5k jobs); assert it fits the maintenance window; record the number in `quickstart.md`.
+- [x] T018 [P] Django test: `build_jobdata_from_db` mapping (skills+importances aligned, text=title+description, role_category, salary) in `backend/apps/matching/tests.py`.
+- [x] T019 [P] Test: `job_pool_snapshot` save→load roundtrip + length invariant + `model_sig` mismatch → `None` + atomic temp cleanup, in `backend/ml_service/inference/` test module.
+- [x] T020 [P] Test: `_persist_matches` resolves by `Job.id` + preserves applied/accepted status (mock engine), in `backend/apps/employees/tests.py`.
+- [x] T021 Observability: surface `num_jobs`, `skill_skipped_edges`, `encode_seconds` in the `rebuild_job_pool` summary + a log line in `morning_refresh`.
+- [x] T022 [P] Docs: update `CLAUDE.md` gotchas (engine pool = live catalog via snapshot; realtime reload) and cross-check `quickstart.md` commands.
+- [x] T023 Performance check (SC-005): time a full rebuild (~6.5k jobs); assert it fits the maintenance window; record the number in `quickstart.md`.
 
 ---
 

@@ -9,7 +9,11 @@ cd backend
 
 # full rebuild + write snapshot (checkpoints/job_pool/)
 .venv/bin/python manage.py rebuild_job_pool
-# → "built 6536 jobs, 0 skill-skipped edges, encode 4.2s, snapshot=checkpoints/job_pool"
+# → "Encoded pool: 6536 jobs, 10 skill-skipped edges, ~90s" + "Snapshot saved"
+# Measured (SC-005): full 6536-job rebuild ≈ 90s, dominated by sentence-embedding
+# the job texts; the GNN forward pass itself is ~1s. Well inside the overnight
+# maintenance window. (Future optimization: the job text is embedded twice — once
+# for node features, once for text vectors — reuse to ~halve it.)
 ```
 
 ## Verify a new job becomes rankable

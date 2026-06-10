@@ -68,5 +68,5 @@ cd admin && npm run build && npx tsc --noEmit
 ## Notes / gotchas
 
 - Employee CV parsing is **LLM-based** → needs a funded LLM provider active; failures surface in LLM Logs and as `is_parse_failed` on the employee.
-- The GNN engine's `job_id` is a `JDExtractionRecord` id, not always a `Job` id — the employee adapter only persists matches whose `job_id` resolves to a real `Job` (others skipped). Live employee matching is therefore partial until that mapping is reconciled.
+- **Job pool (feature 018)**: the GNN engine ranks against a job pool **rebuilt from the live `Job` catalog** (`job_id == Job.id`), persisted to an on-disk snapshot (`backend/checkpoints/job_pool/`, gitignored) that the live server hot-reloads on change (mtime). Rebuild it with `python manage.py rebuild_job_pool` (also run as step 1 of `morning_refresh`). New crawled jobs become rankable after a rebuild — no GNN retraining. The model weights + CV/skill/seniority graph stay frozen from `checkpoints/latest/`; only job nodes are re-encoded inductively. Matches now resolve 1:1 to `Job` (no more "skipped" gap). If no snapshot exists the engine falls back to the frozen checkpoint job pool (older JDExtractionRecord-id space, partial coverage).
 - After editing `tailwind.config.js` or the HeroUI theme, **restart Vite** (build-time, not HMR).
