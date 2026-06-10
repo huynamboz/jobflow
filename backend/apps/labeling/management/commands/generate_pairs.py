@@ -106,6 +106,13 @@ class Command(BaseCommand):
         parser.add_argument("--seed",           type=int,  default=42)
         parser.add_argument("--clear",          action="store_true")
         parser.add_argument("--dev-roles-only", action="store_true")
+        # Feature 022: decision-boundary bucket mode (master plan Đợt 1)
+        parser.add_argument("--buckets",    action="store_true",
+                            help="Generate the 022 decision-boundary buckets instead of legacy ratios.")
+        parser.add_argument("--per-cv-cap", type=int, default=30,
+                            help="[--buckets] max pairs per CV per bucket.")
+        parser.add_argument("--dry-run",    action="store_true",
+                            help="[--buckets] print the per-bucket plan, write nothing.")
 
     def handle(self, *args, **options):
         from apps.cvs.models import CV, CVSkill
@@ -147,7 +154,7 @@ class Command(BaseCommand):
 
         # rec_id → (title, role, seniority_str, exp_min, exp_max, skills, salary_min, salary_max, text)
         class _JobData:
-            __slots__ = ("rec_id", "title", "role", "seniority", "exp_min", "exp_max",
+            __slots__ = ("rec_id", "title", "role", "seniority", "sen_int", "exp_min", "exp_max",
                          "salary_min", "salary_max", "skills", "text")
 
         job_list: list[_JobData] = []
@@ -167,7 +174,8 @@ class Command(BaseCommand):
             jd.title      = (r.get("title") or "")[:200]
             jd.role       = _infer_role(jd.title, rec.combined_text or "")
             seniority_raw = r.get("seniority")
-            jd.seniority  = SENIORITY_LABELS.get(seniority_raw if isinstance(seniority_raw, int) else 2, "MID")
+            jd.sen_int    = seniority_raw if isinstance(seniority_raw, int) else 2
+            jd.seniority  = SENIORITY_LABELS.get(jd.sen_int, "MID")
             jd.exp_min    = float(r.get("experience_min") or 0)
             exp_max_raw   = r.get("experience_max")
             jd.exp_max    = float(exp_max_raw) if exp_max_raw is not None else None
@@ -222,6 +230,30 @@ class Command(BaseCommand):
                 ),
             )
             job_objs[jd.rec_id] = obj
+
+        # ── Feature 022: decision-boundary bucket mode ───────────────────────
+        if options["buckets"]:
+            existing = set(PairQueue.objects.values_list("cv__cv_id", "job__job_id"))
+            split_assigned = self._bucket_pairs(
+                options, cvs, cv_skill_sets, job_list, job_skill_sets, existing,
+            )
+            if options["dry_run"]:
+                self.stdout.write(self.style.WARNING("--dry-run: nothing written."))
+                return
+            self.stdout.write("Inserting PairQueue (buckets)...")
+            to_create = [
+                PairQueue(
+                    cv=cv_objs[cv_id], job=job_objs[job_id],
+                    skill_overlap_score=round(overlap, 4),
+                    selection_reason=reason, priority=REASON_PRIORITY[reason],
+                    split=split,
+                )
+                for cv_id, job_id, overlap, reason, split in split_assigned
+                if (cv_id, job_id) not in existing
+            ]
+            PairQueue.objects.bulk_create(to_create, batch_size=500, ignore_conflicts=True)
+            self.stdout.write(self.style.SUCCESS(f"Created {len(to_create):,} bucket pairs."))
+            return
 
         # ── Compute overlaps + bucket ─────────────────────────────────────────
         # Compatible pairs (HIGH/MEDIUM/HARD_NEG) are collected WITHOUT a per-CV
@@ -329,3 +361,135 @@ class Command(BaseCommand):
             f"{PairQueue.objects.filter(split='val').count():,} val / "
             f"{PairQueue.objects.filter(split='test').count():,} test)"
         ))
+
+    # ── Feature 022: decision-boundary buckets ────────────────────────────────
+    def _build_expansion_map(self, all_names: list[str]) -> dict[str, set[str]]:
+        """name → related names, via SKILL_CLUSTERS co-membership + semantic
+        similarity (cosine ≥ 0.7 on the embedding provider, max 5/skill)."""
+        from ml_service.data.skill_taxonomy import SKILL_CLUSTERS
+
+        expand: dict[str, set[str]] = {n: set() for n in all_names}
+        name_set = set(all_names)
+        for members in SKILL_CLUSTERS.values():
+            present = [m for m in members if m in name_set]
+            for m in present:
+                expand[m].update(x for x in present if x != m)
+
+        try:
+            import numpy as np
+            from ml_service.embedding import get_provider
+            vecs = get_provider().encode(all_names)
+            sims = vecs @ vecs.T
+            for i, n in enumerate(all_names):
+                order = np.argsort(-sims[i])
+                added = 0
+                for j in order:
+                    if j == i or added >= 5:
+                        continue
+                    if sims[i, j] < 0.70:
+                        break
+                    expand[n].add(all_names[j])
+                    added += 1
+        except Exception as e:  # noqa: BLE001 — clusters alone still useful
+            self.stdout.write(self.style.WARNING(f"semantic expansion skipped: {e}"))
+        return expand
+
+    def _bucket_pairs(self, options, cvs, cv_skill_sets, job_list, job_skill_sets, existing):
+        """Return [(cv_id, job_id, overlap, reason, split)] for the 022 buckets."""
+        from apps.labeling.models import SelectionReason as SR
+
+        n_pairs = options["n_pairs"]
+        cap     = options["per_cv_cap"]
+        quotas = {
+            SR.CROSS_DOMAIN_HARD_NEG:  int(n_pairs * 0.32),
+            SR.RELATED_SKILL_POSITIVE: int(n_pairs * 0.20),
+            SR.SENIORITY_HARD_NEG:     int(n_pairs * 0.13),
+            SR.MISSING_MUST_HAVE:      int(n_pairs * 0.10),
+            SR.BOUNDARY_MEDIUM:        int(n_pairs * 0.15),
+            SR.HIGH_OVERLAP:           int(n_pairs * 0.05),  # positive top-up
+            SR.RANDOM:                 int(n_pairs * 0.05),  # scale anchor
+        }
+
+        self.stdout.write("Building skill expansion map (clusters + semantic)...")
+        all_names = sorted({s for ss in cv_skill_sets.values() for s in ss}
+                           | {s for ss in job_skill_sets.values() for s in ss})
+        expand = self._build_expansion_map(all_names)
+
+        must_have_map = {  # job → required (importance ≥ 4) skill names
+            jd.rec_id: {(s.get("name") or "").lower() for s in jd.skills
+                        if (s.get("importance") or 3) >= 4}
+            for jd in job_list
+        }
+
+        self.stdout.write("Scanning CV×job space for bucket candidates...")
+        cands: dict[str, list[tuple]] = {r: [] for r in quotas}
+        for cv in cvs:
+            cv_skills = cv_skill_sets[cv.id]
+            cv_role   = cv.role_category or "other"
+            cv_sen    = int(cv.seniority)
+            expanded  = set(cv_skills)
+            for s in cv_skills:
+                expanded |= expand.get(s, set())
+
+            for jd in job_list:
+                if (cv.id, jd.rec_id) in existing:
+                    continue
+                job_skills = job_skill_sets[jd.rec_id]
+                j          = _jaccard(cv_skills, job_skills)
+                same       = cv_role == jd.role
+                compatible = _same_or_related(cv_role, jd.role)
+                dsen       = abs(cv_sen - jd.sen_int)
+
+                if j >= 0.15 and not compatible:
+                    cands[SR.CROSS_DOMAIN_HARD_NEG].append((cv.id, jd.rec_id, j, cv_role))
+                elif same and j < 0.15 and dsen <= 1 and job_skills:
+                    exp_cov = len(expanded & job_skills) / len(job_skills)
+                    if exp_cov >= 0.5:
+                        cands[SR.RELATED_SKILL_POSITIVE].append((cv.id, jd.rec_id, j, cv_role))
+                elif same and j >= 0.2 and dsen >= 2:
+                    cands[SR.SENIORITY_HARD_NEG].append((cv.id, jd.rec_id, j, cv_role))
+                elif same and 0.15 <= j < 0.5 and len(must_have_map[jd.rec_id] - cv_skills) >= 2:
+                    cands[SR.MISSING_MUST_HAVE].append((cv.id, jd.rec_id, j, cv_role))
+                elif compatible and 0.08 <= j < 0.2:
+                    cands[SR.BOUNDARY_MEDIUM].append((cv.id, jd.rec_id, j, cv_role))
+                elif same and j >= 0.25 and dsen <= 1:
+                    cands[SR.HIGH_OVERLAP].append((cv.id, jd.rec_id, j, cv_role))
+                elif not compatible and j < 0.05:
+                    cands[SR.RANDOM].append((cv.id, jd.rec_id, j, cv_role))
+
+        # Sample: role round-robin + per-CV cap → quota; split stratified per bucket
+        out: list[tuple] = []
+        self.stdout.write(f"{'bucket':26} {'cands':>8} {'quota':>6} {'taken':>6} shortfall")
+        for reason, quota in quotas.items():
+            pool = cands[reason]
+            random.shuffle(pool)
+            by_role: dict[str, list] = defaultdict(list)
+            for item in pool:
+                by_role[item[3]].append(item)
+            taken, per_cv = [], defaultdict(int)
+            role_lists = list(by_role.values())
+            i = 0
+            while len(taken) < quota and any(role_lists):
+                lst = role_lists[i % len(role_lists)]
+                i += 1
+                while lst:
+                    cv_id, job_id, j, _role = lst.pop()
+                    if per_cv[(reason, cv_id)] >= cap:
+                        continue
+                    per_cv[(reason, cv_id)] += 1
+                    taken.append((cv_id, job_id, j))
+                    break
+                role_lists = [l for l in role_lists if l]
+                if not role_lists:
+                    break
+            shortfall = quota - len(taken)
+            self.stdout.write(f"{reason:26} {len(pool):>8,} {quota:>6} {len(taken):>6} "
+                              f"{shortfall if shortfall > 0 else '-'}")
+            random.shuffle(taken)
+            n = len(taken)
+            for k, (cv_id, job_id, j) in enumerate(taken):
+                split = "train" if k < n * 0.70 else ("val" if k < n * 0.85 else "test")
+                out.append((cv_id, job_id, j, reason, split))
+
+        self.stdout.write(f"Total bucket pairs: {len(out):,}")
+        return out

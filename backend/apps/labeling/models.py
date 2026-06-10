@@ -73,6 +73,12 @@ class SelectionReason(models.TextChoices):
     HIGH_OVERLAP   = "high_overlap",   "High Overlap"
     HARD_NEGATIVE  = "hard_negative",  "Hard Negative"
     RANDOM         = "random",         "Random"
+    # Feature 022: decision-boundary buckets (master plan Đợt 1)
+    CROSS_DOMAIN_HARD_NEG  = "cross_domain_hard_neg",  "Cross-Domain Hard Negative"
+    RELATED_SKILL_POSITIVE = "related_skill_positive", "Related-Skill Positive"
+    SENIORITY_HARD_NEG     = "seniority_hard_neg",     "Seniority Hard Negative"
+    MISSING_MUST_HAVE      = "missing_must_have",      "Missing Must-Have"
+    BOUNDARY_MEDIUM        = "boundary_medium",        "Boundary Medium"
 
 
 class PairStatus(models.TextChoices):
@@ -86,6 +92,12 @@ REASON_PRIORITY = {
     SelectionReason.HIGH_OVERLAP:   2,
     SelectionReason.HARD_NEGATIVE:  3,
     SelectionReason.RANDOM:         4,
+    # 022 buckets: label before RANDOM-era leftovers, after the legacy core
+    SelectionReason.CROSS_DOMAIN_HARD_NEG:  5,
+    SelectionReason.RELATED_SKILL_POSITIVE: 6,
+    SelectionReason.SENIORITY_HARD_NEG:     7,
+    SelectionReason.MISSING_MUST_HAVE:      8,
+    SelectionReason.BOUNDARY_MEDIUM:        9,
 }
 
 
