@@ -37,6 +37,25 @@ class BuildJobDataTests(TestCase):
         self.assertEqual(int(jd.seniority), 3)
         self.assertEqual(jd.role_category, "backend")
 
+    def test_carries_experience_fields(self):
+        # 021/A1: experience_min/max must reach JobData or the experience gate
+        # and experience_fit are silent no-ops on the live pool.
+        from apps.jobs.models import Job, JobSkill
+        from apps.matching.services.matching_service import build_jobdata_from_db
+
+        job = Job.objects.create(
+            title="Senior DevOps", description="K8s", seniority=3,
+            experience_min=5.0, experience_max=8.0, is_active=True,
+        )
+        JobSkill.objects.create(job=job, skill=self._skill("kubernetes"), importance=5)
+        none_job = Job.objects.create(title="Intern", description="x", is_active=True)
+        JobSkill.objects.create(job=none_job, skill=self._skill("excel"), importance=3)
+
+        by_id = {jd.job_id: jd for jd in build_jobdata_from_db()}
+        self.assertEqual(by_id[job.id].experience_min, 5.0)
+        self.assertEqual(by_id[job.id].experience_max, 8.0)
+        self.assertEqual(by_id[none_job.id].experience_min, 0.0)  # null → neutral
+
     def test_excludes_skill_less_and_inactive(self):
         from apps.jobs.models import Job, JobSkill
         from apps.matching.services.matching_service import build_jobdata_from_db
@@ -48,6 +67,37 @@ class BuildJobDataTests(TestCase):
         ids = {jd.job_id for jd in build_jobdata_from_db()}
         self.assertNotIn(no_skill.id, ids)   # no skills → excluded
         self.assertNotIn(inactive.id, ids)   # inactive → excluded
+
+
+class GraphConflictGuardTests(TestCase):
+    """021/A2: GraphBuilder must refuse a pair labeled both match and no_match."""
+
+    class _FakeEmbed:
+        dim = 384
+        def encode(self, texts):
+            return np.zeros((len(texts), 384), dtype=np.float32)
+
+    def _build(self, pairs):
+        from ml_service.graph.builder import GraphBuilder
+        from ml_service.graph.schema import (CVData, EducationLevel, JobData,
+                                             LabeledPair, SeniorityLevel, SkillCategory)
+        cvs = [CVData(cv_id=1, seniority=SeniorityLevel(2), experience_years=3.0,
+                      education=EducationLevel(2), skills=("python",),
+                      skill_proficiencies=(3,), text="dev")]
+        jobs = [JobData(job_id=10, seniority=SeniorityLevel(2), skills=("python",),
+                        skill_importances=(4,), salary_min=0, salary_max=0, text="job")]
+        catalog = {"python": SkillCategory.TECHNICAL}
+        lp = [LabeledPair(cv_id=p[0], job_id=p[1], label=p[2]) for p in pairs]
+        return GraphBuilder(self._FakeEmbed()).build(cvs, jobs, catalog, lp)
+
+    def test_conflicting_pair_raises(self):
+        with self.assertRaises(ValueError):
+            self._build([(1, 10, 1), (1, 10, 0)])  # same pair, both labels
+
+    def test_clean_pairs_build_fine(self):
+        data = self._build([(1, 10, 1)])
+        self.assertEqual(data["cv", "match", "job"].edge_index.shape[1], 1)
+        self.assertEqual(data["cv", "no_match", "job"].edge_index.shape[1], 0)
 
 
 class DomainAwareTests(TestCase):

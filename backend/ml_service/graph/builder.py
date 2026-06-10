@@ -207,19 +207,33 @@ class GraphBuilder:
             )
 
         # --- match / no_match label edges: CV -> Job ---
+        # 021/A2 guard: a (cv, job) pair carrying BOTH labels would feed the
+        # trainer self-contradictory gradients — fail loudly instead of silently
+        # building a corrupted graph. (Export-side dedup must run upstream.)
         match_src, match_dst = [], []
         nomatch_src, nomatch_dst = [], []
+        seen_label: dict[tuple[int, int], int] = {}
+        conflicts: set[tuple[int, int]] = set()
         for pair in pairs:
             cv_idx = cv_id_to_idx.get(pair.cv_id)
             job_idx = job_id_to_idx.get(pair.job_id)
             if cv_idx is None or job_idx is None:
                 continue
+            key = (cv_idx, job_idx)
+            prev = seen_label.setdefault(key, pair.label)
+            if prev != pair.label:
+                conflicts.add(key)
             if pair.label == 1:
                 match_src.append(cv_idx)
                 match_dst.append(job_idx)
             else:
                 nomatch_src.append(cv_idx)
                 nomatch_dst.append(job_idx)
+        if conflicts:
+            raise ValueError(
+                f"{len(conflicts)} (cv, job) pairs carry BOTH match and no_match "
+                f"labels — dedup labels before building the graph (021/A2)."
+            )
 
         data["cv", "match", "job"].edge_index = torch.tensor(
             [match_src, match_dst], dtype=torch.long

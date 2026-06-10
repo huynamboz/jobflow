@@ -157,6 +157,21 @@ def main(output_dir: Path, min_cv_skills: int, min_job_skills: int, batch_ids: l
         human_labels = human_labels.filter(batch_id__in=batch_ids)
         print(f"  (filtered to batch(es): {batch_ids})")
 
+    # 021/A2: a pair can carry multiple labels across batches (re-labeling),
+    # sometimes CONTRADICTORY. Keep exactly ONE per pair — the LATEST judgment
+    # wins (created_at desc, id desc). Without this the graph receives both
+    # match AND no_match edges for the same pair.
+    latest_per_pair = {}
+    num_input_labels = 0
+    for hl in human_labels.order_by("pair_id", "-created_at", "-id"):
+        num_input_labels += 1
+        if hl.pair_id not in latest_per_pair:
+            latest_per_pair[hl.pair_id] = hl
+    num_dropped_duplicates = num_input_labels - len(latest_per_pair)
+    print(f"  dedup: {num_input_labels} labels → {len(latest_per_pair)} pairs "
+          f"({num_dropped_duplicates} duplicates dropped, latest wins)")
+    human_labels = list(latest_per_pair.values())
+
     split_counts = {"train": 0, "val": 0, "test": 0}
     label_counts = {0: 0, 1: 0}
 
@@ -208,6 +223,8 @@ def main(output_dir: Path, min_cv_skills: int, min_job_skills: int, batch_ids: l
         "min_cv_skills":  min_cv_skills,
         "min_job_skills": min_job_skills,
         "batch_ids": batch_ids or "all",
+        "dedup": "latest_per_pair",  # 021/A2
+        "num_dropped_duplicates": num_dropped_duplicates,
     }
 
     # ── Write files ───────────────────────────────────────────────────────────

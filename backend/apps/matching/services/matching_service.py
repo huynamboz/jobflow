@@ -291,6 +291,10 @@ def build_jobdata_from_db(limit: int | None = None):
                 salary_min=int(job.salary_min or 0),
                 salary_max=int(job.salary_max or 0),
                 text=text,
+                # 021/A1: without these the experience gate + experience_fit were
+                # silent no-ops on the whole live pool.
+                experience_min=float(job.experience_min or 0.0),
+                experience_max=float(job.experience_max) if job.experience_max is not None else None,
                 role_category=(job.role_category or "").lower(),
             )
         )
