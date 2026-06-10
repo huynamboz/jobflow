@@ -77,6 +77,12 @@ Use this exact mapping — do NOT interpret beyond it:
 - 1 (related domain): fullstack↔backend, fullstack↔frontend, data_ml↔data_eng, mobile↔frontend, other↔other
 - 0 (different domain): everything else — including devops↔backend, devops↔frontend, backend↔data_ml, qa↔backend, design↔frontend, etc.
 
+**Xử lý role = "other" (tag thiếu/hỏng)**: nếu CV (hoặc job) có role="other", hãy SUY RA
+domain thực từ skills + text của nó trước (frontend/backend/mobile/...), rồi mới áp bảng
+với role đã suy ra. Tag "other" là metadata thiếu, không phải bằng chứng khác-nghề.
+Chỉ khi nội dung cũng không xác định được nghề → giữ other (other↔other=1, other↔X=0).
+
+
 **overall** — Final holistic assessment applying these hard rules:
 - If skill_fit = 0 → overall = 0 (cannot pass screening without core skills)
 - If domain_fit = 0 → overall = 0 (a different technical field is not a placement

@@ -27,6 +27,12 @@ Apply the rules below MECHANICALLY — they override any intuition.
 - 1 (related): fullstack↔backend, fullstack↔frontend, data_ml↔data_eng, mobile↔frontend, other↔other
 - 0: mọi cặp khác (devops↔backend, backend↔data_ml, qa↔backend, design↔frontend, …)
 
+**Xử lý role = "other" (tag thiếu/hỏng)**: nếu CV (hoặc job) có role="other", hãy SUY RA
+domain thực từ skills + text của nó trước (frontend/backend/mobile/...), rồi mới áp bảng
+với role đã suy ra. Tag "other" là metadata thiếu, không phải bằng chứng khác-nghề.
+Chỉ khi nội dung cũng không xác định được nghề → giữ other (other↔other=1, other↔X=0).
+
+
 **overall** — rule cứng theo thứ tự:
 1. skill_fit = 0 → overall = 0
 2. **domain_fit = 0 → overall = 0** (khác lĩnh vực không phải match, BẤT KỂ skill —
