@@ -1,13 +1,16 @@
 <!-- SPECKIT START -->
-Active feature plan: [specs/014-employee-shadow-enhance/plan.md](specs/014-employee-shadow-enhance/plan.md)
+Active feature plan: [specs/018-inductive-job-pool/plan.md](specs/018-inductive-job-pool/plan.md)
 
 Related artifacts:
-- [spec.md](specs/014-employee-shadow-enhance/spec.md)
-- [research.md](specs/014-employee-shadow-enhance/research.md)
-- [data-model.md](specs/014-employee-shadow-enhance/data-model.md)
-- [contracts/api-changes.md](specs/014-employee-shadow-enhance/contracts/api-changes.md)
-- [quickstart.md](specs/014-employee-shadow-enhance/quickstart.md)
-- [checklists/requirements.md](specs/014-employee-shadow-enhance/checklists/requirements.md)
+- [spec.md](specs/018-inductive-job-pool/spec.md)
+- [research.md](specs/018-inductive-job-pool/research.md)
+- [data-model.md](specs/018-inductive-job-pool/data-model.md)
+- [contracts/engine-api.md](specs/018-inductive-job-pool/contracts/engine-api.md)
+- [contracts/cli.md](specs/018-inductive-job-pool/contracts/cli.md)
+- [quickstart.md](specs/018-inductive-job-pool/quickstart.md)
+- [checklists/requirements.md](specs/018-inductive-job-pool/checklists/requirements.md)
+
+Previous active plan: [specs/014-employee-shadow-enhance/plan.md](specs/014-employee-shadow-enhance/plan.md)
 
 Previous features (still in this branch's history):
 - [specs/013-thesis-report/plan.md](specs/013-thesis-report/plan.md) (Thesis report — Vietnamese academic doc)
