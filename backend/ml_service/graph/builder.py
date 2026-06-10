@@ -39,15 +39,22 @@ _ROLE_TO_IDX = {r: i for i, r in enumerate(ROLE_CATEGORIES)}
 JOB_NODE_FEATURE_DIM = 384 + 2 + len(ROLE_CATEGORIES)
 
 
-def build_job_node_features(jobs: list[JobData], embed: EmbeddingProvider) -> np.ndarray:
+def build_job_node_features(
+    jobs: list[JobData],
+    embed: EmbeddingProvider,
+    *,
+    text_emb: np.ndarray | None = None,
+) -> np.ndarray:
     """397-dim job-node feature matrix — the single source of truth shared by the
     training graph build and the inference-time inductive job encoder.
 
     Layout: [ sentence_embed(text)[384] | minmax(salary_min) | minmax(salary_max)
               | role_onehot[11] ]. Salary min-max is over the given `jobs` set
-    (self-consistent for a full rebuild, matching the original build semantics)."""
-    job_texts = [job.text for job in jobs]
-    job_embeddings = embed.encode(job_texts)  # (N, 384)
+    (self-consistent for a full rebuild, matching the original build semantics).
+
+    Pass ``text_emb`` (pre-computed sentence embeddings, [N, 384]) to avoid
+    re-embedding the job texts when the caller already has them."""
+    job_embeddings = text_emb if text_emb is not None else embed.encode([job.text for job in jobs])  # (N, 384)
     sal_min = np.array([float(job.salary_min) for job in jobs], dtype=np.float32)
     sal_max = np.array([float(job.salary_max) for job in jobs], dtype=np.float32)
     role_onehot = np.zeros((len(jobs), len(ROLE_CATEGORIES)), dtype=np.float32)

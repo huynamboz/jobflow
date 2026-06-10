@@ -9,11 +9,10 @@ cd backend
 
 # full rebuild + write snapshot (checkpoints/job_pool/)
 .venv/bin/python manage.py rebuild_job_pool
-# → "Encoded pool: 6536 jobs, 10 skill-skipped edges, ~90s" + "Snapshot saved"
-# Measured (SC-005): full 6536-job rebuild ≈ 90s, dominated by sentence-embedding
-# the job texts; the GNN forward pass itself is ~1s. Well inside the overnight
-# maintenance window. (Future optimization: the job text is embedded twice — once
-# for node features, once for text vectors — reuse to ~halve it.)
+# → "Encoded pool: 6536 jobs, 10 skill-skipped edges, ~61s" + "Snapshot saved"
+# Measured (SC-005): full 6536-job rebuild ≈ 61s (after the one-embed-pass
+# optimization; was ~90s), dominated by sentence-embedding the job texts; the GNN
+# forward pass itself is ~1s. Well inside the overnight maintenance window.
 ```
 
 ## Verify a new job becomes rankable
@@ -30,11 +29,27 @@ cd backend
 
 ## Ranking sanity-check (regression gate)
 
+The id space changes (JDExtractionRecord-id → Job.id) and the job pool itself
+changes on rebuild, so a raw top-K **id/url overlap** vs the old baseline is
+confounded (different jobs available) — measured 2–4/10, NOT a quality signal.
+
+The defensible gate is **skill relevance** of the new top-K: every top job should
+share ≥1 skill with the CV. Run for a fixed sample and require ≥80% relevant:
+
 ```bash
-# fixed CV sample: compare top-K vs the current engine on already-covered jobs.
-# Use the test-ranking skill, or a small script that runs match_cv_data for a few
-# employees and diffs the top-10 Job ids. Require top-K overlap >= tolerance (SC-004)
-# BEFORE enabling the wired morning_refresh step in production.
+cd backend
+.venv/bin/python -c "
+import django,os; os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings'); django.setup()
+from apps.employees.models import Employee
+from apps.matching.services.matching_service import match_cv_data
+for eid in (18, 20):
+    e = Employee.objects.get(pk=eid)
+    res = match_cv_data(skills=list(e.skills), seniority=int(e.seniority),
+                        experience_years=float(e.experience_years or 0), top_k=10)
+    rel = sum(1 for j in res['jobs'] if j.get('matched_skills'))
+    print(f'emp{eid}: {rel}/{len(res[\"jobs\"])} skill-relevant')
+"
+# Measured: emp18 10/10, emp20 10/10 (Vue dev → frontend roles). Gate: >=80%.
 ```
 
 ## Daily automation (after gate passes)
