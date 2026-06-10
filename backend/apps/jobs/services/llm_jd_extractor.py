@@ -71,6 +71,16 @@ def _safe_float(val, default: float = 0.0) -> float:
     except (TypeError, ValueError):
         return default
 
+def _years_to_seniority(years: float) -> int:
+    """Map minimum experience years → seniority level (mirrors the prompt scale)."""
+    if years < 0.5: return 0
+    if years < 2:   return 1
+    if years < 5:   return 2
+    if years < 8:   return 3
+    if years < 12:  return 4
+    return 5
+
+
 
 def extract(raw_text: str) -> JDExtractResult:
     """Call LLM to extract structured fields from raw job description text."""
@@ -100,7 +110,20 @@ def extract(raw_text: str) -> JDExtractResult:
         logger.warning("LLM returned non-JSON response: %.200s", response)
         return JDExtractResult()
 
-    seniority = max(0, min(5, _safe_int(data.get("seniority"), 2)))
+    # 023/3.3 (A12): "unknown" is now distinguishable — the prompt returns null
+    # when the posting gives no signal. Infer from experience_min before falling
+    # back to MID (the old blanket default put 46% of the catalog at MID).
+    seniority_raw = data.get("seniority")
+    experience_min_early = _safe_float(data.get("experience_min"), 0.0)
+    if seniority_raw is None:
+        if experience_min_early > 0:
+            seniority = _years_to_seniority(experience_min_early)
+        else:
+            seniority = 2  # last-resort default, now rare
+            logger.info("seniority unknown (no signal) — defaulted MID: %.80s",
+                        str(data.get("title") or ""))
+    else:
+        seniority = max(0, min(5, _safe_int(seniority_raw, 2)))
     degree_requirement = max(0, min(5, _safe_int(data.get("degree_requirement"), 0)))
 
     salary_min = _safe_int(data.get("salary_min"), 0)
@@ -125,6 +148,15 @@ def extract(raw_text: str) -> JDExtractResult:
         is_remote = True
 
     experience_min = _safe_float(data.get("experience_min"), 0.0)
+    # 023/3.3 (A13): cross-check — seniority contradicting stated experience by
+    # 2+ levels is an extraction smell worth surfacing.
+    if experience_min > 0:
+        implied = _years_to_seniority(experience_min)
+        if abs(seniority - implied) >= 2:
+            logger.warning(
+                "seniority/experience mismatch: seniority=%d but experience_min=%.1fy "
+                "(implies %d) — title: %.80s",
+                seniority, experience_min, implied, str(data.get("title") or ""))
     exp_max_raw = data.get("experience_max")
     experience_max = _safe_float(exp_max_raw) if exp_max_raw is not None else None
 

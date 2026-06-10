@@ -89,8 +89,8 @@
 ## ĐỢT 3 — Data-ops nền (song song/sau, không chặn)
 
 - [x] **3.1 (A8)** Label `role_category` cho 2.198 job thiếu (chạy lại JD extraction hoặc batch riêng) → δ·domain + role-metric phủ đủ pool.
-- [ ] **3.2 (A11)** Schema extraction importance rõ ([REQUIRED]/[PREFERRED]) + validate skill với catalog + **đếm/log skill bị drop**.
-- [ ] **3.3 (A12/A13)** Extraction seniority/experience: phân biệt "không xác định" với default MID; cross-check seniority vs years.
+- [x] **3.2 (A11)** Schema extraction importance rõ ([REQUIRED]/[PREFERRED]) + validate skill với catalog + **đếm/log skill bị drop**.
+- [x] **3.3 (A12/A13)** Extraction seniority/experience: phân biệt "không xác định" với default MID; cross-check seniority vs years.
 - [ ] **3.4 (A16)** Cân nhắc embedding đa ngữ (paraphrase-multilingual-MiniLM) cho 7% job tiếng Việt — **cần retrain**, gộp vào lần retrain sau.
 - [x] **3.5** Đồng bộ taxonomy role giữa `role_classifier.infer_role` ↔ `ROLE_CATEGORIES` (1 nguồn duy nhất).
 - [x] **3.6 (A14)** Sau mỗi lần đổi hybrid weights → retrain reranker (tránh distribution skew stage1_score).

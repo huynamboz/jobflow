@@ -158,6 +158,7 @@ class Command(BaseCommand):
         self.stdout.write(
             f"  matched={matched}, skipped(no url match)={skipped}, updated={updated}"
         )
+        self._report_dropped_skills()
         no_url_count = JDExtractionRecord.objects.filter(
             status=JDExtractionRecord.STATUS_DONE
         ).exclude(result=None).filter(source_url="").count()
@@ -165,6 +166,11 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"  {no_url_count} records skipped (no source_url in extraction record)"
             )
+
+    # 023/3.2 (A10/A11): skills the normalizer can't map were dropped SILENTLY —
+    # that's how catalog jobs end up with degenerate 2-skill profiles that fool
+    # every skill feature. Count and report every drop.
+    _dropped_skills: dict[str, int] = {}
 
     def _replace_job_skills(self, job_id, skills, normalizer, skill_cache):
         from apps.jobs.models import JobSkill
@@ -180,10 +186,25 @@ class Command(BaseCommand):
                     skill=skill_cache[canonical],
                     importance=max(1, min(5, importance)),
                 ))
+            else:
+                key = name.strip().lower()
+                self._dropped_skills[key] = self._dropped_skills.get(key, 0) + 1
 
         if rows:
             JobSkill.objects.filter(job_id=job_id).delete()
             JobSkill.objects.bulk_create(rows, ignore_conflicts=True)
+
+    def _report_dropped_skills(self):
+        if not self._dropped_skills:
+            return
+        total = sum(self._dropped_skills.values())
+        top = sorted(self._dropped_skills.items(), key=lambda x: -x[1])[:15]
+        self.stdout.write(self.style.WARNING(
+            f"  SKILL DROPS (A10): {total} mentions of {len(self._dropped_skills)} "
+            f"non-catalog skills dropped. Top: "
+            + ", ".join(f"{n}×{c}" for n, c in top)
+            + " — extend ml_service/data/skill-alias.json if these matter."
+        ))
 
     # ── CVs ───────────────────────────────────────────────────────────────────
 
