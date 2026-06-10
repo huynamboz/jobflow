@@ -172,20 +172,14 @@ const DIM_LABELS: Record<string, string> = {
   domain_fit: "Domain fit",
 };
 const DIM_ORDER = ["skill_fit", "experience_fit", "seniority_fit", "domain_fit"];
-const LEVEL: Record<string, { label: string; bg: string; color: string }> = {
-  good: { label: "Good", bg: T.success50, color: T.success },
-  ok: { label: "OK", bg: T.warning50, color: T.warning },
-  weak: { label: "Weak", bg: T.danger50, color: T.danger },
-};
 
-function DimRow({ label, level }: { label: string; level: string }) {
-  const m = LEVEL[level] ?? { label: level || "—", bg: T.surface3, color: T.ink3 };
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${T.line}` }}>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: T.ink2 }}>{label}</span>
-      <span style={{ padding: "2px 10px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, background: m.bg, color: m.color }}>{m.label}</span>
-    </div>
-  );
+// dim_scores are numeric [0,1]; tolerate legacy good/ok/weak strings.
+function dimNum(raw: number | string): number {
+  if (typeof raw === "number") return raw;
+  return ({ good: 1, ok: 0.6, weak: 0.3 } as Record<string, number>)[raw] ?? 0;
+}
+function dimTone(v: number): string {
+  return v >= 0.7 ? T.success : v >= 0.4 ? T.warning : T.danger;
 }
 
 function ScoreBar({ label, value, hint, tone = T.accent }: { label: string; value: number; hint?: string; tone?: string }) {
@@ -317,10 +311,11 @@ function JobDetailPanel({
                 <ScoreBar label="Overall match" value={overall} />
 
                 {Object.keys(match.dim_scores ?? {}).length > 0 ? (
-                  <div style={{ marginBottom: 12 }}>
-                    {DIM_ORDER.filter((k) => match.dim_scores?.[k]).map((k) => (
-                      <DimRow key={k} label={DIM_LABELS[k] ?? k} level={match.dim_scores![k]} />
-                    ))}
+                  <div style={{ marginBottom: 4 }}>
+                    {DIM_ORDER.filter((k) => match.dim_scores?.[k] != null).map((k) => {
+                      const v = dimNum(match.dim_scores![k]);
+                      return <ScoreBar key={k} label={DIM_LABELS[k] ?? k} value={v} tone={dimTone(v)} />;
+                    })}
                   </div>
                 ) : (
                   <>

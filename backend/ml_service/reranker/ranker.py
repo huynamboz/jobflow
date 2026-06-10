@@ -235,14 +235,12 @@ class Reranker:
         """Score pairs and return (overall_scores, dim_levels).
 
         dim_levels: list of dicts with keys skill_fit/experience_fit/seniority_fit/domain_fit
-                    each value is "good" | "ok" | "weak"
+                    each value is a numeric fit score in [0, 1] (ordinal expectation
+                    of the 3-class aux head: softmax · [0,1,2] / 2).
         """
-        _LEVEL = {0: "weak", 1: "ok", 2: "good"}
-
         if not self._trained or self._model is None:
             n = len(cv_indices)
-            empty_dims = [{"skill_fit": "", "experience_fit": "", "seniority_fit": "", "domain_fit": ""} for _ in range(n)]
-            return np.full(n, 0.5), empty_dims
+            return np.full(n, 0.5), [{} for _ in range(n)]
 
         X = self._fe.extract_batch(cvs, jobs, cv_indices, job_indices, gnn_scores=gnn_scores)
         if len(X) == 0:
@@ -259,11 +257,15 @@ class Reranker:
             else:
                 scores = torch.sigmoid(main_logits)
 
-            dim_levels: list[dict[str, str]] = []
-            aux_preds = [logits.argmax(dim=-1).tolist() for logits in aux_logits]
+            # Per-dimension numeric fit in [0,1] — ordinal expectation of each
+            # 3-class aux head (softmax · [0,1,2] / 2), same scheme as the overall
+            # ordinal score. Smooth number instead of a good/ok/weak bucket.
+            dim_w = torch.tensor([0.0, 1.0, 2.0])
+            aux_scores = [(torch.softmax(logits, dim=-1) * dim_w).sum(dim=-1) / 2.0 for logits in aux_logits]
+            dim_levels: list[dict[str, float]] = []
             for i in range(len(cv_indices)):
                 dim_levels.append({
-                    dim: _LEVEL[aux_preds[d][i]]
+                    dim: round(float(aux_scores[d][i]), 3)
                     for d, dim in enumerate(_DIM_NAMES)
                 })
 

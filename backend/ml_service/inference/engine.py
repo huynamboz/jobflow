@@ -58,7 +58,7 @@ class JobMatchResult:
     title: str = ""
     company: str = ""
     match_level: str = ""  # "strong" | "good" | "weak"
-    dim_scores: dict = None  # skill_fit/experience_fit/seniority_fit/domain_fit → "good"|"ok"|"weak"
+    dim_scores: dict = None  # skill_fit/experience_fit/seniority_fit/domain_fit → numeric fit [0,1]
 
     def __post_init__(self):
         # dataclass frozen=True — default mutable arg workaround
@@ -380,9 +380,9 @@ class InferenceEngine:
 
             dim_scores = dict(dim_levels_map.get(job_idx, {}))
             if _exp_weak:
-                dim_scores["experience_fit"] = "weak"
+                dim_scores["experience_fit"] = 0.15  # hard gate → low fit
             if _sen_weak:
-                dim_scores["seniority_fit"] = "weak"
+                dim_scores["seniority_fit"] = 0.15
 
             results.append(
                 JobMatchResult(
