@@ -27,6 +27,40 @@ def _minmax(arr: np.ndarray) -> np.ndarray:
     return (arr - mn) / (mx - mn)
 
 
+# Role one-hot vocabulary for job node features. Order is load-bearing: the GNN
+# job projection expects these exact 11 columns. Do NOT reorder.
+ROLE_CATEGORIES = [
+    "other", "frontend", "backend", "fullstack", "qa",
+    "devops", "data_ml", "mobile", "ba", "data_eng", "design",
+]
+_ROLE_TO_IDX = {r: i for i, r in enumerate(ROLE_CATEGORIES)}
+
+# Job node feature width: sentence-embed(384) + salary_min_norm + salary_max_norm + role_onehot(11)
+JOB_NODE_FEATURE_DIM = 384 + 2 + len(ROLE_CATEGORIES)
+
+
+def build_job_node_features(jobs: list[JobData], embed: EmbeddingProvider) -> np.ndarray:
+    """397-dim job-node feature matrix — the single source of truth shared by the
+    training graph build and the inference-time inductive job encoder.
+
+    Layout: [ sentence_embed(text)[384] | minmax(salary_min) | minmax(salary_max)
+              | role_onehot[11] ]. Salary min-max is over the given `jobs` set
+    (self-consistent for a full rebuild, matching the original build semantics)."""
+    job_texts = [job.text for job in jobs]
+    job_embeddings = embed.encode(job_texts)  # (N, 384)
+    sal_min = np.array([float(job.salary_min) for job in jobs], dtype=np.float32)
+    sal_max = np.array([float(job.salary_max) for job in jobs], dtype=np.float32)
+    role_onehot = np.zeros((len(jobs), len(ROLE_CATEGORIES)), dtype=np.float32)
+    for i, job in enumerate(jobs):
+        rc = (job.role_category or "other").lower()
+        role_onehot[i, _ROLE_TO_IDX.get(rc, 0)] = 1.0
+    job_extra = np.concatenate(
+        [np.stack([_minmax(sal_min), _minmax(sal_max)], axis=1), role_onehot],
+        axis=1,
+    )
+    return np.concatenate([job_embeddings, job_extra], axis=1).astype(np.float32)  # (N, 397)
+
+
 class GraphBuilder:
     def __init__(self, embedding_provider: EmbeddingProvider) -> None:
         self._embed = embedding_provider
@@ -59,26 +93,8 @@ class GraphBuilder:
         cv_extra = np.stack([exp_norm, edu_norm], axis=1)
         data["cv"].x = torch.from_numpy(np.concatenate([cv_embeddings, cv_extra], axis=1))
 
-        # --- Job nodes: embedding(384) + salary_min_norm + salary_max_norm + role_category_onehot(11) = 397 ---
-        _ROLE_CATEGORIES = [
-            "other", "frontend", "backend", "fullstack", "qa",
-            "devops", "data_ml", "mobile", "ba", "data_eng", "design",
-        ]
-        _role_to_idx = {r: i for i, r in enumerate(_ROLE_CATEGORIES)}
-
-        job_texts = [job.text for job in jobs]
-        job_embeddings = self._embed.encode(job_texts)  # (N, 384)
-        sal_min = np.array([float(job.salary_min) for job in jobs], dtype=np.float32)
-        sal_max = np.array([float(job.salary_max) for job in jobs], dtype=np.float32)
-        role_onehot = np.zeros((len(jobs), len(_ROLE_CATEGORIES)), dtype=np.float32)
-        for i, job in enumerate(jobs):
-            rc = (job.role_category or "other").lower()
-            role_onehot[i, _role_to_idx.get(rc, 0)] = 1.0
-        job_extra = np.concatenate(
-            [np.stack([_minmax(sal_min), _minmax(sal_max)], axis=1), role_onehot],
-            axis=1,
-        )
-        data["job"].x = torch.from_numpy(np.concatenate([job_embeddings, job_extra], axis=1))
+        # --- Job nodes: 397-dim via the shared recipe (text emb + salary + role onehot) ---
+        data["job"].x = torch.from_numpy(build_job_node_features(jobs, self._embed))
 
         # --- Skill nodes: embedding(384) + category = 385 ---
         skill_embeddings = self._embed.encode(skill_names)  # (S, 384)

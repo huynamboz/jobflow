@@ -238,6 +238,44 @@ def match_cv_file(file_path: str, top_k: int = 10) -> dict:
     return {"cv_info": _cv_info(cv_data), "jobs": _enrich(filtered)}
 
 
+def build_jobdata_from_db(limit: int | None = None):
+    """Build engine ``JobData`` from the live ``Job`` catalog (feature 018).
+
+    Maps ``Job`` + ``JobSkill`` → ``JobData`` with ``job_id = Job.id`` (the single
+    match identifier going forward). Jobs with no skills are skipped — they can't
+    form graph edges and would only get a text-only embedding. Skill names are
+    taken from the ``Skill`` rows; any not in the model's catalog are dropped at
+    encode time (graceful)."""
+    from apps.jobs.models import Job
+    from ml_service.graph.schema import JobData, SeniorityLevel
+
+    qs = Job.objects.prefetch_related("job_skills__skill").order_by("id")
+    if limit:
+        qs = qs[:limit]
+
+    jobs: list = []
+    for job in qs:
+        pairs = [(js.skill.canonical_name, int(js.importance)) for js in job.job_skills.all() if js.skill_id]
+        if not pairs:
+            continue
+        skills = tuple(name for name, _ in pairs)
+        importances = tuple(imp for _, imp in pairs)
+        text = f"{job.title}. {job.description}".strip()
+        jobs.append(
+            JobData(
+                job_id=job.id,
+                seniority=SeniorityLevel(max(0, min(5, int(job.seniority)))),
+                skills=skills,
+                skill_importances=importances,
+                salary_min=int(job.salary_min or 0),
+                salary_max=int(job.salary_max or 0),
+                text=text,
+                role_category=(job.role_category or "").lower(),
+            )
+        )
+    return jobs
+
+
 def match_cv_data(
     skills: list[str],
     seniority: int,
