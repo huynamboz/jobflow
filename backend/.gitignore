@@ -14,3 +14,4 @@ checkpoints_benchmark/
 .env
 auth/
 data/processed/
+checkpoints/job_pool/

@@ -111,6 +111,9 @@ class InferenceEngine:
         self._threshold = threshold
         self._checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else Path("checkpoints/latest")
         self._inductive_lock = threading.Lock()  # FIX 3: serialize inductive encodes
+        # Feature 018: live job-pool snapshot (set by from_checkpoint / reload).
+        self._job_pool_dir: Path | None = None
+        self._job_pool_snapshot_mtime: float = 0.0
 
         # Precompute GNN embeddings (cv + job nodes in graph)
         self._cv_embeddings, self._job_embeddings, self._z_dict = self._precompute_embeddings()
@@ -153,9 +156,15 @@ class InferenceEngine:
         embedding_provider: EmbeddingProvider,
         **kwargs,
     ) -> InferenceEngine:
-        """Load model from checkpoint and build engine."""
+        """Load model from checkpoint and build engine.
+
+        Feature 018: if a live job-pool snapshot exists under
+        ``job_pool_dir`` (default ``checkpoints/job_pool``) AND was built against
+        this model, it OVERRIDES the frozen checkpoint job pool so the engine
+        ranks against the live catalog. Absent/incompatible → frozen pool."""
+        job_pool_dir = kwargs.pop("job_pool_dir", None)
         model, data, cvs, jobs, meta = load_checkpoint(checkpoint_path)
-        return cls(
+        engine = cls(
             model=model,
             data=data,
             cvs=cvs,
@@ -165,6 +174,37 @@ class InferenceEngine:
             checkpoint_dir=Path(checkpoint_path),  # FIX 1: pass actual path
             **kwargs,
         )
+
+        from ml_service.inference import job_pool_snapshot
+
+        snap_dir = Path(job_pool_dir) if job_pool_dir else job_pool_snapshot.DEFAULT_DIR
+        engine._job_pool_dir = snap_dir
+        loaded = job_pool_snapshot.load(snap_dir, engine.model_signature)
+        if loaded is not None:
+            engine.set_job_pool(*loaded)
+            engine._job_pool_snapshot_mtime = job_pool_snapshot.mtime(snap_dir)
+            logger.info("Loaded live job pool from snapshot: %d jobs", engine.num_jobs)
+        return engine
+
+    def maybe_reload_job_pool(self) -> bool:
+        """Hot-reload the job pool if the on-disk snapshot is newer than the one
+        currently loaded. Cheap (an mtime stat) when nothing changed. Returns True
+        if a reload happened. Enables realtime catalog updates on the live server
+        without a restart."""
+        if not self._job_pool_dir:
+            return False
+        from ml_service.inference import job_pool_snapshot
+
+        m = job_pool_snapshot.mtime(self._job_pool_dir)
+        if m <= self._job_pool_snapshot_mtime:
+            return False
+        loaded = job_pool_snapshot.load(self._job_pool_dir, self.model_signature)
+        if loaded is None:
+            return False
+        self.set_job_pool(*loaded)
+        self._job_pool_snapshot_mtime = m
+        logger.info("Hot-reloaded job pool from snapshot: %d jobs", self.num_jobs)
+        return True
 
     def match(self, jd_text: str, top_k: int = 10) -> list[MatchResult]:
         """Match a JD text against all CVs. Returns Top K ranked results."""
@@ -509,10 +549,14 @@ class InferenceEngine:
         """Persist the current job pool to a shareable on-disk snapshot."""
         from ml_service.inference import job_pool_snapshot
 
-        return job_pool_snapshot.save(
+        path = job_pool_snapshot.save(
             directory, self._jobs, self._job_embeddings, self._job_text_vecs,
             self.model_signature, skill_skipped_edges=skill_skipped_edges,
         )
+        # We just wrote it — adopt it as current so maybe_reload doesn't re-load it.
+        self._job_pool_dir = Path(directory)
+        self._job_pool_snapshot_mtime = job_pool_snapshot.mtime(directory)
+        return path
 
     def _inductive_gnn_encode_jobs(self, jobs: list[JobData]) -> tuple[torch.Tensor, int]:
         """Encode a fresh job set inductively: rebuild the `job` nodes + their

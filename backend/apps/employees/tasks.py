@@ -31,15 +31,14 @@ def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
     created = 0
     skipped = 0
     for m in matches:
-        # The engine works in JDExtractionRecord-id space, so resolve to the
-        # admin Job by the shared source_url first (maps most results); fall back
-        # to a direct pk match for the few where the ids coincide.
-        url = m.get("source_url")
-        job = (Job.objects.filter(source_url=url).first() if url else None) or \
-            Job.objects.filter(pk=m["job_id"]).first()
+        # Feature 018: the engine job_id is a live Job.id, so resolve by pk
+        # directly (no more skipped gap). A source_url fallback stays for the
+        # legacy frozen-checkpoint pool (JDExtractionRecord-id space).
+        job = Job.objects.filter(pk=m["job_id"]).first()
         if job is None:
-            # JDExtractionRecord has no matching Job in the crawled catalog — skip
-            # rather than raise an integrity error so the rest still lands.
+            url = m.get("source_url")
+            job = Job.objects.filter(source_url=url).first() if url else None
+        if job is None:
             skipped += 1
             continue
         seniority_gap = None

@@ -22,6 +22,11 @@ def _get_engine():
     """Lazy-load InferenceEngine singleton."""
     global _engine
     if _engine is not None:
+        # Feature 018: pick up a newer live job-pool snapshot without a restart.
+        try:
+            _engine.maybe_reload_job_pool()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("job-pool hot-reload skipped: %s", exc)
         return _engine
 
     with _lock:
@@ -136,59 +141,75 @@ def _build_lifecycle_map(jd_ids: list[int]) -> dict[int, str]:
 
 
 def _enrich(results) -> list[dict]:
-    """Enrich raw match results with metadata from JDExtractionRecord + LabelingJob.
+    """Enrich raw match results with job metadata.
 
-    JobData.job_id = JDExtractionRecord.id (set by generate_pairs via LabelingJob.job_id).
-    Job table IDs are unrelated after rebuild_jobs deleted duplicates.
-    """
-    from apps.jobs.models import JDExtractionRecord
+    Feature 018: the engine `job_id` is now a live `Job.id` (job pool rebuilt from
+    the catalog), so metadata comes straight from `Job`. A legacy fallback to
+    `JDExtractionRecord`/`LabelingJob` is kept for any id that doesn't resolve to a
+    live Job (e.g. the frozen checkpoint pool when no snapshot has been built yet),
+    so this works during the transition either way."""
+    from apps.jobs.models import JDExtractionRecord, Job
     from apps.labeling.models import LabelingJob
 
-    jd_ids = [r.job_id for r in results]
+    ids = [r.job_id for r in results]
+    job_map = {j.id: j for j in Job.objects.select_related("company").filter(id__in=ids)}
 
-    jd_map = {
-        jd.id: jd
-        for jd in JDExtractionRecord.objects.filter(id__in=jd_ids)
-    }
-    lj_map = {
-        lj.job_id: lj
-        for lj in LabelingJob.objects.filter(job_id__in=jd_ids)
-    }
+    legacy_ids = [i for i in ids if i not in job_map]
+    jd_map = {jd.id: jd for jd in JDExtractionRecord.objects.filter(id__in=legacy_ids)} if legacy_ids else {}
+    lj_map = {lj.job_id: lj for lj in LabelingJob.objects.filter(job_id__in=legacy_ids)} if legacy_ids else {}
 
     enriched = []
     for r in results:
+        common = {
+            "job_id":          r.job_id,
+            "score":           r.score,
+            "eligible":        r.eligible,
+            "match_level":     r.match_level,
+            "dim_scores":      r.dim_scores,
+            "matched_skills":  _filter_soft_skills(list(r.matched_skills)),
+            "missing_skills":  _filter_soft_skills(list(r.missing_skills)),
+            "seniority_match": r.seniority_match,
+        }
+
+        job = job_map.get(r.job_id)
+        if job is not None:
+            enriched.append({
+                **common,
+                "title":           _clean_title(job.title or r.title or ""),
+                "company_name":    (job.company.name if job.company_id else "") or "",
+                "location":        job.location or "",
+                "job_type":        job.job_type or "",
+                "salary_min":      int(job.salary_min or 0),
+                "salary_max":      int(job.salary_max or 0),
+                "salary_currency": job.salary_currency or "USD",
+                "role_category":   job.role_category or "",
+                "experience_min":  job.experience_min,
+                "experience_max":  job.experience_max,
+                "source_url":      job.source_url or "",
+            })
+            continue
+
+        # ---- legacy JDExtractionRecord / LabelingJob fallback ----
         jd  = jd_map.get(r.job_id)
         lj  = lj_map.get(r.job_id)
         res = (jd.result   or {}) if jd else {}
         raw = (jd.raw_data or {}) if jd else {}
-
-        # Title: LabelingJob is most accurate (LLM-extracted), fallback to raw scrape
         title = _clean_title(
-            (lj.title if lj else None)
-            or res.get("title") or raw.get("title")
-            or r.title or ""
+            (lj.title if lj else None) or res.get("title") or raw.get("title") or r.title or ""
         )
-
         enriched.append({
-            "job_id":         r.job_id,
-            "score":          r.score,
-            "eligible":       r.eligible,
-            "match_level":    r.match_level,
-            "dim_scores":     r.dim_scores,
-            "matched_skills": _filter_soft_skills(list(r.matched_skills)),
-            "missing_skills": _filter_soft_skills(list(r.missing_skills)),
-            "seniority_match": r.seniority_match,
-            "title":          title,
-            "company_name":   res.get("company") or raw.get("company") or "",
-            "location":       res.get("location") or raw.get("location") or "",
-            "job_type":       res.get("job_type") or raw.get("job_type") or "",
-            "salary_min":     int(res.get("salary_min") or raw.get("salary_min") or 0),
-            "salary_max":     int(res.get("salary_max") or raw.get("salary_max") or 0),
+            **common,
+            "title":           title,
+            "company_name":    res.get("company") or raw.get("company") or "",
+            "location":        res.get("location") or raw.get("location") or "",
+            "job_type":        res.get("job_type") or raw.get("job_type") or "",
+            "salary_min":      int(res.get("salary_min") or raw.get("salary_min") or 0),
+            "salary_max":      int(res.get("salary_max") or raw.get("salary_max") or 0),
             "salary_currency": res.get("salary_currency") or "USD",
-            "role_category":  (lj.role_category if lj else None) or "",
-            "experience_min": (lj.experience_min if lj else None) or res.get("experience_min"),
-            "experience_max": (lj.experience_max if lj else None) or res.get("experience_max"),
-            "source_url":     (jd.source_url if jd else None) or raw.get("source_url") or raw.get("job_url") or "",
+            "role_category":   (lj.role_category if lj else None) or "",
+            "experience_min":  (lj.experience_min if lj else None) or res.get("experience_min"),
+            "experience_max":  (lj.experience_max if lj else None) or res.get("experience_max"),
+            "source_url":      (jd.source_url if jd else None) or raw.get("source_url") or raw.get("job_url") or "",
         })
     return enriched
 
@@ -249,7 +270,7 @@ def build_jobdata_from_db(limit: int | None = None):
     from apps.jobs.models import Job
     from ml_service.graph.schema import JobData, SeniorityLevel
 
-    qs = Job.objects.prefetch_related("job_skills__skill").order_by("id")
+    qs = Job.objects.filter(is_active=True).prefetch_related("job_skills__skill").order_by("id")
     if limit:
         qs = qs[:limit]
 
