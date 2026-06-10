@@ -401,7 +401,9 @@ class Trainer:
             # val_bpr logged for diagnostics; val_auc used as early stopping signal.
             # warmup_epochs skips patience counting during curriculum transition
             # (epoch 5-20 often shows a temporary val_auc dip when hard negs kick in).
-            val_signal = (0.5 * val_auc + 0.5 * slice_auc) if slice_auc is not None else val_auc
+            # v2 r1b: 0.5/0.5 blend stopped training at epoch 22 (slice noise +
+            # curriculum dip) → slice gets a minority vote; warmup covers the dip.
+            val_signal = (0.8 * val_auc + 0.2 * slice_auc) if slice_auc is not None else val_auc
             logger.info(
                 "Epoch %d — loss=%.4f, val_bpr=%.4f, val_auc=%.4f, val_ndcg@10=%.4f",
                 epoch, loss_val, val_bpr, val_auc, val_ndcg,
