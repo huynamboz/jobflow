@@ -25,11 +25,15 @@ MATCH_TOP_K = 100
 def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
     """Upsert match rows. New rows start as ``suggested``; existing rows keep
     their HR-set pipeline status (only score/skills/gap are refreshed) — re-
-    matching must never reset pursuing/applied/won/lost."""
+    matching must never reset pursuing/applied/won/lost.
+
+    Stale ``suggested`` matches no longer in the fresh top-K are pruned so the
+    list stays = the current ranking (HR-engaged + dismissed rows are kept)."""
     from apps.jobs.models import Job
 
     created = 0
     skipped = 0
+    persisted_ids: list[int] = []
     for m in matches:
         # Feature 018: the engine job_id is a live Job.id, so resolve by pk
         # directly (no more skipped gap). A source_url fallback stays for the
@@ -57,13 +61,28 @@ def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
             defaults=scores,  # update: refresh scores, preserve status
             create_defaults={**scores, "status": EmployeeJobMatch.Status.SUGGESTED},
         )
+        persisted_ids.append(job.id)
         if was_created:
             created += 1
+
+    # Prune stale suggestions: drop suggested rows no longer in the fresh top-K
+    # (keeps everything HR has touched + dismissed labels).
+    pruned = 0
+    if persisted_ids:
+        pruned, _ = (
+            EmployeeJobMatch.objects.filter(
+                employee=emp, status=EmployeeJobMatch.Status.SUGGESTED
+            )
+            .exclude(job_id__in=persisted_ids)
+            .delete()
+        )
+
     return {
         "employee_id": emp.id,
         "matches_total": len(matches),
         "matches_created": created,
         "matches_skipped": skipped,
+        "matches_pruned": pruned,
     }
 
 
