@@ -1,0 +1,11 @@
+{
+  "num_pairs": 427,
+  "num_chunks": 20,
+  "chunk_size": 22,
+  "buckets": {
+    "medium_overlap": 37,
+    "high_overlap": 223,
+    "hard_negative": 132,
+    "random": 35
+  }
+}

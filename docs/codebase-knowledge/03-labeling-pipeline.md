@@ -78,3 +78,10 @@ checkpoints/latest  (GNN + reranker)
 ## Trạng thái data hiện tại (2026-06-10)
 
 11.611 nhãn LLM / 8.617 cặp labeled / 365 CV × 6.251 job. Batch có nhãn: 6 (3.499), 7 (56), 8 (3.031), 9 (4.950), 10 (75). Chi tiết phân phối + crosstab: [04-label-data-analysis.md](04-label-data-analysis.md).
+
+## Đường label bằng Claude agents (feature 022 — bổ sung)
+
+Từ 022, label được sản xuất bằng **Claude agents in-session** (không cần LLM provider):
+`export_pending_pairs` (JSONL chunks 22 cặp) → agents song song (rubric = `specs/022-relabel-dataset-buckets/agent-rubric.md`, đã vá 5 lỗi: overall skill2/domain0, transferable-skill credit, bảng domain đủ 11 role, rule seniority bất đối xứng, rule tag `other` suy-từ-nội-dung) → `import_labels` (atomic, idempotent, note="claude-labeled", LabelingBatch workers=0) → `audit_labels` (phân phối per-bucket vs kỳ vọng).
+
+Quy trình chất lượng bắt buộc: **pilot 150-200 cặp + audit gate** trước scale · **double-label agreement** (022: 87% exact overall/200 cặp) · enforce cơ học seniority_fit + rule cứng sau label. Buckets quyết-định-biên (cross_domain/related_skill/seniority/must_have/boundary) sinh bởi `generate_pairs --buckets`. Dataset hiện hành: `data/processed/v4_relabel` (12.084 nhãn, positive 33.3%, bucket đủ 3 split).

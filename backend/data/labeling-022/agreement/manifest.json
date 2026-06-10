@@ -1,0 +1,12 @@
+{
+  "num_pairs": 200,
+  "num_chunks": 10,
+  "chunk_size": 22,
+  "buckets": {
+    "cross_domain_hard_neg": 74,
+    "related_skill_positive": 46,
+    "seniority_hard_neg": 36,
+    "missing_must_have": 17,
+    "boundary_medium": 27
+  }
+}

@@ -195,6 +195,7 @@ def main(output_dir: Path, min_cv_skills: int, min_job_skills: int, batch_ids: l
             "experience_fit": hl.experience_fit,
             "domain_fit":     hl.domain_fit,
             "split":          split,
+            "bucket":         hl.pair.selection_reason,  # 022: per-bucket audit
         })
 
         split_counts[split] = split_counts.get(split, 0) + 1

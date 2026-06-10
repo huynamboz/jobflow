@@ -1,0 +1,8 @@
+{
+  "num_pairs": 1,
+  "num_chunks": 1,
+  "chunk_size": 22,
+  "buckets": {
+    "cross_domain_hard_neg": 1
+  }
+}

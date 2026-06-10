@@ -1,6 +1,6 @@
 # Master Plan — Matching đúng bản chất (GNN-driven)
 
-**Cập nhật**: 2026-06-10 · **Trạng thái**: ✅ Đợt 0 HOÀN THÀNH (feature 021) — baseline bên dưới · Đợt 1 sẵn sàng
+**Cập nhật**: 2026-06-10 · **Trạng thái**: ✅ Đợt 0 (021) + ✅ Đợt 1 (022) HOÀN THÀNH · Đợt 2 (retrain) sẵn sàng
 **Mục tiêu cuối**: hệ matching mà **GNN thực sự gánh tín hiệu** (học được cả domain từ data, α đáng kể sau tune), kết quả chính xác kiểm chứng được, mọi con số có cơ sở — sẵn sàng trình bày với lý thuyết đúng.
 
 ## Bối cảnh (đọc trước)
@@ -44,7 +44,7 @@
 
 > Chiến lược bucket chi tiết đã chốt — xem hội thoại/spec 021. Tóm tắt:
 
-- [ ] **1.1** Mở rộng `generate_pairs.py` với bucket mới (~3.5-4k cặp, dedup với 10.5k cũ):
+- [x] **1.1** Mở rộng `generate_pairs.py` với bucket mới (~3.5-4k cặp, dedup với 10.5k cũ):
   | Bucket | Quota | Nhãn kỳ vọng (audit) |
   |---|---|---|
   | cross_domain_hard_neg (overlap≥0.15 × role không tương thích) | ~32% | ≥95% overall=0 |
@@ -53,11 +53,19 @@
   | missing_must_have | ~10% | 0/1 |
   | boundary_medium + positives bổ sung + random | ~25% | trộn / ≥1 / ≈0 |
   - Cap per-CV, stratify 11 role, split 70/15/15 **stratify theo bucket**.
-- [ ] **1.2** Hạ tầng label bằng agent: command `export_pending_pairs` (dump JSONL) + `import_labels` (validate + ghi HumanLabel, note="claude-labeled").
-- [ ] **1.3** **Pilot 150-200 cặp** → audit phân phối nhãn từng bucket so với kỳ vọng → lệch thì sửa rubric/selection trước khi scale.
-- [ ] **1.4** Scale label toàn bộ (Workflow song song ~10-16 agents) + **double-label 200 cặp** → báo cáo inter-rater agreement.
-- [ ] **1.5** Re-label 284 cặp mâu thuẫn cũ + slice skill=2/domain=0 (232 cặp) bằng rubric mới.
-- [ ] **1.6** Export dataset mới (sau dedup 0.2) → kiểm metadata: positive rate ~30-40%, đủ bucket trong cả 3 split.
+- [x] **1.2** Hạ tầng label bằng agent: command `export_pending_pairs` (dump JSONL) + `import_labels` (validate + ghi HumanLabel, note="claude-labeled").
+- [x] **1.3** **Pilot 150-200 cặp** → audit phân phối nhãn từng bucket so với kỳ vọng → lệch thì sửa rubric/selection trước khi scale.
+- [x] **1.4** Scale label toàn bộ (Workflow song song ~10-16 agents) + **double-label 200 cặp** → báo cáo inter-rater agreement.
+- [x] **1.5** Re-label 284 cặp mâu thuẫn cũ + slice skill=2/domain=0 (232 cặp) bằng rubric mới.
+- [x] **1.6** Export dataset mới (sau dedup 0.2) → kiểm metadata: positive rate ~30-40%, đủ bucket trong cả 3 split.
+
+**📊 Kết quả Đợt 1 (2026-06-10, feature 022):**
+- 3.800 cặp bucket mới sinh (0 shortfall) → 3.310 label scale (25 chunk Fable + 126 Sonnet) + 176 pilot + 427 re-label slice cũ + 1 tie-break = **batch 11-15**
+- Pilot gate bắt + vá **lỗ hổng rubric thứ 3** (rule seniority) và **rule tag `other`** (suy domain từ nội dung) trước khi scale
+- Chất lượng đo được: **inter-rater 87%** (200 cặp, 1 lệch ≥2 đã tie-break) · cross-model Fable↔Sonnet 93.9% · 0 vi phạm rule cứng (enforce cơ học seniority_fit + 2 ca overall)
+- Slice skill2/domain0 (latest-wins): **0% positive** (từ 43% nhiễu)
+- Export **v4_relabel: 12.084 nhãn unique · positive 33.3% · đủ 5 bucket × 3 split** · graph 0 conflict
+- Trạng thái: Đợt 1 HOÀN THÀNH → sẵn sàng Đợt 2 (retrain)
 
 ## ĐỢT 2 — Retrain + re-verify
 
