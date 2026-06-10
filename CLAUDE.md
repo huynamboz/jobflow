@@ -1,15 +1,15 @@
 <!-- SPECKIT START -->
-Active feature plan: [specs/019-match-weight-calibration/plan.md](specs/019-match-weight-calibration/plan.md)
+Active feature plan: [specs/020-domain-aware-ranking/plan.md](specs/020-domain-aware-ranking/plan.md)
 
 Related artifacts:
-- [spec.md](specs/019-match-weight-calibration/spec.md)
-- [research.md](specs/019-match-weight-calibration/research.md)
-- [data-model.md](specs/019-match-weight-calibration/data-model.md)
-- [contracts/cli.md](specs/019-match-weight-calibration/contracts/cli.md)
-- [quickstart.md](specs/019-match-weight-calibration/quickstart.md)
-- [checklists/requirements.md](specs/019-match-weight-calibration/checklists/requirements.md)
+- [spec.md](specs/020-domain-aware-ranking/spec.md)
+- [research.md](specs/020-domain-aware-ranking/research.md)
+- [data-model.md](specs/020-domain-aware-ranking/data-model.md)
+- [contracts/cli.md](specs/020-domain-aware-ranking/contracts/cli.md)
+- [quickstart.md](specs/020-domain-aware-ranking/quickstart.md)
+- [checklists/requirements.md](specs/020-domain-aware-ranking/checklists/requirements.md)
 
-Previous active plan: [specs/018-inductive-job-pool/plan.md](specs/018-inductive-job-pool/plan.md)
+Previous active plan: [specs/019-match-weight-calibration/plan.md](specs/019-match-weight-calibration/plan.md)
 
 Previous features (still in this branch's history):
 - [specs/013-thesis-report/plan.md](specs/013-thesis-report/plan.md) (Thesis report — Vietnamese academic doc)
