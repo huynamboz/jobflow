@@ -50,6 +50,60 @@ class BuildJobDataTests(TestCase):
         self.assertNotIn(inactive.id, ids)   # inactive → excluded
 
 
+class DimensionScoreTests(TestCase):
+    """Feature 019: transparent per-dimension fit formulas (hand-reproducible)."""
+
+    def _cv(self, skills=("python",), seniority=2, exp=3.0, text="python developer"):
+        from ml_service.graph.schema import CVData, EducationLevel, SeniorityLevel
+        return CVData(cv_id=-1, seniority=SeniorityLevel(seniority), experience_years=exp,
+                      education=EducationLevel(2), skills=tuple(skills),
+                      skill_proficiencies=tuple(3 for _ in skills), text=text)
+
+    def _job(self, skills=("python",), imps=(5,), seniority=2, exp_min=0.0, role=""):
+        from ml_service.graph.schema import JobData, SeniorityLevel
+        return JobData(job_id=1, seniority=SeniorityLevel(seniority), skills=tuple(skills),
+                       skill_importances=tuple(imps), salary_min=0, salary_max=0,
+                       text="job", experience_min=exp_min, role_category=role)
+
+    def _dim(self, cv, job, matched):
+        from ml_service.inference.engine import InferenceEngine
+        return InferenceEngine._dimension_scores(cv, job, set(matched))
+
+    def test_skill_fit_is_importance_weighted(self):
+        cv = self._cv(skills=("python",))
+        job = self._job(skills=("python", "django"), imps=(5, 3))  # total imp 8
+        d = self._dim(cv, job, {"python"})
+        self.assertAlmostEqual(d["skill_fit"], 5 / 8, places=3)   # 0.625, not 1/2
+
+    def test_skill_fit_no_required_is_full(self):
+        d = self._dim(self._cv(), self._job(skills=(), imps=()), set())
+        self.assertEqual(d["skill_fit"], 1.0)
+
+    def test_seniority_fit_decays_with_distance(self):
+        cv = self._cv(seniority=2)
+        self.assertEqual(self._dim(cv, self._job(seniority=2), {"python"})["seniority_fit"], 1.0)
+        self.assertAlmostEqual(self._dim(cv, self._job(seniority=3), {"python"})["seniority_fit"], 0.7, places=3)
+        self.assertAlmostEqual(self._dim(cv, self._job(seniority=4), {"python"})["seniority_fit"], 0.4, places=3)
+
+    def test_experience_fit_penalizes_deficit_neutral_when_unknown(self):
+        # job needs 5y, cv has 2y → deficit 3 → 1 - 3/5 = 0.4
+        d = self._dim(self._cv(exp=2.0), self._job(exp_min=5.0), {"python"})
+        self.assertAlmostEqual(d["experience_fit"], 0.4, places=3)
+        # unknown requirement → neutral 1.0
+        d2 = self._dim(self._cv(exp=2.0), self._job(exp_min=0.0), {"python"})
+        self.assertEqual(d2["experience_fit"], 1.0)
+
+    def test_domain_fit_neutral_when_role_unknown(self):
+        d = self._dim(self._cv(), self._job(role=""), {"python"})
+        self.assertEqual(d["domain_fit"], 0.5)
+
+    def test_all_scores_in_unit_interval(self):
+        d = self._dim(self._cv(seniority=1, exp=0), self._job(skills=("go",), imps=(5,), seniority=5, exp_min=10, role="backend"), set())
+        for k, v in d.items():
+            self.assertGreaterEqual(v, 0.0, k)
+            self.assertLessEqual(v, 1.0, k)
+
+
 class JobPoolSnapshotTests(TestCase):
     """Atomic save/load + model-signature gating + length invariant."""
 

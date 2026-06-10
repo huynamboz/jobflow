@@ -28,10 +28,14 @@ class Settings(BaseSettings):
     num_epochs: int = 50
     early_stopping_patience: int = 10
 
-    # Hybrid scoring weights (alpha + beta + gamma = 1.0)
-    hybrid_alpha: float = 0.6  # GNN score weight
-    hybrid_beta: float = 0.3  # Skill overlap weight
-    hybrid_gamma: float = 0.1  # Seniority match weight
+    # Hybrid scoring weights (alpha + beta + gamma = 1.0) — TRAINING-time defaults
+    # only; callers pass explicit values. The INFERENCE engine does NOT read these:
+    # its weights are tuned (feature 019, `tune_hybrid_weights`) and loaded from the
+    # checkpoint `metadata.json` (single source of truth). Do not treat these as the
+    # live matcher's weights.
+    hybrid_alpha: float = 0.55  # GNN score weight
+    hybrid_beta: float = 0.30   # Skill overlap weight
+    hybrid_gamma: float = 0.15  # Seniority match weight
 
     # Eligibility threshold for final recommendations
     eligibility_threshold: float = 0.65

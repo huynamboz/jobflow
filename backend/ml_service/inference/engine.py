@@ -164,6 +164,19 @@ class InferenceEngine:
         ranks against the live catalog. Absent/incompatible → frozen pool."""
         job_pool_dir = kwargs.pop("job_pool_dir", None)
         model, data, cvs, jobs, meta = load_checkpoint(checkpoint_path)
+
+        # Feature 019: tuned hybrid weights live in metadata.json (single source of
+        # truth). Load them here; fall back to the documented defaults if absent.
+        hw = meta.get("hybrid_weights") if isinstance(meta, dict) else None
+        if hw:
+            kwargs.setdefault("alpha", float(hw.get("alpha", 0.55)))
+            kwargs.setdefault("beta", float(hw.get("beta", 0.30)))
+            kwargs.setdefault("gamma", float(hw.get("gamma", 0.15)))
+            logger.info("Hybrid weights from metadata: a=%.2f b=%.2f g=%.2f",
+                        kwargs["alpha"], kwargs["beta"], kwargs["gamma"])
+        else:
+            logger.warning("No hybrid_weights in metadata — using defaults 0.55/0.30/0.15.")
+
         engine = cls(
             model=model,
             data=data,
@@ -205,6 +218,75 @@ class InferenceEngine:
         self._job_pool_snapshot_mtime = m
         logger.info("Hot-reloaded job pool from snapshot: %d jobs", self.num_jobs)
         return True
+
+    def labeled_pair_components(self) -> list[tuple[int, int, int, float, float, float]]:
+        """For offline hybrid-weight tuning (feature 019): extract labeled pairs
+        from the graph's match/no_match edges and return, per pair, the THREE
+        components the hybrid score blends:
+            (cv_idx, job_idx, label, gnn, skill, seniority)
+        where gnn = sigmoid(model.decode), skill = semantic overlap, seniority =
+        max(0, 1-|Δsen|·0.4). Load the engine WITHOUT a live job-pool snapshot
+        (job_pool_dir=<absent>) so self._jobs == the checkpoint training jobs the
+        labels refer to."""
+        pairs: list[tuple[int, int, int]] = []
+        for et, label in ((("cv", "match", "job"), 1), (("cv", "no_match", "job"), 0)):
+            if et not in self._data.edge_types:
+                continue
+            ei = self._data[et].edge_index
+            for k in range(ei.shape[1]):
+                pairs.append((int(ei[0, k]), int(ei[1, k]), label))
+        if not pairs:
+            return []
+
+        cv_idx_t = torch.tensor([p[0] for p in pairs], dtype=torch.long)
+        job_idx_t = torch.tensor([p[1] for p in pairs], dtype=torch.long)
+        self._model.eval()
+        with torch.no_grad():
+            logits = self._model.decode(self._z_dict, cv_idx_t, job_idx_t)
+            gnn_scores = torch.sigmoid(logits).reshape(-1).tolist()
+
+        out: list[tuple[int, int, int, float, float, float]] = []
+        for (ci, ji, lab), g in zip(pairs, gnn_scores):
+            cv = self._cvs[ci]
+            job = self._jobs[ji]
+            skill = float(self._semantic_skill_overlap(cv, job))
+            sen = max(0.0, 1.0 - abs(int(cv.seniority) - int(job.seniority)) * 0.4)
+            out.append((ci, ji, lab, float(g), skill, sen))
+        return out
+
+    @staticmethod
+    def _dimension_scores(cv: CVData, job: JobData, matched: set[str]) -> dict[str, float]:
+        """Transparent, hand-reproducible per-dimension fit (feature 019), each
+        in [0,1]. No learned component — every number is a documented function of
+        the match's own data:
+
+        - skill_fit:      importance-weighted matched / total required importance
+        - experience_fit: 1 − deficit/job.experience_min (under-qual penalized; ≥0)
+        - seniority_fit:  max(0, 1 − |Δseniority|·0.3)
+        - domain_fit:     1.0 same role · 0.5 unknown · 0.0 mismatch"""
+        job_imp = dict(zip(job.skills, job.skill_importances))
+        total_imp = sum(job_imp.values())
+        skill_fit = (sum(job_imp.get(s, 0) for s in matched) / total_imp) if total_imp > 0 else 1.0
+
+        if job.experience_min and job.experience_min > 0:
+            deficit = max(0.0, float(job.experience_min) - float(cv.experience_years))
+            experience_fit = max(0.0, min(1.0, 1.0 - deficit / float(job.experience_min)))
+        else:
+            experience_fit = 1.0
+
+        seniority_fit = max(0.0, 1.0 - abs(int(cv.seniority) - int(job.seniority)) * 0.3)
+
+        if job.role_category:
+            domain_fit = 1.0 if infer_role(cv.skills, cv.text) == job.role_category else 0.0
+        else:
+            domain_fit = 0.5
+
+        return {
+            "skill_fit": round(float(skill_fit), 3),
+            "experience_fit": round(float(experience_fit), 3),
+            "seniority_fit": round(float(seniority_fit), 3),
+            "domain_fit": round(float(domain_fit), 3),
+        }
 
     def match(self, jd_text: str, top_k: int = 10) -> list[MatchResult]:
         """Match a JD text against all CVs. Returns Top K ranked results."""
@@ -378,11 +460,13 @@ class InferenceEngine:
             else:
                 match_level = ""
 
-            dim_scores = dict(dim_levels_map.get(job_idx, {}))
-            if _exp_weak:
-                dim_scores["experience_fit"] = 0.15  # hard gate → low fit
-            if _sen_weak:
-                dim_scores["seniority_fit"] = 0.15
+            # Feature 019: transparent, hand-reproducible per-dimension fit
+            # (replaces the learned aux heads of unknown label provenance).
+            dim_scores = self._dimension_scores(cv, job, cv_skills & job_skills)
+            if _exp_weak:  # hard experience gate → cap the fit
+                dim_scores["experience_fit"] = min(dim_scores["experience_fit"], 0.15)
+            if _sen_weak:  # hard seniority gate → cap the fit
+                dim_scores["seniority_fit"] = min(dim_scores["seniority_fit"], 0.15)
 
             results.append(
                 JobMatchResult(
