@@ -15,5 +15,6 @@ Bộ tài liệu nghiên cứu toàn bộ codebase (sinh 2026-06-10, từ phân 
 | 09 | [pipeline-audit](09-pipeline-audit.md) | Audit end-to-end: 20 lỗ hổng xếp hạng + kế hoạch fix theo đợt |
 | 10 | [master-plan](10-master-plan.md) | **Kế hoạch tổng quan 4 đợt** (checkbox tracking, DoD) — bắt đầu từ đây |
 | 11 | [project-journey](11-project-journey.md) | **Tổng hợp TOÀN BỘ hành trình** (018→023): timeline, số liệu, artifact — đọc 1 file nắm hết |
+| 12 | [gnn-v2-proposal](12-gnn-v2-proposal.md) | **Proposal GNN v2** (handoff đầy đủ): chẩn đoán, 3 vòng cải thiện, quy trình, bẫy đã biết |
 
 Quy ước: khi codebase đổi đáng kể (retrain, đổi pipeline), cập nhật doc tương ứng trong cùng PR.
