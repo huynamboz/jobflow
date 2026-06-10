@@ -69,6 +69,42 @@ class BuildJobDataTests(TestCase):
         self.assertNotIn(inactive.id, ids)   # inactive → excluded
 
 
+class JobDedupTests(TestCase):
+    """021/A9: catalog dedup keeps engaged/newest; serving guard drops repeats."""
+
+    def test_serving_guard_drops_title_company_repeats(self):
+        from apps.matching.services.matching_service import _dedup_by_title_company
+        items = [
+            {"title": "JavaScript Tutor", "company_name": "Wyzant", "score": 0.9},
+            {"title": "javascript tutor ", "company_name": " WYZANT", "score": 0.8},  # repeat
+            {"title": "JavaScript Tutor", "company_name": "Other Co", "score": 0.7},  # diff company
+        ]
+        out = _dedup_by_title_company(items)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[0]["score"], 0.9)  # first (best) kept
+
+    def test_dedup_jobs_keeps_engaged_else_newest(self):
+        from django.core.management import call_command
+        from apps.employees.models import Employee, EmployeeJobMatch
+        from apps.jobs.models import Job
+
+        old = Job.objects.create(title="Dup Dev", description="x", is_active=True)
+        new = Job.objects.create(title="Dup Dev", description="x", is_active=True)
+        old_engaged = Job.objects.create(title="Eng Dev", description="x", is_active=True)
+        new_plain = Job.objects.create(title="Eng Dev", description="x", is_active=True)
+        emp = Employee.objects.create(full_name="E", seniority=2)
+        EmployeeJobMatch.objects.create(employee=emp, job=old_engaged, match_score=0.5,
+                                        status=EmployeeJobMatch.Status.APPLIED)
+
+        call_command("dedup_jobs")
+        old.refresh_from_db(); new.refresh_from_db()
+        old_engaged.refresh_from_db(); new_plain.refresh_from_db()
+        self.assertFalse(old.is_active)          # older loses
+        self.assertTrue(new.is_active)           # newest kept
+        self.assertTrue(old_engaged.is_active)   # engaged kept despite being older
+        self.assertFalse(new_plain.is_active)
+
+
 class PerCvMetricsTests(TestCase):
     """021/A7: ranking metrics are per-CV means, not a global flat ranking."""
 

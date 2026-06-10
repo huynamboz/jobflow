@@ -235,6 +235,22 @@ def _apply_lifecycle_filter(results):
     return [r for r in results if r.job_id in keep_ids]
 
 
+def _dedup_by_title_company(enriched: list[dict]) -> list[dict]:
+    """021/A9 serving guard: drop repeats of the same posting (normalized
+    title + company) beyond the first — the catalog can contain duplicate rows
+    the cleanup hasn't caught (cross-platform reposts)."""
+    seen: set[tuple[str, str]] = set()
+    out = []
+    for item in enriched:
+        key = ((item.get("title") or "").strip().lower(),
+               (item.get("company_name") or "").strip().lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
+
+
 def match_cv_text(cv_text: str, top_k: int = 10) -> dict:
     """Match CV text against all jobs. Returns {cv_info, jobs}."""
     parser = _get_parser()
@@ -242,8 +258,8 @@ def match_cv_text(cv_text: str, top_k: int = 10) -> dict:
     engine = _get_engine()
     # Over-fetch so the lifecycle filter doesn't shrink the response below top_k.
     raw = engine.match_cv(cv_data, top_k=top_k * 2)
-    filtered = _apply_lifecycle_filter(raw)[:top_k]
-    return {"cv_info": _cv_info(cv_data), "jobs": _enrich(filtered)}
+    jobs = _dedup_by_title_company(_enrich(_apply_lifecycle_filter(raw)))[:top_k]
+    return {"cv_info": _cv_info(cv_data), "jobs": jobs}
 
 
 def match_cv_file(file_path: str, top_k: int = 10) -> dict:
@@ -255,8 +271,8 @@ def match_cv_file(file_path: str, top_k: int = 10) -> dict:
 
     engine = _get_engine()
     raw = engine.match_cv(cv_data, top_k=top_k * 2)
-    filtered = _apply_lifecycle_filter(raw)[:top_k]
-    return {"cv_info": _cv_info(cv_data), "jobs": _enrich(filtered)}
+    jobs = _dedup_by_title_company(_enrich(_apply_lifecycle_filter(raw)))[:top_k]
+    return {"cv_info": _cv_info(cv_data), "jobs": jobs}
 
 
 def build_jobdata_from_db(limit: int | None = None):
@@ -341,8 +357,8 @@ def match_cv_data(
     )
     engine = _get_engine()
     raw = engine.match_cv(cv, top_k=top_k * 2)
-    filtered = _apply_lifecycle_filter(raw)[:top_k]
-    return {"cv_info": _cv_info(cv), "jobs": _enrich(filtered)}
+    jobs = _dedup_by_title_company(_enrich(_apply_lifecycle_filter(raw)))[:top_k]
+    return {"cv_info": _cv_info(cv), "jobs": jobs}
 
 
 def parse_cv_file(file_path: str) -> dict:
