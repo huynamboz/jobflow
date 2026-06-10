@@ -1,0 +1,39 @@
+# Evaluation & Weight Tuning (lịch sử 019 → 020)
+
+## Công cụ
+
+### `tune_hybrid_weights` (apps/matching/management/commands/)
+- Load engine **không snapshot** (`job_pool_dir` absent) → pool = training jobs mà nhãn trỏ tới.
+- `engine.labeled_pair_components()`: từ cạnh match/no_match trong graph.pt → per-pair `(cv_idx, job_idx, label, gnn, skill, seniority, domain, cv_role, job_role)` — tính 1 lần, sweep chỉ re-weight.
+- Sweep simplex `α+β+γ+δ=1` grid 0.05 (~1771 combo). Mỗi combo đo **2 loại metric**:
+  - **label-AUC**: tách match/no_match (không dùng role)
+  - **role-NDCG@10 / role-P@10**: per-CV query, relevant = `infer_role(cv)==job.role_category`
+- **Objective mặc định "balanced"**: max role-NDCG **s.t.** label-AUC ≥ 0.85·max **và** δ ≤ 0.40. Lý do: pure role-NDCG **degenerate** — δ=1.0 biến score = chính tín hiệu relevance (NDCG=1.0, AUC sụp 0.62).
+- Output: dual ablation markdown (`specs/020-domain-aware-ranking/ablation.md`) + `--write` → metadata.json.
+
+### `eval_matching` (harness chất lượng)
+- **20 CV cố định** (FE React/Vue, BE Python/Node/Java/PHP/.NET/Go, fullstack, devops, data/ML, data eng, mobile RN/Android/iOS, QA, cloud, UI/UX, junior) chạy `match_cv_data` với **live engine**.
+- Báo per-CV top-K (title·score·domain_fit) + `top1_on_domain` (domain_fit ≥ 0.5) + summary rate.
+- Dùng làm regression guard — chạy lại sau mọi thay đổi scoring.
+
+## Lịch sử số liệu (quan trọng — đừng lặp lại sai lầm)
+
+| Mốc | Weights | Kết quả |
+|---|---|---|
+| Gốc (hand-set) | 0.55/0.30/0.15/— | label-AUC 0.861 · eval chưa đo |
+| **019**: tune label-AUC | 0.20/**0.75**/0.05/— | label-AUC **0.917** NHƯNG eval 20-CV lộ bug: backend CV → **Compositor/Animator** (top1_on_domain **50%**) |
+| 020 pure role-NDCG (degenerate, KHÔNG dùng) | 0/0/0/**1.0** | role-NDCG 1.0 giả tạo, AUC sụp 0.62 |
+| **020 balanced (HIỆN TẠI)** | **0.10/0.25/0.25/0.40** | role-NDCG 0.998 · label-AUC 0.798 · eval **top1_on_domain 90%**, on_domain@5 0.90 |
+
+**Bài học cốt lõi**:
+1. **Label-AUC cao ≠ ranking thật tốt** — nhãn skill-driven nên optimizer dồn về skill, kéo job lạc nghề lên top.
+2. **Metric chứa tín hiệu nằm trong score → degeneracy** (circularity) — phải constrain (AUC floor + δ cap) + verify bằng eval định tính độc lập.
+3. **α (GNN) thấp (0.10)** vì: nhãn skill-biased + GNN học từ chính nhãn đó (multicollinearity với β,δ) + 2 metric đều ưu ái tín hiệu thô. GNN vẫn sống ở reranker (feature gnn_score/gnn_rank/stage1) + inductive encoding. Muốn α lên đúng bản chất → sửa **nhãn** (xem 08).
+
+## 2 ca lệch còn lại trong eval
+
+Data/ML + Data Engineer CV → top job "Senior Data Analyst" có `role_category=""` (chưa được LLM extraction label) → domain trung tính 0.5 nhưng các job VFX có python vẫn chen được khi pool thiếu job data có nhãn. Fix = vá taxonomy (label role cho nhóm data/analyst jobs).
+
+## Test liên quan
+
+`apps/matching/tests.py`: `DomainAwareTests` (role fit 1/0.5/0, simplex4 sum=1, NDCG helper thưởng relevant-on-top), `DimensionScoreTests` (6 test công thức dims), snapshot/jobdata tests (018).
