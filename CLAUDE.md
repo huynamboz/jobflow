@@ -1,15 +1,16 @@
 <!-- SPECKIT START -->
-Active feature plan: [specs/020-domain-aware-ranking/plan.md](specs/020-domain-aware-ranking/plan.md)
+Active feature plan: [specs/021-pipeline-foundation-fixes/plan.md](specs/021-pipeline-foundation-fixes/plan.md)
 
 Related artifacts:
-- [spec.md](specs/020-domain-aware-ranking/spec.md)
-- [research.md](specs/020-domain-aware-ranking/research.md)
-- [data-model.md](specs/020-domain-aware-ranking/data-model.md)
-- [contracts/cli.md](specs/020-domain-aware-ranking/contracts/cli.md)
-- [quickstart.md](specs/020-domain-aware-ranking/quickstart.md)
-- [checklists/requirements.md](specs/020-domain-aware-ranking/checklists/requirements.md)
+- [spec.md](specs/021-pipeline-foundation-fixes/spec.md)
+- [research.md](specs/021-pipeline-foundation-fixes/research.md)
+- [data-model.md](specs/021-pipeline-foundation-fixes/data-model.md)
+- [contracts/cli.md](specs/021-pipeline-foundation-fixes/contracts/cli.md)
+- [rubric-tests.md](specs/021-pipeline-foundation-fixes/rubric-tests.md)
+- [quickstart.md](specs/021-pipeline-foundation-fixes/quickstart.md)
+- Master plan: [docs/codebase-knowledge/10-master-plan.md](docs/codebase-knowledge/10-master-plan.md)
 
-Previous active plan: [specs/019-match-weight-calibration/plan.md](specs/019-match-weight-calibration/plan.md)
+Previous active plan: [specs/020-domain-aware-ranking/plan.md](specs/020-domain-aware-ranking/plan.md)
 
 Previous features (still in this branch's history):
 - [specs/013-thesis-report/plan.md](specs/013-thesis-report/plan.md) (Thesis report — Vietnamese academic doc)
