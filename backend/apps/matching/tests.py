@@ -69,6 +69,36 @@ class BuildJobDataTests(TestCase):
         self.assertNotIn(inactive.id, ids)   # inactive → excluded
 
 
+class FinalOrderTests(TestCase):
+    """021/A3: final order follows rank_score (reranker×penalty); display monotonic."""
+
+    def _result(self, job_id, score):
+        from ml_service.inference.engine import JobMatchResult
+        return JobMatchResult(job_id=job_id, score=score, eligible=True,
+                              matched_skills=(), missing_skills=(),
+                              seniority_match=True, title=f"j{job_id}")
+
+    def test_order_follows_rank_and_display_monotonic(self):
+        from ml_service.inference.engine import InferenceEngine
+        # display says A > B > C, but reranker rank says C > A > B
+        results = [self._result(1, 0.9), self._result(2, 0.8), self._result(3, 0.7)]
+        rank = [0.30, 0.10, 0.50]
+        final = InferenceEngine._finalize_results(results, rank, top_k=3, remap=True)
+        self.assertEqual([r.job_id for r in final], [3, 1, 2])      # reranker order wins
+        scores = [r.score for r in final]
+        self.assertEqual(scores, sorted(scores, reverse=True))      # monotonic display
+        self.assertEqual(scores[0], 0.9)                            # mapped into display range
+        self.assertEqual(scores[-1], 0.7)
+
+    def test_no_reranker_keeps_legacy_behavior(self):
+        from ml_service.inference.engine import InferenceEngine
+        results = [self._result(1, 0.9), self._result(2, 0.8)]
+        rank = [0.9, 0.8]  # fallback: rank == penalized stage-1
+        final = InferenceEngine._finalize_results(results, rank, top_k=2, remap=False)
+        self.assertEqual([r.job_id for r in final], [1, 2])
+        self.assertEqual([r.score for r in final], [0.9, 0.8])      # untouched
+
+
 class GraphConflictGuardTests(TestCase):
     """021/A2: GraphBuilder must refuse a pair labeled both match and no_match."""
 

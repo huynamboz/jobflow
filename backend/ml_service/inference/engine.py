@@ -425,12 +425,15 @@ class InferenceEngine:
         _SEN_PENALTY_FACTOR    = 0.70   # seniority mismatch multiplier
 
         results: list[JobMatchResult] = []
+        rank_scores: list[float] = []  # 021/A3: reranker-driven final order
         for job_idx, raw_score in scored:   # iterate ALL retrieve_n, sort after
             job = self._jobs[job_idx]
             job_skills = set(job.skills)
             title = job.text.split(".")[0] if job.text else ""
 
-            display_score = float(raw_score)
+            # 021/A3: collect the gate factors as an explicit penalty product so
+            # they demote BOTH the displayed score and the reranker-driven order.
+            penalty = 1.0
 
             # Experience gate
             _EXP_OVERQUAL_GAP    = 3.0   # cv_exp - job_exp_min > 3yr → overqualified
@@ -439,26 +442,27 @@ class InferenceEngine:
             if job.experience_min and job.experience_min > 0:
                 gap = cv.experience_years - job.experience_min
                 if gap < 0:                        # underqualified → heavy penalty
-                    display_score *= _EXP_PENALTY_FACTOR
+                    penalty *= _EXP_PENALTY_FACTOR
                     _exp_weak = True
                 elif gap > _EXP_OVERQUAL_GAP:      # overqualified → mild penalty
-                    display_score *= _EXP_OVERQUAL_FACTOR
+                    penalty *= _EXP_OVERQUAL_FACTOR
                     _exp_weak = True
 
             # Seniority gate: senior/lead roles for junior/mid CVs.
             _sen_weak = False
             sen_gap = int(job.seniority) - int(cv.seniority)
             if sen_gap >= 2 or (sen_gap >= 1 and int(job.seniority) >= 3 and int(cv.seniority) <= 2):
-                display_score *= _SEN_PENALTY_FACTOR
+                penalty *= _SEN_PENALTY_FACTOR
                 _sen_weak = True
 
             # Overqualification: CV is 2+ seniority levels above job (e.g. senior → intern).
             _OVERQUAL_PENALTY = 0.75
             overqual_gap = int(cv.seniority) - int(job.seniority)
             if overqual_gap >= 2:
-                display_score *= _OVERQUAL_PENALTY
+                penalty *= _OVERQUAL_PENALTY
                 _sen_weak = True
 
+            display_score = float(raw_score) * penalty
             eligible = display_score >= 0.45  # placeholder; overwritten below
 
             # match_level from ordinal reranker score (thresholds from eval)
@@ -493,9 +497,34 @@ class InferenceEngine:
                     dim_scores=dim_scores,
                 )
             )
+            # 021/A3: final order = stage-2 reranker score × penalty product
+            # (falls back to the penalized stage-1 score when the reranker did
+            # not score this candidate / is untrained — previous behavior).
+            rank_scores.append((rs if rs >= 0 else float(raw_score)) * penalty)
 
-        results.sort(key=lambda r: r.score, reverse=True)
-        final = results[:top_k]
+        return self._finalize_results(results, rank_scores, top_k,
+                                      remap=bool(reranker_score_map))
+
+    @staticmethod
+    def _finalize_results(results: list[JobMatchResult], rank_scores: list[float],
+                          top_k: int, *, remap: bool) -> list[JobMatchResult]:
+        """021/A3: final order = rank_score (reranker × penalties) desc; displayed
+        score remapped to be MONOTONIC with that order (per-request min-max of
+        rank scores onto this result set's display range). ``remap=False`` (no
+        reranker) keeps the legacy stage-1 display values — order == score there
+        by construction."""
+        order = sorted(range(len(results)), key=lambda i: rank_scores[i], reverse=True)
+        final_idx = order[:top_k]
+        final = [results[i] for i in final_idx]
+        if final and remap:
+            d_vals = [r.score for r in final]
+            r_vals = [rank_scores[i] for i in final_idx]
+            d_lo, d_hi = min(d_vals), max(d_vals)
+            r_lo, r_hi = min(r_vals), max(r_vals)
+            span = (r_hi - r_lo) or 1.0
+            for r, rv in zip(final, r_vals):
+                mapped = d_lo + (rv - r_lo) / span * (d_hi - d_lo)
+                object.__setattr__(r, "score", round(mapped, 4))
         if final:
             thr = final[0].score * 0.65
             for r in final:

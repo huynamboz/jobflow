@@ -20,19 +20,23 @@ match_cv(CVData, top_k)                          [engine.py:366-503]
 │
 ├─ STAGE 2 — RERANK (nếu reranker đã train)
 │   reranker.score_batch_with_dims(23 features, gồm gnn_score/stage1_score)
-│   → QUYẾT THỨ TỰ CUỐI (không re-sort theo stage-1)
 │   → match_level: ≥0.30 strong / ≥0.22 good / ≥0 weak
 │
-└─ PENALTIES + KẾT QUẢ (mọi candidate)
-    experience gate: cv_exp < 80%·exp_min → ×0.40 · overqual >3yr → ×0.85
-    seniority gate: gap≥2 (hoặc gap≥1 & job senior & cv junior) → ×0.70 · overqual sen≥2 → ×0.75
+└─ PENALTIES + FINAL ORDER (021/A3 — mọi candidate)
+    penalty_product: experience gate cv_exp < 80%·exp_min → ×0.40 · overqual >3yr → ×0.85
+                     seniority gate gap≥2 (hoặc gap≥1 & job senior & cv junior) → ×0.70 · overqual sen≥2 → ×0.75
+    rank_score = (reranker_score nếu có, else stage-1 raw) × penalty_product
+    THỨ TỰ CUỐI = sort theo rank_score (engine._finalize_results)
+    ĐIỂM HIỂN THỊ = rank_score min-max remap vào dải display của result set
+                    → monotonic với thứ tự (job #2 không bao giờ % cao hơn #1)
+    fallback không reranker: rank = stage-1×penalty = hành vi cũ, không remap
     dim_scores = _dimension_scores (công thức minh bạch, feature 019):
       skill = Σimp(matched)/Σimp(required) · experience = 1−deficit/exp_min
       seniority = 1−|Δ|·0.3 · domain = role match — gate cứng cap 0.15
     eligible = score ≥ 0.65·top
 ```
 
-**Điểm hiển thị (match_score)** = Stage-1 hybrid sau penalty; **thứ tự** = reranker.
+**Semantics (chốt ở 021)**: thứ tự cuối = **reranker × penalty gates**; display == order (monotonic by construction). Trước 021, sort cuối theo display stage-1 đã vô hiệu hoá reranker (audit A3).
 
 ## Engine lifecycle
 
