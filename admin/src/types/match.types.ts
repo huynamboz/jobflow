@@ -36,6 +36,7 @@ export interface EmployeeJobMatch {
   matched_skills: string[];
   missing_skills: string[];
   seniority_gap: number | null;
+  dim_scores?: Record<string, string>; // skill_fit/experience_fit/seniority_fit/domain_fit → good|ok|weak
   assigned_to: number | null;
   notes: string;
   applied_at: string | null;

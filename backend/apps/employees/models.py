@@ -93,6 +93,9 @@ class EmployeeJobMatch(models.Model):
     # and the seniority distance (job_seniority - employee_seniority); null when unknown.
     missing_skills = models.JSONField(default=list, blank=True)
     seniority_gap = models.IntegerField(null=True, blank=True)
+    # Per-dimension fit from the reranker: skill_fit / experience_fit /
+    # seniority_fit / domain_fit → "good" | "ok" | "weak". Empty until (re)matched.
+    dim_scores = models.JSONField(default=dict, blank=True)
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

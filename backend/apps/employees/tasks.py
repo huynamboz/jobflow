@@ -49,6 +49,7 @@ def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
             "matched_skills": m.get("matched_skills", []),
             "missing_skills": m.get("missing_skills", []),
             "seniority_gap": seniority_gap,
+            "dim_scores": m.get("dim_scores", {}),
         }
         _, was_created = EmployeeJobMatch.objects.update_or_create(
             employee=emp,

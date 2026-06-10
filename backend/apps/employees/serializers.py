@@ -51,7 +51,7 @@ class EmployeeJobMatchSerializer(serializers.ModelSerializer):
         fields = (
             "id", "employee", "employee_name", "job",
             "status", "match_score", "matched_skills",
-            "missing_skills", "seniority_gap",
+            "missing_skills", "seniority_gap", "dim_scores",
             "assigned_to", "notes",
             "applied_at", "won_at", "lost_at",
             "created_at", "updated_at",
@@ -59,7 +59,7 @@ class EmployeeJobMatchSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "id", "employee", "job",
             "match_score", "matched_skills",
-            "missing_skills", "seniority_gap",
+            "missing_skills", "seniority_gap", "dim_scores",
             "applied_at", "won_at", "lost_at",
             "created_at", "updated_at",
         )
