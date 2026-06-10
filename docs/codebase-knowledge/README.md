@@ -12,5 +12,6 @@ Bộ tài liệu nghiên cứu toàn bộ codebase (sinh 2026-06-10, từ phân 
 | 06 | [inference-pipeline](06-inference-pipeline.md) | Serving 2-stage, hybrid score, job pool live? |
 | 07 | [evaluation-tuning](07-evaluation-tuning.md) | Tune weights + eval harness + lịch sử số liệu 019/020? |
 | 08 | [improvement-opportunities](08-improvement-opportunities.md) | Cần cải thiện gì, ưu tiên ra sao? |
+| 09 | [pipeline-audit](09-pipeline-audit.md) | Audit end-to-end: 20 lỗ hổng xếp hạng + kế hoạch fix theo đợt |
 
 Quy ước: khi codebase đổi đáng kể (retrain, đổi pipeline), cập nhật doc tương ứng trong cùng PR.
