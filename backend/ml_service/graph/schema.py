@@ -118,6 +118,7 @@ class LabeledPair:
     job_id: int
     label: int  # 1 = match, 0 = no_match
     split: str = "train"  # train / val / test
+    bucket: str = ""  # GNN v2: selection bucket (e.g. related_skill_positive) for curriculum sampling
 
 
 @dataclass(frozen=True)

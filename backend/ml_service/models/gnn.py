@@ -65,10 +65,19 @@ class HeteroGraphSAGE(nn.Module):
         )
         self.gnn = to_hetero(backbone, metadata, aggr="mean")
         self.decoder = MLPDecoder(hidden_channels)
+        # GNN v2/1.2: auxiliary role-classification head (11 role categories).
+        # Forces the embedding space to cluster by professional domain — the
+        # structure the decode score lacked (related-slice AUC ≈ 0.51 in v1).
+        # Train-time only; inference never calls it.
+        self.role_head = nn.Linear(hidden_channels, 11)
 
     def encode(self, data: HeteroData) -> dict[str, torch.Tensor]:
         x_dict = {ntype: proj(data[ntype].x) for ntype, proj in self.projections.items()}
         return self.gnn(x_dict, data.edge_index_dict)
+
+    def role_logits(self, z_dict: dict[str, torch.Tensor], ntype: str) -> torch.Tensor:
+        """GNN v2/1.2: role-class logits for 'cv' or 'job' embeddings."""
+        return self.role_head(z_dict[ntype])
 
     def decode(self, z_dict: dict[str, torch.Tensor], cv_indices: torch.Tensor, job_indices: torch.Tensor) -> torch.Tensor:
         return self.decoder(z_dict["cv"][cv_indices], z_dict["job"][job_indices])

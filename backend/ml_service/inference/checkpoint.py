@@ -93,7 +93,13 @@ def load_checkpoint(
         dropout=dropout,
         node_dims=node_dims,
     )
-    model.load_state_dict(torch.load(path / "model.pt", weights_only=True))
+    # GNN v2: strict=False — train-only modules (e.g. role_head) may be absent
+    # in older checkpoints (they're never used at inference) or present-but-
+    # unused. Log any mismatch so silent drift is visible.
+    _missing, _unexpected = model.load_state_dict(
+        torch.load(path / "model.pt", weights_only=True), strict=False)
+    if _missing or _unexpected:
+        logger.info("checkpoint load: missing=%s unexpected=%s", _missing, _unexpected)
     model.eval()
 
     with open(path / "cvs.json", encoding="utf-8") as f:

@@ -89,7 +89,11 @@ class GraphBuilder:
         skill_names = sorted(skill_catalog.keys())
         skill_to_idx = {s: i for i, s in enumerate(skill_names)}
 
-        # --- CV nodes: embedding(384) + experience_years_norm + education_norm = 386 ---
+        # --- CV nodes (GNN v2/1.1): embedding(384) + exp_norm + edu_norm +
+        # role_onehot(11) = 397 — parity with job nodes. Role inferred via the
+        # canonical classifier (023) so CV and job share one taxonomy.
+        from ml_service.inference.role_classifier import infer_role
+
         cv_texts = [cv.text for cv in cvs]
         cv_embeddings = self._embed.encode(cv_texts)  # (N, 384)
         exp_years = np.array([cv.experience_years for cv in cvs], dtype=np.float32)
@@ -98,7 +102,12 @@ class GraphBuilder:
         exp_norm = _minmax(exp_years)
         edu_norm = _minmax(edu_levels)
         cv_extra = np.stack([exp_norm, edu_norm], axis=1)
-        data["cv"].x = torch.from_numpy(np.concatenate([cv_embeddings, cv_extra], axis=1))
+        cv_role_onehot = np.zeros((len(cvs), len(ROLE_CATEGORIES)), dtype=np.float32)
+        for i, cv in enumerate(cvs):
+            role = infer_role(cv.skills, cv.text)
+            cv_role_onehot[i, ROLE_CATEGORIES.index(role) if role in ROLE_CATEGORIES else 0] = 1.0
+        data["cv"].x = torch.from_numpy(
+            np.concatenate([cv_embeddings, cv_extra, cv_role_onehot], axis=1))
 
         # --- Job nodes: 397-dim via the shared recipe (text emb + salary + role onehot) ---
         data["job"].x = torch.from_numpy(build_job_node_features(jobs, self._embed))

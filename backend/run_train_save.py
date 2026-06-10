@@ -130,6 +130,7 @@ def load_dataset(data_dir: Path):
             job_id=job_idx_to_db_id[lbl["job_idx"]],
             label=lbl["label"],
             split=split,
+            bucket=lbl.get("bucket", ""),
         )
         split_map.setdefault(split, []).append(pair)
         if (_oversample and split == "train" and lbl["label"] == 1

@@ -96,6 +96,10 @@ def _sample_bpr_pairs(
             continue
         if p.label == 1:
             pos_by_cv.setdefault(p.cv_id, []).append(job_id_to_idx[p.job_id])
+            # GNN v2/1.3: related-skill positives are the lesson the model keeps
+            # missing — triple their anchor probability in BPR sampling.
+            if getattr(p, "bucket", "") == "related_skill_positive":
+                pos_by_cv[p.cv_id].extend([job_id_to_idx[p.job_id]] * 2)
         else:
             neg_by_cv.setdefault(p.cv_id, []).append(job_id_to_idx[p.job_id])
 
@@ -297,6 +301,20 @@ class Trainer:
         model = model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
 
+        # GNN v2/1.2: role labels for the auxiliary domain head (11 categories,
+        # canonical taxonomy from 023). Pushes embeddings to cluster by field.
+        from ml_service.graph.builder import ROLE_CATEGORIES
+        from ml_service.inference.role_classifier import infer_role
+        _role_idx = {r: i for i, r in enumerate(ROLE_CATEGORIES)}
+        cv_role_labels = torch.tensor(
+            [_role_idx.get(infer_role(cv.skills, cv.text), 0) for cv in cvs],
+            dtype=torch.long, device=device)
+        job_role_labels = torch.tensor(
+            [_role_idx.get((j.role_category or "other"), 0) for j in jobs],
+            dtype=torch.long, device=device)
+        _role_ce = torch.nn.CrossEntropyLoss()
+        _AUX_ROLE_WEIGHT = 0.3
+
         result = TrainResult()
         best_val_signal = -float("inf")
         patience_counter = 0
@@ -339,6 +357,11 @@ class Trainer:
             pos_scores = model.decode(z_dict, cv_idx, pos_idx)
             neg_scores = model.decode(z_dict, cv_idx, neg_idx)
             loss = bpr_loss(pos_scores, neg_scores)
+            # GNN v2/1.2: auxiliary role-classification loss (cv + job nodes)
+            if hasattr(model, "role_head"):
+                loss = loss + _AUX_ROLE_WEIGHT * 0.5 * (
+                    _role_ce(model.role_logits(z_dict, "cv"), cv_role_labels)
+                    + _role_ce(model.role_logits(z_dict, "job"), job_role_labels))
 
             optimizer.zero_grad()
             loss.backward()
@@ -368,10 +391,17 @@ class Trainer:
 
             val_auc = val_metrics.get("auc_roc", 0.0)
             val_ndcg = val_metrics.get("ndcg@10", 0.0)
+            # GNN v2/1.4: related-skill slice AUC on PURE GNN scores — the
+            # capability v1 never learned. Blended into the early-stop signal
+            # so training optimizes the lesson we actually care about.
+            slice_auc = self._related_slice_auc(
+                model, data_clean, dataset.val, cv_id_to_idx, job_id_to_idx, device)
+            if slice_auc is not None:
+                val_metrics["related_slice_auc"] = slice_auc
             # val_bpr logged for diagnostics; val_auc used as early stopping signal.
             # warmup_epochs skips patience counting during curriculum transition
             # (epoch 5-20 often shows a temporary val_auc dip when hard negs kick in).
-            val_signal = val_auc
+            val_signal = (0.5 * val_auc + 0.5 * slice_auc) if slice_auc is not None else val_auc
             logger.info(
                 "Epoch %d — loss=%.4f, val_bpr=%.4f, val_auc=%.4f, val_ndcg@10=%.4f",
                 epoch, loss_val, val_bpr, val_auc, val_ndcg,
@@ -402,6 +432,22 @@ class Trainer:
         result.data_clean = data_clean
 
         return result
+
+    @staticmethod
+    def _related_slice_auc(model, data, pairs, cv_id_to_idx, job_id_to_idx, device):
+        """GNN v2/1.4: AUC of PURE GNN decode on the related_skill_positive
+        bucket of the given split (the generalization v1 failed at: 0.512)."""
+        rel = [p for p in pairs if getattr(p, "bucket", "") == "related_skill_positive"
+               and p.cv_id in cv_id_to_idx and p.job_id in job_id_to_idx]
+        labels = [p.label for p in rel]
+        if len(rel) < 10 or len(set(labels)) < 2:
+            return None
+        ci = torch.tensor([cv_id_to_idx[p.cv_id] for p in rel], dtype=torch.long, device=device)
+        ji = torch.tensor([job_id_to_idx[p.job_id] for p in rel], dtype=torch.long, device=device)
+        with torch.no_grad():
+            scores = model.decode(model.encode(data), ci, ji).detach().cpu().numpy()
+        from ml_service.evaluation.metrics import compute_all_metrics
+        return compute_all_metrics(np.array(labels), scores).get("auc_roc")
 
     def _evaluate_split(
         self,
