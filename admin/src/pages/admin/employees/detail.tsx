@@ -17,6 +17,7 @@ import {
   IconBuilding,
   IconCalendar,
   IconCheck,
+  IconChevronDown,
   IconExternalLink,
   IconMail,
   IconMapPin,
@@ -48,8 +49,7 @@ const T = {
 
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
 
-// Temporarily hidden until the live matching pipeline is reliable. Flip to true.
-const SHOW_MATCH_PCT = false;
+const SHOW_MATCH_PCT = true;
 
 const PAGE_SIZE = 10; // job list loads the top 10, then 10 more on demand
 
@@ -128,8 +128,6 @@ function MetaRow({ icon, children }: { icon: React.ReactNode; children: React.Re
 /* ---------------- left: job list card ---------------- */
 function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; selected: boolean; onSelect: () => void }) {
   const j = match.job;
-  const matched = match.matched_skills?.length ?? 0;
-  const missing = match.missing_skills?.length ?? 0;
   return (
     <button
       type="button"
@@ -153,14 +151,33 @@ function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; s
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
         {match.status !== "suggested" && <StatusChip status={match.status} />}
-        <span style={{ fontSize: 11.5, color: T.ink4 }}>
-          {matched} match{missing ? ` · ${missing} missing` : ""}
-        </span>
+        {j.platform_name && (
+          <span style={{ padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: T.surface3, color: T.ink3 }}>
+            {j.platform_name}
+          </span>
+        )}
+        {j.job_type && <span style={{ fontSize: 11.5, color: T.ink4 }}>{j.job_type}</span>}
         {jobPostedLabel(j) && (
           <span style={{ marginLeft: "auto", fontSize: 11.5, color: T.ink4 }}>{jobPostedLabel(j)}</span>
         )}
       </div>
     </button>
+  );
+}
+
+function ScoreBar({ label, value, hint, tone = T.accent }: { label: string; value: number; hint?: string; tone?: string }) {
+  const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: T.ink2 }}>{label}</span>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: tone }}>{pct}%</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 999, background: T.surface3, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: tone, borderRadius: 999 }} />
+      </div>
+      {hint && <div style={{ fontSize: 11.5, color: T.ink4, marginTop: 3 }}>{hint}</div>}
+    </div>
   );
 }
 
@@ -178,6 +195,7 @@ function JobDetailPanel({
   const salary = fmtSalary(j);
   const [desc, setDesc] = useState<string | null>(null);
   const [descLoading, setDescLoading] = useState(true);
+  const [whyOpen, setWhyOpen] = useState(false);
   useEffect(() => {
     let alive = true;
     setDescLoading(true);
@@ -249,31 +267,59 @@ function JobDetailPanel({
         </a>
       )}
 
-      {/* Why it matches */}
-      <div style={{ marginTop: 20, padding: 16, borderRadius: 14, background: T.surface2 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink3, marginBottom: 10 }}>Why it matches</div>
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 12, color: T.ink3, marginBottom: 4 }}>Matched skills</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-            {(match.matched_skills ?? []).map((s) => (
-              <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.success50, color: T.success }}>{s}</span>
-            ))}
-            {!match.matched_skills?.length && <span style={{ fontSize: 12, color: T.ink4 }}>none</span>}
+      {/* Why it matches — accordion */}
+      {(() => {
+        const matched = match.matched_skills?.length ?? 0;
+        const missing = match.missing_skills?.length ?? 0;
+        const reqTotal = matched + missing;
+        const skillCoverage = reqTotal ? matched / reqTotal : 1;
+        const gap = match.seniority_gap;
+        const seniorityFit = gap == null ? 0.5 : Math.max(0, 1 - Math.abs(gap) * 0.3);
+        const overall = match.match_score || 0;
+        return (
+          <div style={{ marginTop: 20, borderRadius: 14, background: T.surface2, overflow: "hidden" }}>
+            <button
+              type="button"
+              onClick={() => setWhyOpen((o) => !o)}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: 16, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+            >
+              <span style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink3 }}>Why it matches</span>
+              <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>{Math.round(overall * 100)}% match</span>
+                <IconChevronDown size={16} style={{ color: T.ink4, transition: "transform 0.15s", transform: whyOpen ? "rotate(180deg)" : "none" }} />
+              </span>
+            </button>
+            {whyOpen && (
+              <div style={{ padding: "0 16px 16px" }}>
+                <ScoreBar label="Overall match" value={overall} />
+                <ScoreBar label="Skill coverage" value={skillCoverage} tone={T.success}
+                  hint={`${matched} of ${reqTotal || matched} required skills matched`} />
+                <ScoreBar label="Seniority fit" value={seniorityFit} tone={T.warning}
+                  hint={seniorityGapLabel(gap)} />
+
+                <div style={{ marginTop: 6, marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, color: T.ink3, marginBottom: 4 }}>Matched skills</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    {(match.matched_skills ?? []).map((s) => (
+                      <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.success50, color: T.success }}>{s}</span>
+                    ))}
+                    {!matched && <span style={{ fontSize: 12, color: T.ink4 }}>none</span>}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: T.ink3, marginBottom: 4 }}>Missing skills</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    {(match.missing_skills ?? []).map((s) => (
+                      <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.danger50, color: T.danger }}>{s}</span>
+                    ))}
+                    {!missing && <span style={{ fontSize: 12, color: T.success }}>meets all required skills</span>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 12, color: T.ink3, marginBottom: 4 }}>Missing skills</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-            {(match.missing_skills ?? []).map((s) => (
-              <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.danger50, color: T.danger }}>{s}</span>
-            ))}
-            {!match.missing_skills?.length && <span style={{ fontSize: 12, color: T.success }}>meets all required skills</span>}
-          </div>
-        </div>
-        <div style={{ fontSize: 12.5, color: T.ink2 }}>
-          <span style={{ color: T.ink3 }}>Seniority: </span>{seniorityGapLabel(match.seniority_gap)}
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Job description */}
       <div style={{ marginTop: 20 }}>
