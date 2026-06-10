@@ -91,14 +91,14 @@
 - [x] **3.1 (A8)** Label `role_category` cho 2.198 job thiếu (chạy lại JD extraction hoặc batch riêng) → δ·domain + role-metric phủ đủ pool.
 - [x] **3.2 (A11)** Schema extraction importance rõ ([REQUIRED]/[PREFERRED]) + validate skill với catalog + **đếm/log skill bị drop**.
 - [x] **3.3 (A12/A13)** Extraction seniority/experience: phân biệt "không xác định" với default MID; cross-check seniority vs years.
-- [ ] **3.4 (A16)** Cân nhắc embedding đa ngữ (paraphrase-multilingual-MiniLM) cho 7% job tiếng Việt — **cần retrain**, gộp vào lần retrain sau.
+- [x] **3.4 (A16)** ✅ (GNN v2/E6 — embedding đa ngữ promoted, xem doc 12) Cân nhắc embedding đa ngữ (paraphrase-multilingual-MiniLM) cho 7% job tiếng Việt — **cần retrain**, gộp vào lần retrain sau.
 - [x] **3.5** Đồng bộ taxonomy role giữa `role_classifier.infer_role` ↔ `ROLE_CATEGORIES` (1 nguồn duy nhất).
 - [x] **3.6 (A14)** Sau mỗi lần đổi hybrid weights → retrain reranker (tránh distribution skew stage1_score).
 
 ## Definition of Done (toàn kế hoạch)
 
 1. `eval_matching`: top1_on_domain ≥ 90%, 0 cross-domain top-1, không job trùng trong top-K.
-2. ~~Tuned α ≥ 0.3~~ **ĐÃ SỬA bằng bằng chứng Đợt 2**: GNN decode không mang tín hiệu tuyến tính vượt trội (3 phép đo); hệ là ensemble có kiểm chứng — GNN giữ vai trò inductive encoding + 1 tín hiệu trong reranker.
+2. ✅ **Tuned α = 0.30 — DoD gốc ĐẠT BẰNG THỰC LỰC** (GNN v2/E6, 2026-06-11): sau khi gỡ đúng nút thắt (embedding đa ngữ + pretrain), decode học được related-skill (slice 0.51→0.70) và tuner tự trao GNN trọng số lớn nhất cùng domain. (Trước đó từng sửa DoD vì negative result — giờ khôi phục.)
 3. GNN-advantage test: GNN bắt được related-skill matches mà baseline trượt (số liệu cụ thể).
 4. Graph 0 cặp nhãn xung đột; metrics per-CV; gate kinh nghiệm hoạt động; thứ tự cuối nhất quán với thiết kế.
 5. Docs 02-09 cập nhật đúng hiện trạng; checkpoint cũ còn backup.
