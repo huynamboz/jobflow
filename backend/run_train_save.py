@@ -226,6 +226,7 @@ def main(data_dir: Path) -> None:
     base_meta = {
         "best_epoch":   result.best_epoch,
         "test_metrics": result.test_metrics,
+        "metrics_mode": "per_cv",  # 021/A7: ranking metrics are per-CV means
         "num_cvs":      len(cvs),
         "num_jobs":     len(jobs),
         "cv_source":    "db_export",

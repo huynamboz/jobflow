@@ -69,6 +69,24 @@ class BuildJobDataTests(TestCase):
         self.assertNotIn(inactive.id, ids)   # inactive → excluded
 
 
+class PerCvMetricsTests(TestCase):
+    """021/A7: ranking metrics are per-CV means, not a global flat ranking."""
+
+    def test_per_cv_means_and_exclusions(self):
+        from ml_service.inference import engine  # noqa: F401 — warm PyG import chain (standalone-run quirk)
+        from ml_service.training.trainer import _per_cv_metrics
+        # CV 0: perfect ranking (pos on top). CV 1: worst (pos at bottom).
+        # CV 2: no positive → excluded.
+        y = np.array([1, 0, 0,   0, 0, 1,   0, 0])
+        s = np.array([.9, .5, .1, .9, .5, .1, .9, .5])
+        cv = np.array([0, 0, 0,  1, 1, 1,   2, 2])
+        m = _per_cv_metrics(y, s, cv)
+        self.assertEqual(m["num_cvs_evaluated"], 2.0)
+        self.assertAlmostEqual(m["mrr"], (1.0 + 1/3) / 2, places=4)  # mean of per-CV MRR
+        self.assertLess(m["precision@5"], 1.0)  # no global-ranking artifact
+        self.assertIn("auc_roc", m)             # global AUC still reported
+
+
 class FinalOrderTests(TestCase):
     """021/A3: final order follows rank_score (reranker×penalty); display monotonic."""
 

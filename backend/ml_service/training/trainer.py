@@ -180,6 +180,39 @@ def _seniority_match_score(cv: CVData, job: JobData) -> float:
     return max(0.0, 1.0 - dist * 0.25)
 
 
+def _per_cv_metrics(y_true: np.ndarray, y_score: np.ndarray, cv_idx: np.ndarray) -> dict[str, float]:
+    """021/A7: ranking metrics computed PER CV then averaged.
+
+    The old global ranking over ALL test pairs produced degenerate numbers
+    (precision@5 = ndcg@5 = mrr = 1.0) that say nothing about per-CV
+    recommendation quality. Here each CV ranks its OWN labeled pairs; CVs with
+    ≥1 positive and ≥2 pairs contribute; the report is the mean (AUC stays
+    global — pairwise separation is well-defined there)."""
+    out: dict[str, float] = {}
+    # global AUC from the standard metric set
+    out["auc_roc"] = compute_all_metrics(y_true, y_score).get("auc_roc", 0.5)
+
+    per_cv: dict[str, list[float]] = {}
+    n_evaluated = 0
+    for cv in np.unique(cv_idx):
+        m = cv_idx == cv
+        yt, ys = y_true[m], y_score[m]
+        if yt.sum() == 0 or len(yt) < 2:
+            continue
+        n_evaluated += 1
+        cv_metrics = compute_all_metrics(yt, ys)
+        for k, v in cv_metrics.items():
+            if k == "auc_roc":
+                continue
+            per_cv.setdefault(k, []).append(float(v))
+    for k, vals in per_cv.items():
+        out[k] = float(np.mean(vals))
+    out["num_cvs_evaluated"] = float(n_evaluated)
+    # NOTE: numbers are per-CV means — run_train_save stamps metadata
+    # "metrics_mode": "per_cv"; old (global-ranking) checkpoints not comparable.
+    return out
+
+
 def _apply_drop_edge(data: HeteroData, rate: float, rng: np.random.RandomState) -> HeteroData:
     """Randomly drop edges per training iteration (DropEdge, ICLR 2020)."""
     if rate <= 0.0:
@@ -430,7 +463,7 @@ class Trainer:
         )
 
         y_true = np.array([p.label for p in valid_pairs])
-        return compute_all_metrics(y_true, hybrid)
+        return _per_cv_metrics(y_true, hybrid, np.array(cv_indices))
 
 
 def make_gnn_hybrid_scorer(
