@@ -1,6 +1,6 @@
 # GNN v2 Proposal — tăng "độ thông minh" thật của GNN
 
-> **Handoff document**: file này đủ thông tin để bất kỳ session nào (kể cả mới) triển khai tiếp mà không cần context cũ. Viết: 2026-06-10. Trạng thái: **CHƯA triển khai** — Vòng 1 là bước kế tiếp.
+> **Handoff document**: file này đủ thông tin để bất kỳ session nào (kể cả mới) triển khai tiếp mà không cần context cũ. Viết: 2026-06-10. Trạng thái: **Vòng 1 ĐÃ CHẠY — negative (bảng mục 6)**; Vòng 2 (pretrain) là bước kế tiếp; code Vòng 1 ở branch `024-gnn-v2`.
 
 ## 1. Vì sao cần GNN v2 — chẩn đoán đã chốt (đừng chẩn đoán lại)
 
@@ -77,8 +77,22 @@ Cách đo slice AUC (script đã chạy ở Đợt 2, tái lập): load engine `
 | Vòng | Ngày | Slice AUC | Global AUC | NDCG@10 | eval 20-CV | α re-tune | Verdict |
 |---|---|---|---|---|---|---|---|
 | baseline | 2026-06-10 | 0.512 | ~0.61 | 0.894 | 100% | 0.05 | — |
-| 1 | | | | | | | |
+| 1a (signal 0.5/0.5) | 2026-06-10 | 0.552 | 0.547 | 0.838 | — | — | ❌ best epoch 22, undertrained |
+| 1b (signal 0.8/0.2 + warmup 40) | 2026-06-10 | 0.550 | 0.618* | 0.833 | — | — | ❌ best epoch 19 rồi thoái hoá |
 | 2 | | | | | | | |
+
+**Phân tích Vòng 1 (2 biến thể)**: slice chỉ nhích +0.04 trong khi pipeline test AUC tụt mạnh
+(0.813 → ~0.62) và NDCG@10 giảm (0.894 → 0.83x); cả 2 lần "best epoch" rất sớm (19-22) rồi
+signal thoái hoá → **aux role loss XUNG ĐỘT với BPR** thay vì bổ trợ (role-clustering kéo
+embedding khỏi cấu trúc match-discrimination), không phải lỗi early-stop. KHÔNG promote —
+`checkpoints/latest` (v1) giữ production. Code Vòng 1 nằm nguyên trên branch `024-gnn-v2`
+(commit b09047b + r1b patch) — KHÔNG merge main.
+
+**Khuyến nghị cho Vòng 2** (rút từ Vòng 1): bỏ/giảm mạnh aux role head (hoặc weight ≤0.05,
+chỉ bật sau warmup); trọng tâm đặt vào **self-supervised pretrain** (link-prediction trên
+requires_skill/has_skill — không đụng BPR) + **skill-relation loss** (mục 3 Vòng 2) — các
+hướng bồi đắp cấu trúc TRƯỚC khi supervised, thay vì tranh chấp gradient trong lúc BPR.
+(*global ở dòng 1b là test-AUC pipeline; dòng 1a là GNN-component AUC — thước hơi khác, đều kém.)
 
 ## 7. Liên quan
 
