@@ -39,20 +39,36 @@ _COMPATIBLE_ROLES: dict[str, set[str]] = {
     "backend": {"backend", "fullstack"},
     "fullstack": {"frontend", "backend", "fullstack"},
     "devops": {"devops", "backend"},
-    "data": {"data", "ml", "backend"},
-    "ml": {"ml", "data"},
+    "data_eng": {"data_eng", "data_ml", "backend"},
+    "data_ml": {"data_ml", "data_eng"},
     "mobile": {"mobile", "frontend"},
-    "security": {"security", "devops", "backend"},
-    "erp": {"erp"},
     "other": set(),  # compatible with everything
+}
+
+
+# 023/3.5: canonicalize internal role names to the Job.role_category taxonomy
+# (backend/frontend/fullstack/mobile/devops/data_ml/data_eng/qa/design/ba/other).
+# Before this, infer_role returned "data"/"ml"/"security"/"erp" which NEVER
+# equaled any Job category → data CVs could not domain-match ANY data job.
+_CANONICAL_ROLE = {
+    "ml": "data_ml",
+    "data": "data_eng",
+    "security": "devops",
+    "erp": "other",
 }
 
 
 def infer_role(skills: tuple[str, ...] | set[str], text: str = "") -> str:
     """Infer primary role from skills and/or text.
 
-    Returns one of: frontend, backend, fullstack, devops, data, ml, mobile, security, other.
+    Returns one of the Job.role_category values: frontend, backend, fullstack,
+    devops, data_ml, data_eng, mobile, other (qa/design/ba are not inferable
+    from dev-skill signals and fall to other).
     """
+    return _CANONICAL_ROLE.get(_infer_role_raw(skills, text), _infer_role_raw(skills, text))
+
+
+def _infer_role_raw(skills: tuple[str, ...] | set[str], text: str = "") -> str:
     skill_set = set(skills)
 
     # Check title patterns first (strongest signal)
@@ -83,10 +99,9 @@ _ADJACENT_ROLES: dict[str, set[str]] = {
     "backend": {"frontend", "fullstack", "devops"},
     "fullstack": {"frontend", "backend", "devops"},
     "devops": {"backend", "fullstack"},
-    "data": {"ml", "backend"},
-    "ml": {"data", "backend"},
+    "data_eng": {"data_ml", "backend"},
+    "data_ml": {"data_eng", "backend"},
     "mobile": {"frontend", "fullstack"},
-    "security": {"devops", "backend"},
 }
 
 

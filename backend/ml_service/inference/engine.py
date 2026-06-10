@@ -260,13 +260,26 @@ class InferenceEngine:
             out.append((ci, ji, lab, float(g), skill, sen, domain, cv_role, job.role_category or ""))
         return out
 
+    # 023/3.5: mirror of the labeling rubric's related-domain table — related
+    # fields are a partial match (rubric: domain=1 → can still be overall≥1).
+    _RELATED_DOMAINS = {
+        ("fullstack", "backend"), ("backend", "fullstack"),
+        ("fullstack", "frontend"), ("frontend", "fullstack"),
+        ("data_ml", "data_eng"), ("data_eng", "data_ml"),
+        ("mobile", "frontend"), ("frontend", "mobile"),
+    }
+
     @staticmethod
     def _role_domain_fit(cv_role: str, job: JobData) -> float:
-        """Domain (role) fit ∈ {1.0, 0.5, 0.0}: 1 same field, 0.5 job role unknown,
-        0 mismatch. Shared by the score's δ·domain term (feature 020) and the
-        per-dimension display, so both mean the same thing."""
+        """Domain (role) fit: 1.0 same field · 0.7 related (rubric table) ·
+        0.5 job role unknown · 0.0 mismatch. Shared by the δ·domain term, the
+        ordering domain gate (fires only at 0.0), and the dim display."""
         if job.role_category:
-            return 1.0 if cv_role == job.role_category else 0.0
+            if cv_role == job.role_category:
+                return 1.0
+            if (cv_role, job.role_category) in InferenceEngine._RELATED_DOMAINS:
+                return 0.7
+            return 0.0
         return 0.5
 
     @staticmethod

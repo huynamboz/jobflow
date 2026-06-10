@@ -1,6 +1,8 @@
 # Master Plan — Matching đúng bản chất (GNN-driven)
 
-**Cập nhật**: 2026-06-10 · **Trạng thái**: ✅ Đợt 0+1+2 HOÀN THÀNH (eval 90% với kiến trúc đúng) · Đợt 3 (data-ops) còn lại
+**Cập nhật**: 2026-06-10 · **Trạng thái**: ✅ Đợt 0+1+2 + 3.1/3.5 HOÀN THÀNH — **eval 20/20 (100%) · on_domain@5 = 1.00** · còn 3.2-3.4/3.6 (không gấp)
+
+**📊 Kết quả 023 (role backfill + taxonomy sync):** 1.898 job thiếu role được agent phân loại (414 role IT, 1.484 đúng đắn giữ other — phi-IT thật); fix taxonomy lệch (infer_role: ml→data_ml, data→data_eng, security→devops + bảng related vào engine: data_ml↔data_eng=0.7 không gate). Eval: 90% → **100%**, 0 off-domain.
 **Mục tiêu cuối**: hệ matching mà **GNN thực sự gánh tín hiệu** (học được cả domain từ data, α đáng kể sau tune), kết quả chính xác kiểm chứng được, mọi con số có cơ sở — sẵn sàng trình bày với lý thuyết đúng.
 
 ## Bối cảnh (đọc trước)
@@ -86,11 +88,11 @@
 
 ## ĐỢT 3 — Data-ops nền (song song/sau, không chặn)
 
-- [ ] **3.1 (A8)** Label `role_category` cho 2.198 job thiếu (chạy lại JD extraction hoặc batch riêng) → δ·domain + role-metric phủ đủ pool.
+- [x] **3.1 (A8)** Label `role_category` cho 2.198 job thiếu (chạy lại JD extraction hoặc batch riêng) → δ·domain + role-metric phủ đủ pool.
 - [ ] **3.2 (A11)** Schema extraction importance rõ ([REQUIRED]/[PREFERRED]) + validate skill với catalog + **đếm/log skill bị drop**.
 - [ ] **3.3 (A12/A13)** Extraction seniority/experience: phân biệt "không xác định" với default MID; cross-check seniority vs years.
 - [ ] **3.4 (A16)** Cân nhắc embedding đa ngữ (paraphrase-multilingual-MiniLM) cho 7% job tiếng Việt — **cần retrain**, gộp vào lần retrain sau.
-- [ ] **3.5** Đồng bộ taxonomy role giữa `role_classifier.infer_role` ↔ `ROLE_CATEGORIES` (1 nguồn duy nhất).
+- [x] **3.5** Đồng bộ taxonomy role giữa `role_classifier.infer_role` ↔ `ROLE_CATEGORIES` (1 nguồn duy nhất).
 - [ ] **3.6 (A14)** Sau mỗi lần đổi hybrid weights → retrain reranker (tránh distribution skew stage1_score).
 
 ## Definition of Done (toàn kế hoạch)
