@@ -79,3 +79,62 @@ class BucketGenerationTests(TestCase):
         n1 = PairQueue.objects.count()
         self._run()  # chạy lại — không tạo trùng
         self.assertEqual(PairQueue.objects.count(), n1)
+
+
+class ExportImportTests(TestCase):
+    """022/1.2: export chunks + import validation/idempotency."""
+
+    def setUp(self):
+        import json
+        from django.core.management import call_command
+        from apps.jobs.models import JDExtractionBatch
+        from apps.labeling.models import PairQueue
+
+        self.batch = JDExtractionBatch.objects.create(file_path="t.csv")
+        cv = _mk_cv("backend", 2, ["python", "django", "redis"])
+        job = _mk_job(self.batch, "Backend Developer", 2, [("python", 5), ("django", 4), ("docker", 3)])
+        with patch("apps.labeling.management.commands.generate_pairs.Command._build_expansion_map",
+                   return_value={}):
+            call_command("generate_pairs", "--buckets", "--n-pairs", "20", "--seed", "1")
+        self.pair = PairQueue.objects.first()
+        self.assertIsNotNone(self.pair)
+
+    def test_export_then_import_roundtrip(self):
+        import json, tempfile
+        from pathlib import Path
+        from django.core.management import call_command
+        from apps.labeling.models import HumanLabel, PairQueue
+
+        with tempfile.TemporaryDirectory() as d:
+            call_command("export_pending_pairs", "--out", d, "--chunk-size", "5")
+            chunks = sorted(Path(d).glob("chunk_*.jsonl"))
+            self.assertTrue(chunks)
+            row = json.loads(chunks[0].read_text().splitlines()[0])
+            for key in ("pair_id", "bucket", "cv", "job"):
+                self.assertIn(key, row)
+
+            labels = Path(d) / "labels.jsonl"
+            labels.write_text(json.dumps({
+                "pair_id": row["pair_id"], "skill_fit": 2, "seniority_fit": 2,
+                "experience_fit": 2, "domain_fit": 0, "overall": 0}) + "\n")
+            call_command("import_labels", "--in", str(labels))
+
+            hl = HumanLabel.objects.get(pair_id=row["pair_id"])
+            self.assertEqual(hl.note, "claude-labeled")
+            self.assertEqual(hl.overall, 0)
+            self.assertEqual(PairQueue.objects.get(id=row["pair_id"]).status, "labeled")
+
+    def test_import_rejects_bad_scores_atomically(self):
+        import json, tempfile
+        from pathlib import Path
+        from django.core.management import CommandError, call_command
+        from apps.labeling.models import HumanLabel
+
+        with tempfile.TemporaryDirectory() as d:
+            bad = Path(d) / "bad.jsonl"
+            bad.write_text(json.dumps({
+                "pair_id": self.pair.id, "skill_fit": 5, "seniority_fit": 2,
+                "experience_fit": 2, "domain_fit": 0, "overall": 0}) + "\n")
+            with self.assertRaises(CommandError):
+                call_command("import_labels", "--in", str(bad))
+            self.assertEqual(HumanLabel.objects.count(), 0)  # atomic: nothing written
