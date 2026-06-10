@@ -1,6 +1,6 @@
 # Master Plan — Matching đúng bản chất (GNN-driven)
 
-**Cập nhật**: 2026-06-10 · **Trạng thái**: Đợt 0 chưa bắt đầu
+**Cập nhật**: 2026-06-10 · **Trạng thái**: ✅ Đợt 0 HOÀN THÀNH (feature 021) — baseline bên dưới · Đợt 1 sẵn sàng
 **Mục tiêu cuối**: hệ matching mà **GNN thực sự gánh tín hiệu** (học được cả domain từ data, α đáng kể sau tune), kết quả chính xác kiểm chứng được, mọi con số có cơ sở — sẵn sàng trình bày với lý thuyết đúng.
 
 ## Bối cảnh (đọc trước)
@@ -23,15 +23,22 @@
 
 > Vá các bug làm sai lệch mọi thứ downstream. Tham chiếu mã lỗi trong [09](09-pipeline-audit.md).
 
-- [ ] **0.1 (A1)** `build_jobdata_from_db` truyền `experience_min/max` vào JobData → rebuild job pool. *Check: gate kinh nghiệm hoạt động lại (job exp_min=5 × CV 1y bị penalty).*
-- [ ] **0.2 (A2)** Dedup nhãn lúc export (mỗi pair lấy nhãn **mới nhất** theo created_at) + builder **assert** không có cặp vừa match vừa no_match. *Check: labels.json unique theo (cv_idx,job_idx); graph 0 cặp xung đột.*
-- [ ] **0.3 (A3)** Chốt semantics thứ tự cuối: final order = **reranker score × penalties** (hoặc bỏ reranker reorder có chủ đích — quyết định ghi vào doc 06); display score monotonic với thứ tự. *Check: list trả về không non-monotonic.*
-- [ ] **0.4 (A7)** `_evaluate_split` → **per-CV metrics** (group theo cv, average) thay vì global ranking. *Check: precision@5 không còn 1.0 artifact.*
-- [ ] **0.5 (A4+A5+A6)** Vá prompt `pair_scoring.md` (3 lỗi): (a) overall: skill=2&domain=0 → 0; (b) skill_fit tính **transferable skills** partial credit (Flask≈Django, Vue≈React, MySQL≈PostgreSQL, GCP≈AWS…); (c) bảng domain bổ sung mobile↔mobile=2, ba↔ba=2 (+ mobile↔frontend=1?). *Check: 3 case test prompt cho kết quả đúng.*
-- [ ] **0.6 (A9)** Dedup top-K khi serve (fingerprint/title+company) + dọn 731 row job trùng trong DB (giữ row mới nhất, migrate match FK nếu có). *Check: eval_matching không còn job lặp trong top-5.*
-- [ ] **0.7** Chạy lại `eval_matching` + test suite → ghi baseline mới sau fix nền (để so với sau retrain).
+- [x] **0.1 (A1)** `build_jobdata_from_db` truyền `experience_min/max` vào JobData → rebuild job pool. *Check: gate kinh nghiệm hoạt động lại (job exp_min=5 × CV 1y bị penalty).*
+- [x] **0.2 (A2)** Dedup nhãn lúc export (mỗi pair lấy nhãn **mới nhất** theo created_at) + builder **assert** không có cặp vừa match vừa no_match. *Check: labels.json unique theo (cv_idx,job_idx); graph 0 cặp xung đột.*
+- [x] **0.3 (A3)** Chốt semantics thứ tự cuối: final order = **reranker score × penalties** (hoặc bỏ reranker reorder có chủ đích — quyết định ghi vào doc 06); display score monotonic với thứ tự. *Check: list trả về không non-monotonic.*
+- [x] **0.4 (A7)** `_evaluate_split` → **per-CV metrics** (group theo cv, average) thay vì global ranking. *Check: precision@5 không còn 1.0 artifact.*
+- [x] **0.5 (A4+A5+A6)** Vá prompt `pair_scoring.md` (3 lỗi): (a) overall: skill=2&domain=0 → 0; (b) skill_fit tính **transferable skills** partial credit (Flask≈Django, Vue≈React, MySQL≈PostgreSQL, GCP≈AWS…); (c) bảng domain bổ sung mobile↔mobile=2, ba↔ba=2 (+ mobile↔frontend=1?). *Check: 3 case test prompt cho kết quả đúng.*
+- [x] **0.6 (A9)** Dedup top-K khi serve (fingerprint/title+company) + dọn 731 row job trùng trong DB (giữ row mới nhất, migrate match FK nếu có). *Check: eval_matching không còn job lặp trong top-5.*
+- [x] **0.7** Chạy lại `eval_matching` + test suite → ghi baseline mới sau fix nền (để so với sau retrain).
 
 **Ưu tiên trong đợt**: 0.1 → 0.2 → 0.5 (chặn đường label) → 0.3 → 0.4 → 0.6 → 0.7.
+
+
+**📊 Baseline post-fix (2026-06-10, feature 021):**
+- eval_matching: **top1_on_domain 15/20 (75%) · on_domain@5 0.80** · 0 job trùng trong top-K
+- ⚠️ Thấp hơn số 020 (90%) là ĐÚNG: số cũ đo khi final sort bypass reranker (bug A3); giờ kiến trúc 2 tầng chạy đúng → lộ reranker train-trên-nhãn-bẩn. Đợt 2 retrain phải vượt mốc 75% này VÀ mốc 90% cũ.
+- Pool: 5.803 jobs (sau dedup 733 row) · export sạch 8.598 nhãn unique · full test suite xanh
+- Số test_metrics cũ trong checkpoint (precision@5=1.0...) tuyên bố VÔ HIỆU (global-ranking artifact) — regenerate per-CV khi retrain.
 
 ## ĐỢT 1 — Data: sinh cặp + label lại (Claude agents)
 

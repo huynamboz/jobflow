@@ -1,5 +1,7 @@
 # Full-Pipeline Audit (2026-06-10)
 
+> **UPDATE**: A1, A2, A3, A4-A6, A7, A9 đã **FIXED** trong feature 021 (Đợt 0). A8/A10-A20 còn lại thuộc Đợt 1-3.
+
 Audit end-to-end: crawl → extraction → labeling → export → train → serving. Nguồn: 3 audit agent (code) + query DB thật + **verify tay các phát hiện nặng**. Ký hiệu: ✅ = đã verify trực tiếp, 🔎 = agent-reported (đáng tin, chưa verify tay).
 
 ## TỔNG QUAN — bảng ưu tiên
