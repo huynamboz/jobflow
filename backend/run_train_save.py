@@ -116,17 +116,25 @@ def load_dataset(data_dir: Path):
         ))
 
     # LabeledPair — translate sequential export idx → actual DB IDs
+    import os as _os
+    # 022 experiment: related-skill positives are only ~7% of positives, so BPR
+    # gradients are dominated by easy high-overlap matches and the GNN never
+    # learns the related-skill lesson (decode AUC ≈ 0.51 on that slice).
+    # Oversample them in TRAIN only (×N via OVERSAMPLE_RELATED env, default 0).
+    _oversample = int(_os.environ.get("OVERSAMPLE_RELATED", "0"))
     split_map: dict[str, list[LabeledPair]] = {"train": [], "val": [], "test": []}
     for lbl in raw_labels:
         split = lbl.get("split", "train")
-        split_map.setdefault(split, []).append(
-            LabeledPair(
-                cv_id=cv_idx_to_db_id[lbl["cv_idx"]],
-                job_id=job_idx_to_db_id[lbl["job_idx"]],
-                label=lbl["label"],
-                split=split,
-            )
+        pair = LabeledPair(
+            cv_id=cv_idx_to_db_id[lbl["cv_idx"]],
+            job_id=job_idx_to_db_id[lbl["job_idx"]],
+            label=lbl["label"],
+            split=split,
         )
+        split_map.setdefault(split, []).append(pair)
+        if (_oversample and split == "train" and lbl["label"] == 1
+                and lbl.get("bucket") == "related_skill_positive"):
+            split_map[split].extend([pair] * _oversample)
 
     all_pairs = split_map["train"] + split_map.get("val", []) + split_map.get("test", [])
     dataset = DatasetSplit(

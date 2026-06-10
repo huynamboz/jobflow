@@ -426,6 +426,8 @@ class InferenceEngine:
 
         results: list[JobMatchResult] = []
         rank_scores: list[float] = []  # 021/A3: reranker-driven final order
+        _cv_role = infer_role(cv.skills, cv.text)
+        _DOMAIN_GATE_FACTOR = 0.40  # mirrors the labeling rule: domain=0 → not a match
         for job_idx, raw_score in scored:   # iterate ALL retrieve_n, sort after
             job = self._jobs[job_idx]
             job_skills = set(job.skills)
@@ -434,6 +436,14 @@ class InferenceEngine:
             # 021/A3: collect the gate factors as an explicit penalty product so
             # they demote BOTH the displayed score and the reranker-driven order.
             penalty = 1.0
+
+            # Domain gate (022): the ground truth defines cross-field as not a
+            # match (rubric hard rule domain=0 → overall=0). Ordering must honor
+            # it — catalog jobs with degenerate skill profiles (e.g. VFX jobs
+            # whose niche skills were dropped by the catalog) otherwise look like
+            # perfect skill matches to the reranker features. Soft gate, no removal.
+            if self._role_domain_fit(_cv_role, job) == 0.0:
+                penalty *= _DOMAIN_GATE_FACTOR
 
             # Experience gate
             _EXP_OVERQUAL_GAP    = 3.0   # cv_exp - job_exp_min > 3yr → overqualified

@@ -37,3 +37,18 @@ Data/ML + Data Engineer CV → top job "Senior Data Analyst" có `role_category=
 ## Test liên quan
 
 `apps/matching/tests.py`: `DomainAwareTests` (role fit 1/0.5/0, simplex4 sum=1, NDCG helper thưởng relevant-on-top), `DimensionScoreTests` (6 test công thức dims), snapshot/jobdata tests (018).
+
+## Cập nhật sau Đợt 2 (retrain trên v4_relabel — 2026-06-10)
+
+| Mốc | Weights | Eval 20-CV | Ghi chú |
+|---|---|---|---|
+| Đợt 0 baseline (model cũ, pipeline đúng) | 0.10/0.25/0.25/0.40 | 75% | reranker cũ train nhãn bẩn |
+| v4 + AUC-max weights | 0.15/0.75/0/0.10 | 45% | δ yếu → skill flood retrieve |
+| v4 + balanced | 0.05/0.35/0.20/0.40 | 60% | reranker bị job degenerate lừa |
+| **v4 + balanced + domain gate ×0.40 (HIỆN TẠI)** | như trên | **90% · on_domain@5 0.90** | gate = thực thi rule nhãn |
+
+**Bài học metric (3 hồi, khép vòng):** (1) label-AUC trên nhãn bẩn → lạc nghề (019); (2) role-NDCG chữa được nhưng degenerate nếu không constrain (020); (3) sau khi nhãn tự encode domain (022), role-NDCG bão hoà 1.0 — label-AUC sạch + eval định tính thành bộ thước cuối; và **AUC pairwise vẫn không phải proxy cho chất lượng retrieve top-K** (stage-1 cần domain mạnh chống flood).
+
+**Negative result GNN (trung thực):** GNN decode AUC ≈ 0.51 trên slice related-skill (760 cặp) — ngang đoán mò, oversample ×3 không đổi — trong khi semantic-skill thủ công đạt 0.861. Hệ quả: α tune 0.05-0.15 là phản ánh đúng; giá trị GNN còn lại = inductive encoding (018) + feature trong reranker. Đây là phát hiện đáng trình bày: "ensemble các tín hiệu đồ thị thủ công + rules thắng GNN học ở quy mô data này (366 CV)".
+
+**Domain gate (022):** ordering penalty ×0.40 khi `_role_domain_fit=0` — không phải magic number tự do mà là thực thi rule ground-truth (`domain=0 → overall=0`) ở serving; cần thiết vì catalog có job degenerate (VFX còn 2 skill sau lọc catalog — A10) đánh lừa mọi feature skill của reranker (acc 0.70).

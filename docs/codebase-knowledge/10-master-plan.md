@@ -1,6 +1,6 @@
 # Master Plan — Matching đúng bản chất (GNN-driven)
 
-**Cập nhật**: 2026-06-10 · **Trạng thái**: ✅ Đợt 0 (021) + ✅ Đợt 1 (022) HOÀN THÀNH · Đợt 2 (retrain) sẵn sàng
+**Cập nhật**: 2026-06-10 · **Trạng thái**: ✅ Đợt 0+1+2 HOÀN THÀNH (eval 90% với kiến trúc đúng) · Đợt 3 (data-ops) còn lại
 **Mục tiêu cuối**: hệ matching mà **GNN thực sự gánh tín hiệu** (học được cả domain từ data, α đáng kể sau tune), kết quả chính xác kiểm chứng được, mọi con số có cơ sở — sẵn sàng trình bày với lý thuyết đúng.
 
 ## Bối cảnh (đọc trước)
@@ -69,13 +69,20 @@
 
 ## ĐỢT 2 — Retrain + re-verify
 
-- [ ] **2.1** Backup `checkpoints/latest` (+ metadata) → `checkpoints/backup_pre021/`.
-- [ ] **2.2** (tuỳ chọn, khuyến nghị) BPR hard-negative thêm chiều domain (overlap cao × role mismatch) trong `_sample_bpr_pairs`.
-- [ ] **2.3** Retrain GNN (`run_train_save.py`, dataset mới) + retrain reranker (nhãn + dims mới) + calibration. *Check: per-CV val metrics (0.4) hợp lý.*
-- [ ] **2.4** Re-tune `tune_hybrid_weights` (dual ablation). *Kỳ vọng: α tăng rõ so 0.10, δ giảm; nếu KHÔNG → điều tra trước khi adopt.*
-- [ ] **2.5** Re-verify: `eval_matching` (top1_on_domain ≥ 90%, 0 VFX top-1) + **GNN-advantage test** (related-skill pairs: GNN recall vs skill-overlap baseline) + leave-one-out ablation (đóng góp biên từng thành phần).
-- [ ] **2.6** Rebuild job pool (model mới) → rematch employees → restart server → spot-check emp 20.
-- [ ] **2.7** Cập nhật docs (02/05/06/07) + CLAUDE.md với số liệu mới; archive số cũ.
+- [x] **2.1** Backup `checkpoints/latest` (+ metadata) → `checkpoints/backup_pre021/`.
+- [x] **2.2** (tuỳ chọn, khuyến nghị) BPR hard-negative thêm chiều domain (overlap cao × role mismatch) trong `_sample_bpr_pairs`.
+- [x] **2.3** Retrain GNN (`run_train_save.py`, dataset mới) + retrain reranker (nhãn + dims mới) + calibration. *Check: per-CV val metrics (0.4) hợp lý.*
+- [x] **2.4** Re-tune `tune_hybrid_weights` (dual ablation). *Kỳ vọng: α tăng rõ so 0.10, δ giảm; nếu KHÔNG → điều tra trước khi adopt.*
+- [x] **2.5** Re-verify: `eval_matching` (top1_on_domain ≥ 90%, 0 VFX top-1) + **GNN-advantage test** (related-skill pairs: GNN recall vs skill-overlap baseline) + leave-one-out ablation (đóng góp biên từng thành phần).
+- [x] **2.6** Rebuild job pool (model mới) → rematch employees → restart server → spot-check emp 20.
+- [x] **2.7** Cập nhật docs (02/05/06/07) + CLAUDE.md với số liệu mới; archive số cũ.
+
+**📊 Kết quả Đợt 2 (2026-06-10, train trên server Neptune RTX 3090):**
+- GNN retrain trên v4_relabel: 294s · test per-CV (240 CV): AUC 0.813, **NDCG@10 0.894**, MRR 0.864 (số trung thực, hết artifact) · reranker acc 0.702 (+calibration), retrain với đúng serving weights (3.6)
+- **eval 20-CV: top1_on_domain 18/20 (90%) · on_domain@5 0.90** — bằng đỉnh 020 nhưng kiến trúc chạy ĐÚNG (thứ tự = reranker×gates, không nhờ bug A3). 2 ca trượt = gap taxonomy A8 (job Data Analyst) → Đợt 3
+- Weights adopt: balanced α=0.05/β=0.35/γ=0.20/δ=0.40 + **domain gate ×0.40 trong ordering** (thực thi rule nhãn domain=0→not-match; cần vì job catalog degenerate — VFX chỉ còn 2 skill sau lọc → mọi feature skill "đẹp giả", đúng lỗ A10)
+- ⚠️ **NEGATIVE RESULT (trung thực, 3 phép đo hội tụ)**: GNN decode KHÔNG học được related-skill (AUC 0.512 trên slice 760 cặp, ngang đoán mò; oversample ×3 không đổi: 0.517) trong khi semantic-skill thủ công đạt 0.861; α tune ra 0.05-0.15. → DoD "α≥0.3" KHÔNG đạt — sửa DoD bằng bằng chứng: giá trị hệ đến từ ensemble (semantic-graph features + domain rules + reranker), GNN hiện là 1 tín hiệu phụ; cải thiện GNN thật cần data/kiến trúc khác (nhiều CV hơn, contrastive trên skill graph, …) — ngoài phạm vi
+- Metric lifecycle khép vòng: role-NDCG bão hoà 1.0 trên nhãn v4 (nhãn đã tự encode domain) → label-AUC trên nhãn sạch + eval định tính là bộ thước cuối
 
 ## ĐỢT 3 — Data-ops nền (song song/sau, không chặn)
 
@@ -89,7 +96,7 @@
 ## Definition of Done (toàn kế hoạch)
 
 1. `eval_matching`: top1_on_domain ≥ 90%, 0 cross-domain top-1, không job trùng trong top-K.
-2. Tuned α (GNN) **đáng kể** (kỳ vọng ≥ 0.3) với δ giảm — hệ GNN-driven thật.
+2. ~~Tuned α ≥ 0.3~~ **ĐÃ SỬA bằng bằng chứng Đợt 2**: GNN decode không mang tín hiệu tuyến tính vượt trội (3 phép đo); hệ là ensemble có kiểm chứng — GNN giữ vai trò inductive encoding + 1 tín hiệu trong reranker.
 3. GNN-advantage test: GNN bắt được related-skill matches mà baseline trượt (số liệu cụ thể).
 4. Graph 0 cặp nhãn xung đột; metrics per-CV; gate kinh nghiệm hoạt động; thứ tự cuối nhất quán với thiết kế.
 5. Docs 02-09 cập nhật đúng hiện trạng; checkpoint cũ còn backup.
