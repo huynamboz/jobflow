@@ -298,6 +298,14 @@ class Trainer:
                 dropout=cfg.dropout,
                 node_dims=node_dims,
             )
+        # GNN v2/E1: warm-start from a self-supervised pretrained backbone
+        import os as _os0
+        _pre = _os0.environ.get("PRETRAIN_PATH", "")
+        if _pre:
+            _missing, _unexpected = model.load_state_dict(
+                torch.load(_pre, weights_only=True), strict=False)
+            logger.info("Loaded pretrained backbone from %s (missing=%d unexpected=%d)",
+                        _pre, len(_missing), len(_unexpected))
         model = model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
 
@@ -313,7 +321,10 @@ class Trainer:
             [_role_idx.get((j.role_category or "other"), 0) for j in jobs],
             dtype=torch.long, device=device)
         _role_ce = torch.nn.CrossEntropyLoss()
-        _AUX_ROLE_WEIGHT = 0.3
+        # Round 1 showed 0.3 CONFLICTS with BPR (best-epoch 19-22 then decay) —
+        # default OFF; enable deliberately via AUX_ROLE_WEIGHT env.
+        import os as _os
+        _AUX_ROLE_WEIGHT = float(_os.environ.get("AUX_ROLE_WEIGHT", "0.0"))
 
         result = TrainResult()
         best_val_signal = -float("inf")
@@ -357,8 +368,17 @@ class Trainer:
             pos_scores = model.decode(z_dict, cv_idx, pos_idx)
             neg_scores = model.decode(z_dict, cv_idx, neg_idx)
             loss = bpr_loss(pos_scores, neg_scores)
+            # GNN v2/E2: skill-relation coherence — pull relates_to skill pairs
+            # together in embedding space (cosine loss). Env-gated.
+            _SKILL_REL_W = float(_os.environ.get("SKILL_REL_WEIGHT", "0.0"))
+            if _SKILL_REL_W > 0 and ("skill", "relates_to", "skill") in train_data.edge_types:
+                _ei = train_data["skill", "relates_to", "skill"].edge_index
+                if _ei.shape[1] > 0:
+                    _zs = z_dict["skill"]
+                    _cos = torch.nn.functional.cosine_similarity(_zs[_ei[0]], _zs[_ei[1]], dim=-1)
+                    loss = loss + _SKILL_REL_W * (1.0 - _cos).mean()
             # GNN v2/1.2: auxiliary role-classification loss (cv + job nodes)
-            if hasattr(model, "role_head"):
+            if _AUX_ROLE_WEIGHT > 0 and hasattr(model, "role_head"):
                 loss = loss + _AUX_ROLE_WEIGHT * 0.5 * (
                     _role_ce(model.role_logits(z_dict, "cv"), cv_role_labels)
                     + _role_ce(model.role_logits(z_dict, "job"), job_role_labels))
