@@ -1,16 +1,16 @@
 <!-- SPECKIT START -->
-Active feature plan: [specs/021-pipeline-foundation-fixes/plan.md](specs/021-pipeline-foundation-fixes/plan.md)
+Active feature plan: [specs/022-relabel-dataset-buckets/plan.md](specs/022-relabel-dataset-buckets/plan.md)
 
 Related artifacts:
-- [spec.md](specs/021-pipeline-foundation-fixes/spec.md)
-- [research.md](specs/021-pipeline-foundation-fixes/research.md)
-- [data-model.md](specs/021-pipeline-foundation-fixes/data-model.md)
-- [contracts/cli.md](specs/021-pipeline-foundation-fixes/contracts/cli.md)
-- [rubric-tests.md](specs/021-pipeline-foundation-fixes/rubric-tests.md)
-- [quickstart.md](specs/021-pipeline-foundation-fixes/quickstart.md)
+- [spec.md](specs/022-relabel-dataset-buckets/spec.md)
+- [research.md](specs/022-relabel-dataset-buckets/research.md)
+- [data-model.md](specs/022-relabel-dataset-buckets/data-model.md)
+- [contracts/cli.md](specs/022-relabel-dataset-buckets/contracts/cli.md)
+- [agent-rubric.md](specs/022-relabel-dataset-buckets/agent-rubric.md)
+- [quickstart.md](specs/022-relabel-dataset-buckets/quickstart.md)
 - Master plan: [docs/codebase-knowledge/10-master-plan.md](docs/codebase-knowledge/10-master-plan.md)
 
-Previous active plan: [specs/020-domain-aware-ranking/plan.md](specs/020-domain-aware-ranking/plan.md)
+Previous active plan: [specs/021-pipeline-foundation-fixes/plan.md](specs/021-pipeline-foundation-fixes/plan.md)
 
 Previous features (still in this branch's history):
 - [specs/013-thesis-report/plan.md](specs/013-thesis-report/plan.md) (Thesis report — Vietnamese academic doc)
