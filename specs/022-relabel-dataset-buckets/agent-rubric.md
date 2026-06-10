@@ -31,9 +31,11 @@ Apply the rules below MECHANICALLY — they override any intuition.
 1. skill_fit = 0 → overall = 0
 2. **domain_fit = 0 → overall = 0** (khác lĩnh vực không phải match, BẤT KỂ skill —
    job VFX cần Python không phải match cho backend engineer)
-3. skill_fit = 2 AND domain_fit ≥ 1 AND seniority_fit ≥ 1 → overall = 2
-4. skill_fit = 1 AND domain_fit ≥ 1 → overall = 1
-5. Còn lại: phán đoán (0/1/2). overall=2 đòi skill=2 & domain≥1. overall≥1 đòi skill≥1 & domain≥1.
+3. JOB seniority 2+ bậc TRÊN CV → overall = 0 (junior không giao được việc lead);
+   CV 2+ bậc trên job → overall ≤ 1 (làm được nhưng lệch placement)
+4. skill_fit = 2 AND domain_fit ≥ 1 AND seniority_fit ≥ 1 → overall = 2
+5. skill_fit = 1 AND domain_fit ≥ 1 → overall = 1
+6. Còn lại: phán đoán (0/1/2). overall=2 đòi skill=2 & domain≥1. overall≥1 đòi skill≥1 & domain≥1.
 
 ## Worked examples (chuẩn — output của bạn phải nhất quán với 3 case này)
 

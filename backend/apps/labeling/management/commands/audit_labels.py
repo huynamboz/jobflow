@@ -11,7 +11,7 @@ from django.core.management.base import BaseCommand
 EXPECTED = {  # research R2 audit contracts
     "cross_domain_hard_neg":  "≥95% overall=0",
     "related_skill_positive": "đa số overall ≥1",
-    "seniority_hard_neg":     "≈0 (overall=0 dù skill cao)",
+    "seniority_hard_neg":     "0 nếu job>CV 2+ bậc; ≤1 nếu CV>job; không có 2",
     "missing_must_have":      "trộn 0/1",
     "boundary_medium":        "trộn",
     "high_overlap":           "đa số ≥1",

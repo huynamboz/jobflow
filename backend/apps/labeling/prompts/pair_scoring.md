@@ -82,6 +82,10 @@ Use this exact mapping — do NOT interpret beyond it:
 - If domain_fit = 0 → overall = 0 (a different technical field is not a placement
   match, REGARDLESS of skill overlap — a VFX job listing Python is not a match
   for a backend engineer)
+- If the JOB requires seniority 2+ levels ABOVE the CV → overall = 0 (the
+  candidate cannot deliver at that level — e.g. JUNIOR CV vs LEAD job)
+- If the CV is 2+ levels above the job → overall ≤ 1 (deliverable but a
+  placement mismatch)
 - If skill_fit = 2 AND domain_fit ≥ 1 AND seniority_fit ≥ 1 → overall = 2
 - If skill_fit = 1 AND domain_fit ≥ 1 → overall = 1
 - Otherwise use judgment: 0 = not suitable, 1 = suitable, 2 = strong fit
