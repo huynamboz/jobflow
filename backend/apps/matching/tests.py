@@ -50,6 +50,41 @@ class BuildJobDataTests(TestCase):
         self.assertNotIn(inactive.id, ids)   # inactive → excluded
 
 
+class DomainAwareTests(TestCase):
+    """Feature 020: domain term + role-aware tuning metric."""
+
+    def _job(self, role=""):
+        from ml_service.graph.schema import JobData, SeniorityLevel
+        return JobData(job_id=1, seniority=SeniorityLevel(2), skills=("python",),
+                       skill_importances=(5,), salary_min=0, salary_max=0, text="job",
+                       experience_min=0.0, role_category=role)
+
+    def test_role_domain_fit(self):
+        from ml_service.inference.engine import InferenceEngine
+        f = InferenceEngine._role_domain_fit
+        self.assertEqual(f("frontend", self._job("frontend")), 1.0)   # same field
+        self.assertEqual(f("frontend", self._job("backend")), 0.0)    # mismatch
+        self.assertEqual(f("frontend", self._job("")), 0.5)           # job role unknown → neutral
+
+    def test_simplex4_sums_to_one_and_includes_chosen(self):
+        from apps.matching.management.commands.tune_hybrid_weights import Command
+        combos = Command._simplex4(0.05)
+        for a, b, g, d in combos:
+            self.assertAlmostEqual(a + b + g + d, 1.0, places=6)
+        self.assertIn((0.10, 0.25, 0.25, 0.40), [tuple(round(x, 2) for x in c) for c in combos])
+
+    def test_role_metrics_rewards_relevant_on_top(self):
+        from apps.matching.management.commands.tune_hybrid_weights import Command
+        cv_idx = np.array([0, 0, 0])
+        rel = np.array([1, 0, 1])
+        good = np.array([0.9, 0.1, 0.8])   # relevant ranked high → NDCG high
+        bad = np.array([0.1, 0.9, 0.2])    # relevant ranked low → NDCG lower
+        ndcg_good, _ = Command._role_metrics(cv_idx, rel, good, 10)
+        ndcg_bad, _ = Command._role_metrics(cv_idx, rel, bad, 10)
+        self.assertGreater(ndcg_good, ndcg_bad)
+        self.assertAlmostEqual(ndcg_good, 1.0, places=6)
+
+
 class DimensionScoreTests(TestCase):
     """Feature 019: transparent per-dimension fit formulas (hand-reproducible)."""
 

@@ -95,6 +95,7 @@ class InferenceEngine:
         alpha: float = 0.55,
         beta: float = 0.30,
         gamma: float = 0.15,
+        delta: float = 0.0,  # feature 020: domain (role-match) weight
         threshold: float = 0.65,
     ) -> None:
         self._model = model
@@ -108,6 +109,7 @@ class InferenceEngine:
         self._alpha = alpha
         self._beta = beta
         self._gamma = gamma
+        self._delta = delta
         self._threshold = threshold
         self._checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else Path("checkpoints/latest")
         self._inductive_lock = threading.Lock()  # FIX 3: serialize inductive encodes
@@ -172,8 +174,9 @@ class InferenceEngine:
             kwargs.setdefault("alpha", float(hw.get("alpha", 0.55)))
             kwargs.setdefault("beta", float(hw.get("beta", 0.30)))
             kwargs.setdefault("gamma", float(hw.get("gamma", 0.15)))
-            logger.info("Hybrid weights from metadata: a=%.2f b=%.2f g=%.2f",
-                        kwargs["alpha"], kwargs["beta"], kwargs["gamma"])
+            kwargs.setdefault("delta", float(hw.get("delta", 0.0)))  # feature 020
+            logger.info("Hybrid weights from metadata: a=%.2f b=%.2f g=%.2f d=%.2f",
+                        kwargs["alpha"], kwargs["beta"], kwargs["gamma"], kwargs["delta"])
         else:
             logger.warning("No hybrid_weights in metadata — using defaults 0.55/0.30/0.15.")
 
@@ -222,8 +225,8 @@ class InferenceEngine:
     def labeled_pair_components(self) -> list[tuple[int, int, int, float, float, float]]:
         """For offline hybrid-weight tuning (feature 019): extract labeled pairs
         from the graph's match/no_match edges and return, per pair, the THREE
-        components the hybrid score blends:
-            (cv_idx, job_idx, label, gnn, skill, seniority)
+        components the hybrid score blends (feature 020 adds domain + roles):
+            (cv_idx, job_idx, label, gnn, skill, seniority, domain, cv_role, job_role)
         where gnn = sigmoid(model.decode), skill = semantic overlap, seniority =
         max(0, 1-|Δsen|·0.4). Load the engine WITHOUT a live job-pool snapshot
         (job_pool_dir=<absent>) so self._jobs == the checkpoint training jobs the
@@ -245,14 +248,26 @@ class InferenceEngine:
             logits = self._model.decode(self._z_dict, cv_idx_t, job_idx_t)
             gnn_scores = torch.sigmoid(logits).reshape(-1).tolist()
 
-        out: list[tuple[int, int, int, float, float, float]] = []
+        out: list[tuple] = []
         for (ci, ji, lab), g in zip(pairs, gnn_scores):
             cv = self._cvs[ci]
             job = self._jobs[ji]
             skill = float(self._semantic_skill_overlap(cv, job))
             sen = max(0.0, 1.0 - abs(int(cv.seniority) - int(job.seniority)) * 0.4)
-            out.append((ci, ji, lab, float(g), skill, sen))
+            # feature 020: domain component + roles for the role-aware metric
+            cv_role = infer_role(cv.skills, cv.text)
+            domain = self._role_domain_fit(cv_role, job)
+            out.append((ci, ji, lab, float(g), skill, sen, domain, cv_role, job.role_category or ""))
         return out
+
+    @staticmethod
+    def _role_domain_fit(cv_role: str, job: JobData) -> float:
+        """Domain (role) fit ∈ {1.0, 0.5, 0.0}: 1 same field, 0.5 job role unknown,
+        0 mismatch. Shared by the score's δ·domain term (feature 020) and the
+        per-dimension display, so both mean the same thing."""
+        if job.role_category:
+            return 1.0 if cv_role == job.role_category else 0.0
+        return 0.5
 
     @staticmethod
     def _dimension_scores(cv: CVData, job: JobData, matched: set[str]) -> dict[str, float]:
@@ -276,10 +291,7 @@ class InferenceEngine:
 
         seniority_fit = max(0.0, 1.0 - abs(int(cv.seniority) - int(job.seniority)) * 0.3)
 
-        if job.role_category:
-            domain_fit = 1.0 if infer_role(cv.skills, cv.text) == job.role_category else 0.0
-        else:
-            domain_fit = 0.5
+        domain_fit = InferenceEngine._role_domain_fit(infer_role(cv.skills, cv.text), job)
 
         return {
             "skill_fit": round(float(skill_fit), 3),
@@ -734,13 +746,15 @@ class InferenceEngine:
         dist = abs(int(cv.seniority) - int(job.seniority))
         seniority_score = max(0.0, 1.0 - dist * 0.4)
 
+        cv_role = infer_role(cv.skills, cv.text)
+        domain_fit = self._role_domain_fit(cv_role, job)  # feature 020: role match vs job.role_category
         base_score = (
             self._alpha * gnn_score
             + self._beta * skill_score
             + self._gamma * seniority_score
+            + self._delta * domain_fit
         )
 
-        cv_role = infer_role(cv.skills, cv.text)
         job_role = infer_role(job.skills, job.text)
         penalty = role_match_penalty(cv_role, job_role)
 
@@ -916,13 +930,15 @@ class InferenceEngine:
         dist = abs(int(cv.seniority) - int(job.seniority))
         seniority_score = max(0.0, 1.0 - dist * 0.4)
 
+        cv_role = infer_role(cv.skills, cv.text)
+        domain_fit = self._role_domain_fit(cv_role, job)  # feature 020
         base_score = (
             self._alpha * gnn_score
             + self._beta * skill_score
             + self._gamma * seniority_score
+            + self._delta * domain_fit
         )
 
-        cv_role = infer_role(cv.skills, cv.text)
         job_role = infer_role(job.skills, job.text)
         penalty = role_match_penalty(cv_role, job_role)
 

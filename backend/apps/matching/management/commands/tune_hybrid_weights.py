@@ -1,13 +1,17 @@
-"""Tune the hybrid score weights (alpha/beta/gamma) by grid-search (feature 019).
+"""Tune the hybrid score weights by grid-search (features 019 + 020).
 
-score = alpha*GNN + beta*skill + gamma*seniority. We sweep the weight simplex on
-a fixed grid over a held-out split of the labeled match/no_match pairs, pick the
-AUC-maximizing combo, print + write an ablation table, and (optionally) persist
-the winner to the checkpoint metadata.json — the single source of truth the
-engine then loads. Offline, deterministic.
+score = α·GNN + β·skill + γ·seniority + δ·domain.  We sweep the 4-weight simplex
+on a held-out split of the labeled match/no_match pairs and report TWO objectives
+per combo:
+  • label-AUC      — separates match/no_match (feature 019; no role labels)
+  • role-NDCG@k/P@k — ranks SAME-FIELD jobs on top (feature 020; relevant =
+                      infer_role(cv) == job.role_category), grouped by CV.
+The winner maximizes --objective (default role_ndcg). A DUAL ablation table is
+written for the thesis; --write persists the 4 weights to metadata.json. Offline,
+deterministic.
 
-    python manage.py tune_hybrid_weights              # analyze + write ablation.md
-    python manage.py tune_hybrid_weights --write      # also persist winner to metadata.json
+    python manage.py tune_hybrid_weights              # dual ablation, dry
+    python manage.py tune_hybrid_weights --write      # persist winner (4 weights)
 """
 
 from __future__ import annotations
@@ -18,27 +22,32 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-LEGACY = (0.55, 0.30, 0.15)
+LEGACY = (0.55, 0.30, 0.15, 0.0)            # pre-tuning
+LABEL_AUC_WINNER = (0.20, 0.75, 0.05, 0.0)  # feature-019 label-AUC pick (β-heavy, δ=0)
 
 
 class Command(BaseCommand):
-    help = "Grid-search the hybrid weights (alpha/beta/gamma) on labeled pairs; emit an ablation table."
+    help = "Grid-search hybrid weights (α/β/γ/δ); dual ablation (label-AUC + role-aware)."
 
     def add_arguments(self, parser):
-        parser.add_argument("--grid", type=float, default=0.05, help="Weight lattice step (default 0.05).")
-        parser.add_argument("--val-frac", type=float, default=0.2, help="Validation fraction (default 0.2).")
-        parser.add_argument("--seed", type=int, default=42, help="Split seed (default 42).")
-        parser.add_argument("--write", action="store_true", help="Persist the winner to checkpoint metadata.json.")
-        parser.add_argument(
-            "--out", default="specs/019-match-weight-calibration/ablation.md",
-            help="Ablation table output path (repo-relative).",
-        )
+        parser.add_argument("--grid", type=float, default=0.05)
+        parser.add_argument("--val-frac", type=float, default=0.2)
+        parser.add_argument("--seed", type=int, default=42)
+        parser.add_argument("--k", type=int, default=10, help="cutoff for role NDCG/P@k.")
+        parser.add_argument("--objective", default="balanced",
+                            choices=["balanced", "role_ndcg", "role_p", "label_auc"])
+        parser.add_argument("--min-auc-frac", type=float, default=0.85,
+                            help="balanced: keep combos with label-AUC ≥ frac·max (anti-degeneracy).")
+        parser.add_argument("--max-delta", type=float, default=0.40,
+                            help="cap δ so domain stays a SOFT term (FR-002), not the whole score.")
+        parser.add_argument("--write", action="store_true")
+        parser.add_argument("--out", default="specs/020-domain-aware-ranking/ablation.md")
 
     def handle(self, *args, **opts):
         import numpy as np
 
         engine = self._load_pure_checkpoint_engine()
-        self.stdout.write("Extracting labeled pair components…")
+        self.stdout.write("Extracting labeled pair components (+domain, +roles)…")
         comp = engine.labeled_pair_components()
         if not comp:
             raise CommandError("No labeled match/no_match edges in the checkpoint graph.")
@@ -48,64 +57,80 @@ class Command(BaseCommand):
         gnn = np.array([c[3] for c in comp], dtype=np.float64)
         skill = np.array([c[4] for c in comp], dtype=np.float64)
         sen = np.array([c[5] for c in comp], dtype=np.float64)
+        dom = np.array([c[6] for c in comp], dtype=np.float64)
+        # role-aware relevance: cv_role == job_role (job.role_category), both non-empty
+        rel = np.array([1 if (c[7] and c[8] and c[7] == c[8]) else 0 for c in comp], dtype=np.int64)
 
         n_pos, n_neg = int((label == 1).sum()), int((label == 0).sum())
-        self.stdout.write(f"  pairs={len(label)} (match {n_pos} / no_match {n_neg})")
+        self.stdout.write(f"  pairs={len(label)} (match {n_pos} / no_match {n_neg}) · "
+                          f"role-relevant {int(rel.sum())}")
         if n_pos == 0 or n_neg == 0:
-            raise CommandError("Validation needs BOTH match and no_match pairs (AUC undefined).")
+            raise CommandError("Validation needs BOTH match and no_match pairs.")
 
-        # Deterministic split
         rng = np.random.RandomState(opts["seed"])
         perm = rng.permutation(len(label))
         n_val = max(1, int(len(label) * opts["val_frac"]))
         vi = perm[:n_val]
-        vL, vG, vS, vSen = label[vi], gnn[vi], skill[vi], sen[vi]
-        vCV = cv_idx[vi]
+        vCV, vL, vRel = cv_idx[vi], label[vi], rel[vi]
+        vG, vS, vSen, vD = gnn[vi], skill[vi], sen[vi], dom[vi]
         if vL.min() == vL.max():
-            raise CommandError("Validation split ended up single-class; adjust --seed/--val-frac.")
+            raise CommandError("Validation split single-class; adjust --seed/--val-frac.")
         self.stdout.write(f"  validation pairs={n_val}")
 
         auc_fn = self._auc_fn()
+        k = opts["k"]
 
-        # Sweep the simplex on the grid
-        step = opts["grid"]
-        combos = self._simplex(step)
         rows = []
-        for a, b, g in combos:
-            score = a * vG + b * vS + g * vSen
-            rows.append((a, b, g, float(auc_fn(vL, score))))
-        rows.sort(key=lambda r: -r[3])
+        for a, b, g, d in self._simplex4(opts["grid"]):
+            score = a * vG + b * vS + g * vSen + d * vD
+            auc = float(auc_fn(vL, score))
+            ndcg, prec = self._role_metrics(vCV, vRel, score, k)
+            rows.append((a, b, g, d, auc, ndcg, prec))
 
-        # Tie-break: among the top AUC, prefer the combo closest to LEGACY
-        top_auc = rows[0][3]
-        best = min(
-            [r for r in rows if abs(r[3] - top_auc) < 1e-9],
-            key=lambda r: (r[0] - LEGACY[0]) ** 2 + (r[1] - LEGACY[1]) ** 2 + (r[2] - LEGACY[2]) ** 2,
-        )
-        legacy_auc = float(auc_fn(vL, LEGACY[0] * vG + LEGACY[1] * vS + LEGACY[2] * vSen))
+        # Selection. Pure role_ndcg is GAMED by δ=1.0 (score == relevance signal →
+        # NDCG=1 but label-AUC collapses). The default "balanced" objective avoids
+        # this degeneracy: maximize role-NDCG among combos that (a) keep label-AUC
+        # ≥ min_auc_frac·max (still separate match/no_match) and (b) keep δ ≤ max_delta
+        # (domain stays a SOFT term, FR-002).
+        max_auc = max(r[4] for r in rows)
+        if opts["objective"] == "balanced":
+            thr = opts["min_auc_frac"] * max_auc
+            elig = [r for r in rows if r[4] >= thr and r[3] <= opts["max_delta"] + 1e-9]
+            if not elig:
+                elig = rows
+            best = max(elig, key=lambda r: r[5])  # role-NDCG among eligible
+            rows.sort(key=lambda r: -r[5])         # display by role-NDCG (shows δ=1.0 degeneracy on top)
+        else:
+            key_idx = {"role_ndcg": 5, "role_p": 6, "label_auc": 4}[opts["objective"]]
+            rows.sort(key=lambda r: -r[key_idx])
+            best = rows[0]
 
-        # Secondary metrics for winner + legacy only
-        bw = best[:3]
-        ndcg_best, p_best = self._ranking_metrics(vCV, vL, bw[0] * vG + bw[1] * vS + bw[2] * vSen)
-        ndcg_leg, p_leg = self._ranking_metrics(vCV, vL, LEGACY[0] * vG + LEGACY[1] * vS + LEGACY[2] * vSen)
+        def metrics_for(w):
+            s = w[0] * vG + w[1] * vS + w[2] * vSen + w[3] * vD
+            nd, pr = self._role_metrics(vCV, vRel, s, k)
+            return (float(auc_fn(vL, s)), nd, pr)
+        leg = metrics_for(LEGACY)
+        law = metrics_for(LABEL_AUC_WINNER)
 
         self.stdout.write(self.style.SUCCESS(
-            f"Best: α={best[0]:.2f} β={best[1]:.2f} γ={best[2]:.2f}  AUC={best[3]:.4f}"
-            f"  (legacy {LEGACY[0]}/{LEGACY[1]}/{LEGACY[2]} AUC={legacy_auc:.4f})"
+            f"Best ({opts['objective']}): α={best[0]:.2f} β={best[1]:.2f} γ={best[2]:.2f} δ={best[3]:.2f}"
+            f"  role-NDCG@{k}={best[5]:.4f} role-P@{k}={best[6]:.4f} label-AUC={best[4]:.4f}"
         ))
+        self.stdout.write(
+            f"  vs label-AUC-winner (0.20/0.75/0.05/0): role-NDCG@{k}={law[1]:.4f} label-AUC={law[0]:.4f}"
+        )
 
         self._write_ablation(
-            Path(settings.BASE_DIR).parent / opts["out"],
-            rows, best, legacy_auc, (n_pos, n_neg, n_val),
-            (ndcg_best, p_best), (ndcg_leg, p_leg), opts,
+            Path(settings.BASE_DIR).parent / opts["out"], rows, best,
+            (n_pos, n_neg, n_val, int(rel.sum())), leg, law, opts, k,
         )
-        self.stdout.write(f"Ablation → {opts['out']}")
+        self.stdout.write(f"Dual ablation → {opts['out']}")
 
         if opts["write"]:
-            self._persist(best, opts["grid"])
-            self.stdout.write(self.style.SUCCESS("metadata.json updated with tuned hybrid_weights."))
+            self._persist(best, opts["grid"], opts["objective"], k)
+            self.stdout.write(self.style.SUCCESS("metadata.json updated with 4 hybrid_weights."))
         else:
-            self.stdout.write("Dry run — pass --write to persist the winner.")
+            self.stdout.write("Dry run — pass --write to persist.")
 
     # ------------------------------------------------------------------
     def _load_pure_checkpoint_engine(self):
@@ -116,24 +141,44 @@ class Command(BaseCommand):
         self.stdout.write("Loading engine (checkpoint pool, no live snapshot)…")
         normalizer = SkillNormalizer(settings.ML_SKILL_ALIAS_PATH)
         provider = get_provider()
-        # job_pool_dir to an absent path → labels' training jobs stay in self._jobs
         return InferenceEngine.from_checkpoint(
             settings.ML_CHECKPOINT_DIR, normalizer=normalizer,
             embedding_provider=provider, job_pool_dir="/nonexistent/job_pool",
         )
 
     @staticmethod
-    def _simplex(step: float):
-        import numpy as np
+    def _simplex4(step: float):
         n = int(round(1.0 / step))
         out = []
         for i in range(n + 1):
             for j in range(n + 1 - i):
-                a, b = round(i * step, 4), round(j * step, 4)
-                g = round(1.0 - a - b, 4)
-                if g >= -1e-9:
-                    out.append((a, b, max(0.0, g)))
+                for kk in range(n + 1 - i - j):
+                    a, b, c = round(i * step, 4), round(j * step, 4), round(kk * step, 4)
+                    d = round(1.0 - a - b - c, 4)
+                    if d >= -1e-9:
+                        out.append((a, b, c, max(0.0, d)))
         return out
+
+    @staticmethod
+    def _role_metrics(cv_idx, rel, score, k):
+        """Mean role-aware NDCG@k + precision@k grouped by CV (CVs with ≥1 relevant
+        AND ≥2 jobs in the split)."""
+        import numpy as np
+        ndcgs, precs = [], []
+        for cv in np.unique(cv_idx):
+            m = cv_idx == cv
+            y, s = rel[m], score[m]
+            if y.sum() == 0 or len(y) < 2:
+                continue
+            order = np.argsort(-s, kind="mergesort")[:k]
+            gains = y[order]
+            dcg = float(np.sum(gains / np.log2(np.arange(2, len(gains) + 2))))
+            ideal = np.sort(y)[::-1][:k]
+            idcg = float(np.sum(ideal / np.log2(np.arange(2, len(ideal) + 2))))
+            ndcgs.append(dcg / idcg if idcg > 0 else 0.0)
+            precs.append(float(gains.mean()))
+        return (float(np.mean(ndcgs)) if ndcgs else 0.0,
+                float(np.mean(precs)) if precs else 0.0)
 
     @staticmethod
     def _auc_fn():
@@ -143,7 +188,7 @@ class Command(BaseCommand):
         except Exception:  # noqa: BLE001
             import numpy as np
 
-            def _auc(y, s):  # rank-based AUC fallback
+            def _auc(y, s):
                 y = np.asarray(y); s = np.asarray(s)
                 order = np.argsort(s, kind="mergesort")
                 ranks = np.empty_like(order, dtype=np.float64)
@@ -155,55 +200,51 @@ class Command(BaseCommand):
                 return (ranks[pos].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
             return _auc
 
-    @staticmethod
-    def _ranking_metrics(cv_idx, label, score, k: int = 10):
-        """Mean NDCG@k + precision@k grouped by CV (CVs with >=1 positive)."""
-        import numpy as np
-        ndcgs, precs = [], []
-        for cv in np.unique(cv_idx):
-            m = cv_idx == cv
-            y, s = label[m], score[m]
-            if y.sum() == 0:
-                continue
-            order = np.argsort(-s, kind="mergesort")[:k]
-            gains = y[order]
-            dcg = np.sum(gains / np.log2(np.arange(2, len(gains) + 2)))
-            ideal = np.sort(y)[::-1][:k]
-            idcg = np.sum(ideal / np.log2(np.arange(2, len(ideal) + 2)))
-            ndcgs.append(dcg / idcg if idcg > 0 else 0.0)
-            precs.append(gains.mean() if len(gains) else 0.0)
-        return (float(np.mean(ndcgs)) if ndcgs else 0.0, float(np.mean(precs)) if precs else 0.0)
-
-    def _write_ablation(self, path: Path, rows, best, legacy_auc, counts, best_sec, leg_sec, opts):
+    def _write_ablation(self, path, rows, best, counts, leg, law, opts, k):
         path.parent.mkdir(parents=True, exist_ok=True)
-        n_pos, n_neg, n_val = counts
+        n_pos, n_neg, n_val, n_rel = counts
         lines = [
-            "# Hybrid-weight ablation (feature 019)",
+            "# Dual-metric hybrid-weight ablation (feature 020)",
             "",
-            f"Labeled pairs: {n_pos + n_neg} (match {n_pos} / no_match {n_neg}) · "
-            f"validation {n_val} · grid {opts['grid']} · seed {opts['seed']} · metric AUC.",
+            f"Labeled pairs: {n_pos + n_neg} (match {n_pos} / no_match {n_neg}, role-relevant {n_rel}) · "
+            f"validation {n_val} · grid {opts['grid']} · seed {opts['seed']} · objective {opts['objective']} · k={k}.",
             "",
-            "| rank | α | β | γ | AUC | note |",
-            "|---|---|---|---|-----|------|",
+            f"| rank | α | β | γ | δ | label-AUC | role-NDCG@{k} | role-P@{k} | note |",
+            "|---|---|---|---|---|-----------|------|------|------|",
         ]
-        for i, (a, b, g, auc) in enumerate(rows[:15], 1):
-            note = "**← chosen**" if (a, b, g) == tuple(best[:3]) else ""
-            lines.append(f"| {i} | {a:.2f} | {b:.2f} | {g:.2f} | {auc:.4f} | {note} |")
+        for i, (a, b, g, d, auc, nd, pr) in enumerate(rows[:18], 1):
+            note = "**← chosen**" if (a, b, g, d) == tuple(best[:4]) else ""
+            lines.append(f"| {i} | {a:.2f} | {b:.2f} | {g:.2f} | {d:.2f} | {auc:.4f} | {nd:.4f} | {pr:.4f} | {note} |")
         lines += [
             "",
-            f"**Chosen**: α={best[0]:.2f} β={best[1]:.2f} γ={best[2]:.2f} · "
-            f"AUC={best[3]:.4f} · NDCG@10={best_sec[0]:.4f} · P@10={best_sec[1]:.4f}",
-            f"**Legacy (0.55/0.30/0.15)**: AUC={legacy_auc:.4f} · "
-            f"NDCG@10={leg_sec[0]:.4f} · P@10={leg_sec[1]:.4f}",
+            f"**Chosen** (max {opts['objective']}): α={best[0]:.2f} β={best[1]:.2f} γ={best[2]:.2f} δ={best[3]:.2f} "
+            f"· role-NDCG@{k}={best[5]:.4f} · role-P@{k}={best[6]:.4f} · label-AUC={best[4]:.4f}",
+            f"**Label-AUC winner** (feature 019: 0.20/0.75/0.05/0): "
+            f"label-AUC={law[0]:.4f} · role-NDCG@{k}={law[1]:.4f} · role-P@{k}={law[2]:.4f}",
+            f"**Legacy** (0.55/0.30/0.15/0): "
+            f"label-AUC={leg[0]:.4f} · role-NDCG@{k}={leg[1]:.4f} · role-P@{k}={leg[2]:.4f}",
             "",
-            f"Δ AUC vs legacy: {best[3] - legacy_auc:+.4f} (≥ 0 by construction — the grid includes legacy).",
+            "The two objectives favour different weights: optimizing label-AUC alone gives the "
+            "β-heavy δ=0 row (high label-AUC, low role-NDCG → domain-mismatched top results); the "
+            "role-aware objective restores α (GNN) + δ (domain) and lifts role-NDCG.",
+            "",
+            "NOTE — circularity guard: a PURE role-NDCG objective is degenerate (δ=1.0 makes the "
+            "score equal the relevance signal → role-NDCG=1.0 but label-AUC collapses to ~0.62, "
+            "useless). The chosen row uses the **balanced** objective: max role-NDCG subject to "
+            f"label-AUC ≥ {opts['min_auc_frac']}·max and δ ≤ {opts['max_delta']} (domain stays a soft term).",
         ]
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     @staticmethod
-    def _persist(best, grid):
+    def _persist(best, grid, objective, k):
         meta_path = Path(settings.ML_CHECKPOINT_DIR) / "metadata.json"
         meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
-        meta["hybrid_weights"] = {"alpha": round(best[0], 4), "beta": round(best[1], 4), "gamma": round(best[2], 4)}
-        meta["hybrid_weights_meta"] = {"metric": "auc", "auc": round(best[3], 4), "grid_step": grid}
+        meta["hybrid_weights"] = {
+            "alpha": round(best[0], 4), "beta": round(best[1], 4),
+            "gamma": round(best[2], 4), "delta": round(best[3], 4),
+        }
+        meta["hybrid_weights_meta"] = {
+            "objective": f"{objective}@{k}", "label_auc": round(best[4], 4),
+            "role_ndcg": round(best[5], 4), "role_p": round(best[6], 4), "grid_step": grid,
+        }
         meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
