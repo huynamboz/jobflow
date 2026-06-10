@@ -201,3 +201,40 @@ class HeteroRGCN(nn.Module):
 
     def forward(self, data: HeteroData, cv_indices: torch.Tensor, job_indices: torch.Tensor) -> torch.Tensor:
         return self.decode(self.encode(data), cv_indices, job_indices)
+
+# ---------------------------------------------------------------------------
+# GAT backbone (GNN v2/E4): attention re-weights neighbors instead of mean —
+# tests the dilution hypothesis (related-skill signal lost in mean pooling).
+# ---------------------------------------------------------------------------
+
+from torch_geometric.nn import GAT
+
+
+class HeteroGAT(nn.Module):
+    def __init__(self, metadata, hidden_channels: int = 128, num_layers: int = 2,
+                 dropout: float = 0.0, node_dims: dict[str, int] | None = None,
+                 heads: int = 4) -> None:
+        super().__init__()
+        if node_dims is None:
+            node_dims = {"cv": 386, "job": 386, "skill": 385, "seniority": 6}
+        self.projections = nn.ModuleDict(
+            {ntype: nn.Linear(dim, hidden_channels) for ntype, dim in node_dims.items()})
+        backbone = GAT(in_channels=hidden_channels, hidden_channels=hidden_channels,
+                       num_layers=num_layers, out_channels=hidden_channels,
+                       dropout=dropout, heads=heads, v2=True, add_self_loops=False)
+        self.gnn = to_hetero(backbone, metadata, aggr="mean")
+        self.decoder = MLPDecoder(hidden_channels)
+        self.role_head = nn.Linear(hidden_channels, 11)
+
+    def encode(self, data: HeteroData) -> dict[str, torch.Tensor]:
+        x_dict = {ntype: proj(data[ntype].x) for ntype, proj in self.projections.items()}
+        return self.gnn(x_dict, data.edge_index_dict)
+
+    def role_logits(self, z_dict, ntype):
+        return self.role_head(z_dict[ntype])
+
+    def decode(self, z_dict, cv_indices, job_indices):
+        return self.decoder(z_dict["cv"][cv_indices], z_dict["job"][job_indices])
+
+    def forward(self, data, cv_indices, job_indices):
+        return self.decode(self.encode(data), cv_indices, job_indices)

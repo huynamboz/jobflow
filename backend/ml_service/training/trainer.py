@@ -279,7 +279,17 @@ class Trainer:
 
         # Build model
         metadata = data_clean.metadata()
-        if cfg.model_type == "rgcn":
+        if cfg.model_type == "gat":
+            from ml_service.models.gnn import HeteroGAT
+            node_dims = {
+                ntype: data_clean[ntype].x.shape[1]
+                for ntype in data_clean.node_types
+                if hasattr(data_clean[ntype], "x") and data_clean[ntype].x is not None
+            }
+            model = HeteroGAT(metadata=metadata, hidden_channels=cfg.hidden_channels,
+                              num_layers=cfg.num_layers, dropout=cfg.dropout,
+                              node_dims=node_dims)
+        elif cfg.model_type == "rgcn":
             model = HeteroRGCN(
                 metadata=metadata,
                 hidden_channels=cfg.hidden_channels,

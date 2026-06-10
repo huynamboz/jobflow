@@ -51,7 +51,7 @@ logger = logging.getLogger("train_save")
 CHECKPOINT_DIR = Path("checkpoints/latest")
 
 TRAIN_CONFIG = TrainConfig(
-    model_type="graphsage",
+    model_type=__import__("os").environ.get("GNN_MODEL", "graphsage"),
     hidden_channels=256,
     num_layers=3,
     lr=1e-3,
