@@ -903,9 +903,27 @@ class InferenceEngine:
             skill_names = sorted(self._normalizer.skill_catalog.keys())
             skill_to_idx = {s: i for i, s in enumerate(skill_names)}
 
+            # 024 fix: CV node features MUST match the trained layout. GNN v2
+            # added role one-hot (11) to CV nodes at train time (builder.py →
+            # 397-dim); the serving inductive encoder must mirror it or torch.cat
+            # below fails (Expected 397 got 386) and every uploaded CV silently
+            # falls back to text similarity — a train/serve skew.
+            from ml_service.graph.builder import ROLE_CATEGORIES
             cv_emb = self._embed.encode([cv.text])  # (1, 384)
             cv_extra = np.array([[cv.experience_years / 20.0, float(cv.education) / 4.0]], dtype=np.float32)
-            new_cv_feat = torch.from_numpy(np.concatenate([cv_emb, cv_extra], axis=1))
+            expected_dim = data["cv"].x.shape[1]
+            parts = [cv_emb, cv_extra]
+            if expected_dim >= 384 + 2 + len(ROLE_CATEGORIES):
+                role_onehot = np.zeros((1, len(ROLE_CATEGORIES)), dtype=np.float32)
+                cv_role = infer_role(cv.skills, cv.text)
+                role_onehot[0, ROLE_CATEGORIES.index(cv_role) if cv_role in ROLE_CATEGORIES else 0] = 1.0
+                parts.append(role_onehot)
+            new_cv_feat = torch.from_numpy(np.concatenate(parts, axis=1))
+            if new_cv_feat.shape[1] != expected_dim:
+                raise ValueError(
+                    f"CV feature dim {new_cv_feat.shape[1]} != trained {expected_dim} "
+                    f"— serving CV encoder out of sync with the checkpoint."
+                )
 
             data["cv"].x = torch.cat([data["cv"].x, new_cv_feat], dim=0)
             new_cv_idx = num_cvs
