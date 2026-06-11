@@ -145,11 +145,41 @@ class InferenceEngine:
         if (self._checkpoint_dir / "calibration.json").exists():
             self._calibrator.load(self._checkpoint_dir)
 
+        # 024: boot-time self-check — the per-request CV encoder has a broad
+        # fallback to text-cosine (line ~977) that is correct for a single
+        # malformed CV but would SILENTLY mask a systematic train/serve skew
+        # (e.g. the 386↔397 dim bug that passed 4 eval suites unnoticed). Probe
+        # the inductive path once at startup so any systematic break fails LOUD
+        # here instead of degrading every request in production.
+        self._selftest_inductive_cv_encoder()
+
         logger.info(
             "InferenceEngine ready: %d CVs, %d jobs, %d skill-pairs, reranker=%s",
             len(cvs), len(jobs), len(self._skill_similarity),
             "trained" if self._reranker.is_trained else "fallback",
         )
+
+    def _selftest_inductive_cv_encoder(self) -> None:
+        """Fail loudly at boot if the serving CV encoder can't reproduce the
+        trained embedding (systematic skew). A genuine per-CV transient still
+        falls back per-request; this only catches the systematic case."""
+        from ml_service.graph.schema import CVData, SeniorityLevel, EducationLevel
+
+        if self._job_embeddings is None:  # no GNN to skew against
+            return
+        probe = CVData(
+            cv_id=-(10**9), seniority=SeniorityLevel(2), experience_years=3.0,
+            education=EducationLevel(2), skills=tuple(sorted(self._normalizer.skill_catalog)[:3]),
+            skill_proficiencies=(3, 3, 3), text="self-test backend developer python",
+        )
+        emb = self._inductive_gnn_encode_cv(probe)
+        if emb is None:
+            raise RuntimeError(
+                "Inductive CV encoder fell back at startup — serving CV node "
+                "features are out of sync with the checkpoint (train/serve skew). "
+                "Every uploaded CV would silently lose the GNN signal. Fix the "
+                "CV feature layout in _inductive_gnn_encode_cv before serving."
+            )
 
     @classmethod
     def from_checkpoint(
