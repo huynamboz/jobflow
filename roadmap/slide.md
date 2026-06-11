@@ -121,9 +121,45 @@
 ## Section 3 — Tổng quan kiến trúc  (2 slides)
 
 ### Slide 3.1 — Architecture diagram (1 slide full-bleed)
-- **Layout:** Full image
-- **Visual:** **Insert ảnh `architecture.png` đã export từ Excalidraw** (5 lanes: Raw Data → LLM Extraction → Graph → Training → Inference)
-- **Caption ngắn:** "5 layers, từ raw text đến top-K ranked jobs · job pool inductive hot-reload"
+- **Layout:** Full diagram (redraw bằng tool slide theo ASCII dưới — 5 tầng, mỗi tầng 1 màu)
+- **Diagram:**
+  ```
+  ┌─ ① DATA SOURCES ────────────────────────────────────────────────────────────┐
+  │   Crawlers: LinkedIn · Indeed (JobSpy) · Adzuna · Remotive      CV upload   │
+  │   (raw JD text, đa ngữ EN/VI)                                  (PDF/DOCX)   │
+  └───────────────┬──────────────────────────────────────────────────┬──────────┘
+                  ▼                                                  ▼
+  ┌─ ② LLM EXTRACTION (provider-agnostic, log đầy đủ) ──────────────────────────┐
+  │   JD Extractor                              CV Extractor                    │
+  │   title · role(11) · seniority|null         role · seniority · skills       │
+  │   skills×importance · exp_min/max           ×proficiency · exp · edu        │
+  │   Guards: sen←exp khi null · đếm skill-drop · cross-check sen↔exp           │
+  └───────────────┬──────────────────────────────────────────────────────────────┘
+                  ▼
+  ┌─ ③ DATA & GRAPH ─────────────────────────────────────────────────────────────┐
+  │   PostgreSQL ──▶ HETERO GRAPH: CV(397) · Job(397) · Skill(385) · Sen(6)     │
+  │   (5,803 jobs    edges: has/requires_skill ×weight · relates_to (PMI+sem)   │
+  │    366 CVs)      similar_to · match/no_match ◀── AGENT LABELING (12,084     │
+  │                  [guard: conflict→raise]        nhãn · pilot gate · agr 87%)│
+  └───────────────┬──────────────────────────────────────────────────────────────┘
+                  ▼
+  ┌─ ④ TRAINING (GPU server, 1 lệnh sync-and-train) ─────────────────────────────┐
+  │   Pretrain tự giám sát ──▶ Finetune BPR ──▶ Tune weights ──▶ Train reranker │
+  │   (link-prediction,        (hard-neg          (grid-search,    (23 feats,   │
+  │    không cần nhãn)          curriculum)        α=.30/δ=.40)     A14-sync)   │
+  │                          └─▶ checkpoint: model + graph + weights + reranker │
+  └───────────────┬──────────────────────────────────────────────────────────────┘
+                  ▼
+  ┌─ ⑤ SERVING ──────────────────────────────────────────────────────────────────┐
+  │   Job pool snapshot (inductive encode 5.8k jobs ~60s, hot-reload,           │
+  │   model-signature guard)  ──▶  ENGINE 2-STAGE:                              │
+  │   Stage1 hybrid (.30·GNN+.20·skill+.10·sen+.40·domain) → top200             │
+  │   Stage2 MLP rerank ×23 features → × GATES (domain/exp/seniority)           │
+  │            ──▶  REST API (top-K + 4 dim scores)  ──▶  Admin UI (React)      │
+  └───────────────────────────────────────────────────────────────────────────────┘
+  ```
+- **Caption ngắn:** "5 tầng, từ raw text đến top-K ranked jobs · job mới rank được không cần retrain"
+- **Speaker note:** Nhấn 2 điểm: (1) labeling là một TẦNG có quality gate chứ không phải bước phụ; (2) mũi tên ④→⑤ là checkpoint — serving không đụng training, job mới chỉ cần re-encode pool.
 
 ### Slide 3.2 — Tech stack
 - **Layout:** 4 cột (Backend / ML / Data / Frontend)
