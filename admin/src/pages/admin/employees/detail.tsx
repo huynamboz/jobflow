@@ -389,7 +389,7 @@ function JobDetailPanel({
                             <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.success50, color: T.success }}>{s}</span>
                           ))}
                           {nearMisses.map((s) => (
-                            <span key={s} title={`Tính nửa tín chỉ — CV có skill tương đương: ${covered[s]}`}
+                            <span key={s} title={`CV không có "${s}" nhưng có "${covered[s]}" — skill tương đương, được tính nửa tín chỉ khi chấm skill fit`}
                               style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.warning50 ?? "#fff7ed", color: "oklch(0.55 0.12 70)" }}>
                               {s} <span style={{ opacity: 0.7 }}>≈ {covered[s]}</span>
                             </span>
