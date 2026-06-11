@@ -1,3 +1,7 @@
+> ⚠️ **ARTIFACT LỊCH SỬ (Week 1)** — số liệu trong file này là snapshot thời điểm tuần 1
+> (386-dim, hidden 128, all-MiniLM tiếng Anh, chưa có domain term). KHÔNG dùng cho slide
+> hiện tại — dùng [roadmap/slide.md](../slide.md) (đã đồng bộ production GNN v2, 2026-06-11).
+
 # Kiến trúc hệ thống JobFlow-GNN — Sơ đồ cho Slide
 
 ---
