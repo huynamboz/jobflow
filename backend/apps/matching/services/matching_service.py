@@ -168,6 +168,7 @@ def _enrich(results) -> list[dict]:
             "dim_scores":      r.dim_scores,
             "matched_skills":  _filter_soft_skills(list(r.matched_skills)),
             "missing_skills":  _filter_soft_skills(list(r.missing_skills)),
+            "covered_skills":  {k: v for k, v in (r.covered_skills or {}).items()},
             "seniority_match": r.seniority_match,
         }
 

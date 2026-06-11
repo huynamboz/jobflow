@@ -92,6 +92,9 @@ class EmployeeJobMatch(models.Model):
     # Explainability (feature 014): skills the job requires but the employee lacks,
     # and the seniority distance (job_seniority - employee_seniority); null when unknown.
     missing_skills = models.JSONField(default=list, blank=True)
+    # 025: subset of missing_skills the employee likely covers via a RELATED
+    # skill (skill graph) → {"html_css": "sass"}. Display-only nuance.
+    covered_skills = models.JSONField(default=dict, blank=True)
     seniority_gap = models.IntegerField(null=True, blank=True)
     # Per-dimension fit from the reranker: skill_fit / experience_fit /
     # seniority_fit / domain_fit → "good" | "ok" | "weak". Empty until (re)matched.

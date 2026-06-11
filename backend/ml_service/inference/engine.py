@@ -48,10 +48,14 @@ class JobMatchResult:
     company: str = ""
     match_level: str = ""  # "strong" | "good" | "weak"
     dim_scores: dict = None  # skill_fit/experience_fit/seniority_fit/domain_fit → numeric fit [0,1]
+    # 025: subset of missing_skills the CV likely covers via a RELATED skill
+    # (same relates_to graph the score already credits) → {missing: cv_skill}.
+    covered_skills: dict = None
 
     def __post_init__(self):
         # dataclass frozen=True — default mutable arg workaround
         object.__setattr__(self, "dim_scores", self.dim_scores if self.dim_scores is not None else {})
+        object.__setattr__(self, "covered_skills", self.covered_skills if self.covered_skills is not None else {})
 
 
 @dataclass(frozen=True)
@@ -513,6 +517,7 @@ class InferenceEngine:
                     title=title,
                     match_level=match_level,
                     dim_scores=dim_scores,
+                    covered_skills=self._covered_missing(cv_skills, job_skills - cv_skills),
                 )
             )
             # 021/A3: final order = stage-2 reranker score × penalty product
@@ -930,6 +935,27 @@ class InferenceEngine:
         if na == 0 or nb == 0:
             return 0.0
         return float((np.dot(a, b) / (na * nb) + 1.0) / 2.0)
+
+    # 025: minimum relates_to weight for a CV skill to count as "covering" a
+    # missing JD skill in the DISPLAY (e.g. sass→html_css). Same graph the
+    # score already credits at 0.6× — this just surfaces it to the UI.
+    # 0.25 filters co-travel noise (git↔sass 0.198, javascript↔sass 0.208)
+    # while keeping real coverage (html_css↔sass 0.259, vite↔webpack 0.540,
+    # material_ui↔tailwind 0.468). Categories are too coarse to help here.
+    _COVER_MIN_SIM = 0.25
+
+    def _covered_missing(self, cv_skills: set[str], missing: set[str]) -> dict[str, str]:
+        """For each missing JD skill, the best related CV skill (if any)."""
+        covered: dict[str, str] = {}
+        for m in missing:
+            best_sim, best_via = 0.0, ""
+            for c in cv_skills:
+                sim = self._skill_similarity.get((min(m, c), max(m, c)), 0.0)
+                if sim > best_sim:
+                    best_sim, best_via = sim, c
+            if best_sim >= self._COVER_MIN_SIM:
+                covered[m] = best_via
+        return covered
 
     def _semantic_skill_overlap(self, cv: CVData, job: JobData) -> float:
         """Skill overlap with semantic matching via skill graph."""

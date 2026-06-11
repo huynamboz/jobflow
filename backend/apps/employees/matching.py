@@ -27,6 +27,7 @@ def _jobs_to_dicts(result: Any) -> list[dict]:
             "score": j.get("score", 0.0),
             "matched_skills": j.get("matched_skills", []),
             "missing_skills": j.get("missing_skills", []),
+            "covered_skills": j.get("covered_skills", {}),
             "dim_scores": j.get("dim_scores") or {},
         }
         for j in jobs

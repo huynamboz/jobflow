@@ -35,6 +35,8 @@ export interface EmployeeJobMatch {
   match_score: number;
   matched_skills: string[];
   missing_skills: string[];
+  /** 025: missing skills the employee likely covers via a related skill → {"html_css": "sass"} */
+  covered_skills?: Record<string, string>;
   seniority_gap: number | null;
   dim_scores?: Record<string, number | string>; // skill_fit/experience_fit/seniority_fit/domain_fit → 0..1 (legacy: good|ok|weak)
   assigned_to: number | null;
