@@ -839,8 +839,13 @@ class InferenceEngine:
     def _get_cv_gnn_embedding(self, cv: CVData) -> torch.Tensor | None:
         """Get GNN embedding for CV — precomputed if in graph, else inductive.
 
-        FIX 3: Thread-safe via lock. Result is returned to caller (no self cache).
+        Returns None ONLY when the checkpoint has no GNN at all (text-only mode).
+        Otherwise returns a tensor or RAISES — never a silent text-cosine drop
+        (FIX 3: thread-safe via lock; 024: no fallback masking).
         """
+        if self._job_embeddings is None:  # checkpoint has no GNN → legit text-only
+            return None
+
         cv_idx = next((i for i, c in enumerate(self._cvs) if c.cv_id == cv.cv_id), None)
         if cv_idx is not None:
             return self._cv_embeddings[cv_idx]
@@ -925,6 +930,10 @@ class InferenceEngine:
         """
         from ml_service.training.trainer import _strip_label_edges
 
+        # 024: NO silent text-cosine fallback. A failure here is a real bug
+        # (train/serve skew, bad graph) and must surface, not degrade ranking
+        # quality invisibly. The boot self-check exercises this path so a
+        # systematic break fails at deploy, not per-request in production.
         try:
             # Local copy — attribute assignments below don't touch self._data
             data = _strip_label_edges(self._data)
@@ -933,11 +942,10 @@ class InferenceEngine:
             skill_names = sorted(self._normalizer.skill_catalog.keys())
             skill_to_idx = {s: i for i, s in enumerate(skill_names)}
 
-            # 024 fix: CV node features MUST match the trained layout. GNN v2
-            # added role one-hot (11) to CV nodes at train time (builder.py →
-            # 397-dim); the serving inductive encoder must mirror it or torch.cat
-            # below fails (Expected 397 got 386) and every uploaded CV silently
-            # falls back to text similarity — a train/serve skew.
+            # CV node features MUST match the trained layout. GNN v2 added role
+            # one-hot (11) to CV nodes at train time (builder.py → 397-dim); the
+            # serving inductive encoder must mirror it or torch.cat below fails
+            # (Expected 397 got 386) — a train/serve skew.
             from ml_service.graph.builder import ROLE_CATEGORIES
             cv_emb = self._embed.encode([cv.text])  # (1, 384)
             cv_extra = np.array([[cv.experience_years / 20.0, float(cv.education) / 4.0]], dtype=np.float32)
@@ -1005,8 +1013,11 @@ class InferenceEngine:
             return z_dict["cv"][new_cv_idx]
 
         except Exception as e:
-            logger.warning("Inductive GNN encode failed: %s, falling back to text similarity", e)
-            return None
+            # No fallback: re-raise so the failure is visible, not masked by a
+            # silent drop to text-cosine (that masking hid a train/serve skew
+            # through 4 eval suites — 024).
+            logger.error("Inductive CV GNN encode failed (no fallback): %s", e)
+            raise
 
     def _gnn_score_for_job(self, cv: CVData, job: JobData) -> float:
         """GNN score used by the JD→CVs match() path (legacy, may re-encode text)."""
