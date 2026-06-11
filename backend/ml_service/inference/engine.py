@@ -140,6 +140,7 @@ class InferenceEngine:
             self._warn_if_reranker_weights_stale()  # 023/3.6 (A14 guard)
         if (self._checkpoint_dir / "calibration.json").exists():
             self._calibrator.load(self._checkpoint_dir)
+            self._warn_if_calibration_stale()  # 025 guard (A14 family)
 
         # 024: boot-time self-check — the per-request CV encoder has a broad
         # fallback to text-cosine (line ~977) that is correct for a single
@@ -329,6 +330,24 @@ class InferenceEngine:
                 trained_with, serving,
             )
 
+    def _warn_if_calibration_stale(self) -> None:
+        """025 (A14 family): the calibrator maps the RERANKER's score
+        distribution to probabilities — serving it with a different reranker
+        than it was fitted against yields mis-calibrated displays. Compare
+        sha256(reranker.pt)[:16] with calibration.json's trained_with stamp."""
+        import hashlib
+        rr_path = self._checkpoint_dir / "reranker.pt"
+        if not (rr_path.exists() and self._calibrator.is_fitted):
+            return
+        serving = hashlib.sha256(rr_path.read_bytes()).hexdigest()[:16]
+        stamp = self._calibrator.trained_with
+        if stamp != serving:
+            logger.warning(
+                "CALIBRATION STALE (025): calibration.json trained_with=%r but "
+                "serving reranker.pt hash=%s — displayed probabilities are "
+                "mis-calibrated. Refit: python train_reranker.py --calibrate-only",
+                stamp or "<missing>", serving)
+
     @staticmethod
     def _cv_role(cv: CVData) -> str:
         """025: single source for the CV's role. Prefer the role decided at
@@ -449,58 +468,18 @@ class InferenceEngine:
             scored = candidates
 
         # --- Build results: apply all penalties to ALL candidates, then final sort ---
-        _EXP_PENALTY_THRESHOLD = 0.80   # cv_exp < 80% of job_exp_min → penalize
-        _EXP_PENALTY_FACTOR    = 0.40   # experience mismatch multiplier
-        _SEN_PENALTY_FACTOR    = 0.70   # seniority mismatch multiplier
-
         results: list[JobMatchResult] = []
         rank_scores: list[float] = []  # 021/A3: reranker-driven final order
-        _cv_role = InferenceEngine._cv_role(cv)
-        _DOMAIN_GATE_FACTOR = 0.40  # mirrors the labeling rule: domain=0 → not a match
         for job_idx, raw_score in scored:   # iterate ALL retrieve_n, sort after
             job = self._jobs[job_idx]
             job_skills = set(job.skills)
             title = job.text.split(".")[0] if job.text else ""
 
-            # 021/A3: collect the gate factors as an explicit penalty product so
-            # they demote BOTH the displayed score and the reranker-driven order.
-            penalty = 1.0
-
-            # Domain gate (022): the ground truth defines cross-field as not a
-            # match (rubric hard rule domain=0 → overall=0). Ordering must honor
-            # it — catalog jobs with degenerate skill profiles (e.g. VFX jobs
-            # whose niche skills were dropped by the catalog) otherwise look like
-            # perfect skill matches to the reranker features. Soft gate, no removal.
-            _domain_gated = self._role_domain_fit(_cv_role, job) == 0.0
-            if _domain_gated:
-                penalty *= _DOMAIN_GATE_FACTOR
-
-            # Experience gate
-            _EXP_OVERQUAL_GAP    = 3.0   # cv_exp - job_exp_min > 3yr → overqualified
-            _EXP_OVERQUAL_FACTOR = 0.85  # mild overqual penalty
-            _exp_weak = False
-            if job.experience_min and job.experience_min > 0:
-                gap = cv.experience_years - job.experience_min
-                if gap < 0:                        # underqualified → heavy penalty
-                    penalty *= _EXP_PENALTY_FACTOR
-                    _exp_weak = True
-                elif gap > _EXP_OVERQUAL_GAP:      # overqualified → mild penalty
-                    penalty *= _EXP_OVERQUAL_FACTOR
-                    _exp_weak = True
-
-            # Seniority gate: senior/lead roles for junior/mid CVs.
-            _sen_weak = False
-            sen_gap = int(job.seniority) - int(cv.seniority)
-            if sen_gap >= 2 or (sen_gap >= 1 and int(job.seniority) >= 3 and int(cv.seniority) <= 2):
-                penalty *= _SEN_PENALTY_FACTOR
-                _sen_weak = True
-
-            # Overqualification: CV is 2+ seniority levels above job (e.g. senior → intern).
-            _OVERQUAL_PENALTY = 0.75
-            overqual_gap = int(cv.seniority) - int(job.seniority)
-            if overqual_gap >= 2:
-                penalty *= _OVERQUAL_PENALTY
-                _sen_weak = True
+            # 021/A3 gates → 025: one shared helper for serving AND calibration fit.
+            penalty, _gf = self._penalty_product(cv, job)
+            _domain_gated = _gf["domain"]
+            _exp_weak = _gf["exp_weak"]
+            _sen_weak = _gf["sen_weak"]
 
             display_score = float(raw_score) * penalty
             eligible = display_score >= 0.45  # placeholder; overwritten below
@@ -544,9 +523,9 @@ class InferenceEngine:
                         "stage1": stage1_components.get(job_idx, {}),
                         "reranker": round(rs, 3) if rs >= 0 else None,
                         "gates": {
-                            "domain": _DOMAIN_GATE_FACTOR if _domain_gated else None,
-                            "experience": _EXP_PENALTY_FACTOR if (_exp_weak and penalty <= _EXP_PENALTY_FACTOR) else (_EXP_OVERQUAL_FACTOR if _exp_weak else None),
-                            "seniority": _SEN_PENALTY_FACTOR if _sen_weak else None,
+                            "domain": self._DOMAIN_GATE_FACTOR if _domain_gated else None,
+                            "experience": _gf["exp_factor"],
+                            "seniority": self._SEN_PENALTY_FACTOR if _sen_weak else None,
                         },
                         "penalty_product": round(penalty, 3),
                         "rank_score": round((rs if rs >= 0 else float(raw_score)) * penalty, 4),
@@ -558,34 +537,71 @@ class InferenceEngine:
             # not score this candidate / is untrained — previous behavior).
             rank_scores.append((rs if rs >= 0 else float(raw_score)) * penalty)
 
-        return self._finalize_results(results, rank_scores, top_k,
-                                      remap=bool(reranker_score_map))
+        return self._finalize_results(results, rank_scores, top_k)
 
-    @staticmethod
-    def _finalize_results(results: list[JobMatchResult], rank_scores: list[float],
-                          top_k: int, *, remap: bool) -> list[JobMatchResult]:
-        """021/A3: final order = rank_score (reranker × penalties) desc; displayed
-        score remapped to be MONOTONIC with that order (per-request min-max of
-        rank scores onto this result set's display range). ``remap=False`` (no
-        reranker) keeps the legacy stage-1 display values — order == score there
-        by construction."""
+    # 025: "more likely a match than not" — the only threshold on a calibrated
+    # probability that needs no further justification (research.md R4).
+    ELIGIBLE_MIN_PROB = 0.50
+
+    def _finalize_results(self, results: list[JobMatchResult], rank_scores: list[float],
+                          top_k: int) -> list[JobMatchResult]:
+        """Final order = rank_score (reranker × gates) desc — unchanged since A3.
+
+        025: the displayed score is calibrator.transform(rank_score) — an
+        ABSOLUTE probability (w.r.t. the v4 labeled-pair distribution), stable
+        across runs and comparable across employees. Sigmoid is strictly
+        monotonic, so display order ≡ rank order BY MATH; the old per-basket
+        min-max remap is deleted. No usable calibrator → loud warning + raw
+        rank_score (never a silent relative stretch — 024 lesson)."""
         order = sorted(range(len(results)), key=lambda i: rank_scores[i], reverse=True)
         final_idx = order[:top_k]
         final = [results[i] for i in final_idx]
-        if final and remap:
-            d_vals = [r.score for r in final]
-            r_vals = [rank_scores[i] for i in final_idx]
-            d_lo, d_hi = min(d_vals), max(d_vals)
-            r_lo, r_hi = min(r_vals), max(r_vals)
-            span = (r_hi - r_lo) or 1.0
-            for r, rv in zip(final, r_vals):
-                mapped = d_lo + (rv - r_lo) / span * (d_hi - d_lo)
-                object.__setattr__(r, "score", round(mapped, 4))
-        if final:
-            thr = final[0].score * 0.65
-            for r in final:
-                object.__setattr__(r, "eligible", r.score >= thr)
+
+        calibrated = self._calibrator.is_fitted
+        if final and not calibrated and not getattr(self, "_warned_uncalibrated", False):
+            logger.warning(
+                "Calibration unavailable/unfitted — displaying RAW rank scores. "
+                "Refit via: python train_reranker.py --calibrate-only")
+            self._warned_uncalibrated = True
+
+        for r, i in zip(final, final_idx):
+            rv = float(rank_scores[i])
+            prob = self._calibrator.transform_single(rv) if calibrated else rv
+            object.__setattr__(r, "score", round(prob, 4))
+            object.__setattr__(r, "eligible", prob >= self.ELIGIBLE_MIN_PROB)
+            if isinstance(r.score_breakdown, dict):
+                r.score_breakdown["calibrated"] = round(prob, 4) if calibrated else None
         return final
+
+    def rank_scores_for_pairs(self, cv_indices: list[int], job_indices: list[int]) -> list[float]:
+        """025: rank_score (reranker × penalty gates) for training-graph pairs —
+        the calibration-fit signal (FR-005). Features are built EXACTLY as in
+        reranker training: explicit per-pair gnn/stage1 scores (no basket
+        context), so the calibrator sees the distribution the reranker was
+        trained under. Penalties via the same _penalty_product serving uses."""
+        cv_text_cache: dict[int, np.ndarray] = {}
+        cv_gnn_cache: dict[int, torch.Tensor | None] = {}
+        gnn_scores: list[float] = []
+        stage1_scores: list[float] = []
+        for ci, ji in zip(cv_indices, job_indices):
+            if ci not in cv_text_cache:
+                cv_text_cache[ci] = self._embed.encode([self._cvs[ci].text])[0]
+                cv_gnn_cache[ci] = self._get_cv_gnn_embedding(self._cvs[ci])
+            gnn_scores.append(self._gnn_score_fast(
+                self._cvs[ci], self._jobs[ji], ji, cv_text_cache[ci], cv_gnn_cache[ci]))
+            s1, _comps = self._score_pair_fast(
+                self._cvs[ci], self._jobs[ji], ji, cv_text_cache[ci], cv_gnn_cache[ci])
+            stage1_scores.append(float(s1))
+
+        rr_scores, _ = self._reranker.score_batch_with_dims(
+            self._cvs, self._jobs, list(cv_indices), list(job_indices),
+            gnn_scores=gnn_scores, stage1_scores=stage1_scores)
+
+        out: list[float] = []
+        for k, (ci, ji) in enumerate(zip(cv_indices, job_indices)):
+            penalty, _ = self._penalty_product(self._cvs[ci], self._jobs[ji])
+            out.append(float(rr_scores[k]) * penalty)
+        return out
 
     def calibrate(
         self, scores: list[float], labels: list[int],
@@ -982,6 +998,56 @@ class InferenceEngine:
     # 025: minimum relates_to weight for a CV skill to count as "covering" a
     # missing JD skill in the DISPLAY (e.g. sass→html_css). Same graph the
     # score already credits at 0.6× — this just surfaces it to the UI.
+    # 025 (calibrated-probability): the penalty gates, extracted from the
+    # match_cv loop so SERVING and CALIBRATION-FIT share one code path (FR-005).
+    # Constants unchanged from 021/022 — each traces to a ground-truth rule.
+    _DOMAIN_GATE_FACTOR  = 0.40   # rubric hard rule: domain=0 → not a match
+    _EXP_PENALTY_FACTOR  = 0.40   # underqualified (cv_exp < job_exp_min)
+    _EXP_OVERQUAL_GAP    = 3.0    # cv_exp - job_exp_min > 3yr → overqualified
+    _EXP_OVERQUAL_FACTOR = 0.85   # mild overqual penalty
+    _SEN_PENALTY_FACTOR  = 0.70   # seniority gap ≥2 (or junior×senior-job)
+    _OVERQUAL_PENALTY    = 0.75   # CV ≥2 levels above job
+
+    def _penalty_product(self, cv: CVData, job: JobData) -> tuple[float, dict]:
+        """All ordering gates for one (cv, job) pair → (penalty, flags).
+
+        flags: {"domain": bool, "exp_weak": bool, "sen_weak": bool,
+                "exp_factor": float|None} — exp_factor distinguishes the
+        under (0.40) vs overqual (0.85) case for the score-breakdown display.
+        """
+        penalty = 1.0
+        flags = {"domain": False, "exp_weak": False, "sen_weak": False, "exp_factor": None}
+
+        # Domain gate (022): ground truth defines cross-field as not a match.
+        if self._role_domain_fit(self._cv_role(cv), job) == 0.0:
+            penalty *= self._DOMAIN_GATE_FACTOR
+            flags["domain"] = True
+
+        # Experience gate
+        if job.experience_min and job.experience_min > 0:
+            gap = cv.experience_years - job.experience_min
+            if gap < 0:                                # underqualified → heavy
+                penalty *= self._EXP_PENALTY_FACTOR
+                flags["exp_weak"] = True
+                flags["exp_factor"] = self._EXP_PENALTY_FACTOR
+            elif gap > self._EXP_OVERQUAL_GAP:         # overqualified → mild
+                penalty *= self._EXP_OVERQUAL_FACTOR
+                flags["exp_weak"] = True
+                flags["exp_factor"] = self._EXP_OVERQUAL_FACTOR
+
+        # Seniority gate: senior/lead roles for junior/mid CVs.
+        sen_gap = int(job.seniority) - int(cv.seniority)
+        if sen_gap >= 2 or (sen_gap >= 1 and int(job.seniority) >= 3 and int(cv.seniority) <= 2):
+            penalty *= self._SEN_PENALTY_FACTOR
+            flags["sen_weak"] = True
+
+        # Overqualification: CV is 2+ seniority levels above job.
+        if int(cv.seniority) - int(job.seniority) >= 2:
+            penalty *= self._OVERQUAL_PENALTY
+            flags["sen_weak"] = True
+
+        return penalty, flags
+
     # 025: "covered" detection is THREE-tiered, because statistics alone can't
     # express implication — PMI punishes ubiquitous skills (js↔react 0.16: people
     # with react don't bother LISTING javascript, which is exactly why the

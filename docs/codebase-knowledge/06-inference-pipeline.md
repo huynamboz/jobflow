@@ -105,3 +105,28 @@ Precompute CV/job GNN embeddings + job text vecs lúc init · encode CV 1 lần/
   remap theo rổ ứng viên riêng của từng CV — "0.77 của người A" không kém "0.92 của người B";
   so sánh đúng phải dùng dim_scores / thứ hạng trong rổ. Nếu cần so chéo → đổi sang
   calibrated probability (chưa làm).
+
+## Cập nhật 025-calibrated (2026-06-12): điểm hiển thị = xác suất tuyệt đối
+
+- **Đã XOÁ remap min-max theo rổ** (`_finalize_results`): hiển thị giờ là
+  `PlattCalibrator.transform(rank_score)` — sigmoid đơn điệu ⇒ thứ tự ≡ rank
+  bằng toán, không cần cơ chế. Điểm TUYỆT ĐỐI: so sánh được giữa employee, ổn
+  định qua các lần chạy. Caveat "không so sánh giữa 2 employee" chính thức hết.
+- Ý nghĩa số: P(cặp được ground-truth v4 chấm match≥1) — có điều kiện theo phân
+  phối nhãn bucket-selected (framing trung thực, không phải xác suất phổ quát).
+- `eligible = P ≥ 0.50` (hằng `ELIGIBLE_MIN_PROB` — "more likely than not";
+  thay threshold tương đối 0.65×top). Đo lúc rollout: 76% → 96% trên top-100
+  persisted (top-100 của 5.8k vốn toàn match tốt — hợp lý).
+- Calibrator: fit sklearn LBFGS (GD cũ không hội tụ — span 0.17 vô dụng) trên
+  **rank_score val** (reranker × gates qua CHUNG helper `_penalty_product` với
+  serving) trong train_reranker (`--calibrate-only` refit ~2 phút CPU, không
+  GPU). Fit gates: a>0 (từ chối nếu nghịch), span≥0.5, reliability per-decile
+  ≤0.15 (đo thật: span 0.916, worst gap 0.145).
+- Guard (họ A14): `calibration.json.trained_with = sha256(reranker.pt)[:16]` —
+  engine WARN lúc boot khi lệch. Thiếu/chưa fit → hiển thị RAW rank + WARN to
+  (không bao giờ rơi về remap — đã xoá hẳn).
+- score_breakdown thêm `calibrated` (= điểm hiển thị) — chuỗi giải trình khép
+  kín: stage1 components → reranker → gates → rank_score → calibrated.
+- Đỉnh bão hoà ~0.995 (reranker saturation) → ties hiển thị ở 4dp — chấp nhận.
+- Eval persona suites giờ nằm trong repo: `backend/evals/` (holdout/30cv/realcv)
+  — /tmp từng bị macOS dọn mất.

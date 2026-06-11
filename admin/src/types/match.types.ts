@@ -45,6 +45,8 @@ export interface EmployeeJobMatch {
     gates?: Record<string, number | null>;
     penalty_product?: number;
     rank_score?: number;
+    /** 025: displayed probability = sigmoid calibration of rank_score (absolute, cross-employee comparable) */
+    calibrated?: number | null;
   };
   seniority_gap: number | null;
   dim_scores?: Record<string, number | string>; // skill_fit/experience_fit/seniority_fit/domain_fit → 0..1 (legacy: good|ok|weak)

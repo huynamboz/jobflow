@@ -89,11 +89,17 @@ def build_index_pairs(records, cv_id_to_idx, job_id_to_idx):
     return cv_indices, job_indices, labels, dim_labels
 
 
-def main(data_dir: Path, checkpoint_dir: Path, *, epochs: int = 150, aux_weight: float = 0.3, skill_alias: Path | None = None) -> None:
+def main(data_dir: Path, checkpoint_dir: Path, *, epochs: int = 150, aux_weight: float = 0.3,
+         skill_alias: Path | None = None, calibrate_only: bool = False) -> None:
     logger.info("Loading engine from %s ...", checkpoint_dir)
     normalizer = SkillNormalizer(str(skill_alias or DEFAULT_SKILL_ALIAS))
     provider = get_provider()
-    engine = InferenceEngine.from_checkpoint(checkpoint_dir, normalizer, provider)
+    # 025: TRAINING graph pool required — val pair ids live in the labeling
+    # job-id space, and reranker/calibration features must be computed in the
+    # same context the reranker was trained in. Block the live-pool snapshot
+    # (on Neptune none exists — this makes the behavior explicit everywhere).
+    engine = InferenceEngine.from_checkpoint(checkpoint_dir, normalizer, provider,
+                                             job_pool_dir="/nonexistent")
 
     cv_id_to_idx  = {cv.cv_id:   i for i, cv  in enumerate(engine.cv_pool)}
     job_id_to_idx = {job.job_id: i for i, job in enumerate(engine.job_pool)}
@@ -121,36 +127,57 @@ def main(data_dir: Path, checkpoint_dir: Path, *, epochs: int = 150, aux_weight:
                 cv_text_cache[ci] = provider.encode([cvs[ci].text])[0]
                 cv_gnn_cache[ci] = engine._get_cv_gnn_embedding(cvs[ci])
             gnn_s = engine._gnn_score_fast(cvs[ci], jobs[ji], ji, cv_text_cache[ci], cv_gnn_cache[ci])
-            s1_s  = engine._score_pair_fast(cvs[ci], jobs[ji], ji, cv_text_cache[ci], cv_gnn_cache[ci])
+            s1_s, _comps = engine._score_pair_fast(cvs[ci], jobs[ji], ji, cv_text_cache[ci], cv_gnn_cache[ci])
             gnn_scores.append(gnn_s)
             stage1_scores.append(s1_s)
         return gnn_scores, stage1_scores
 
-    logger.info("Pre-computing GNN + Stage1 scores for %d train pairs ...", len(train_lbl))
-    train_gnn, train_s1 = compute_scores(train_cv, train_job)
+    if calibrate_only:
+        if not engine.reranker.is_trained:
+            raise SystemExit("--calibrate-only requires a trained reranker in the checkpoint")
+        logger.info("--calibrate-only: skipping reranker training (loaded from checkpoint)")
+        metrics = {}
+    else:
+        logger.info("Pre-computing GNN + Stage1 scores for %d train pairs ...", len(train_lbl))
+        train_gnn, train_s1 = compute_scores(train_cv, train_job)
 
-    # --- Train reranker ---
-    # Force ordinal mode regardless of what was loaded from checkpoint
-    engine.reranker._ordinal = True
-    engine.reranker._model = None
-    engine.reranker._trained = False
+        # --- Train reranker ---
+        # Force ordinal mode regardless of what was loaded from checkpoint
+        engine.reranker._ordinal = True
+        engine.reranker._model = None
+        engine.reranker._trained = False
 
-    logger.info("Training reranker (ordinal + multi-task, epochs=%d, aux_weight=%.2f) ...", epochs, aux_weight)
-    metrics = engine.train_reranker(train_cv, train_job, train_lbl, gnn_scores=train_gnn, stage1_scores=train_s1, dim_labels=train_dim, epochs=epochs, aux_weight=aux_weight)
-    logger.info("Reranker metrics: %s", {k: round(v, 4) for k, v in metrics.items()})
+        logger.info("Training reranker (ordinal + multi-task, epochs=%d, aux_weight=%.2f) ...", epochs, aux_weight)
+        metrics = engine.train_reranker(train_cv, train_job, train_lbl, gnn_scores=train_gnn, stage1_scores=train_s1, dim_labels=train_dim, epochs=epochs, aux_weight=aux_weight)
+        logger.info("Reranker metrics: %s", {k: round(v, 4) for k, v in metrics.items()})
 
-    # --- Calibrate on val set ---
+    # --- Calibrate on val set (025: on RANK_SCORE = reranker × gates, the
+    #     ordering signal — not stage-1; features built exactly as in training) ---
     if val_lbl:
-        logger.info("Pre-computing Stage1 scores for %d val pairs ...", len(val_lbl))
-        _, val_s1 = compute_scores(val_cv, val_job)
-        # Platt calibrator expects binary labels (0/1); convert from ordinal (0/1/2)
+        logger.info("Computing rank_scores (reranker × gates) for %d val pairs ...", len(val_lbl))
+        val_rank = engine.rank_scores_for_pairs(val_cv, val_job)
         val_lbl_binary = [1 if l >= 1 else 0 for l in val_lbl]
-        engine.calibrate(val_s1, val_lbl_binary)
-        logger.info("Calibration fitted on %d val pairs", len(val_lbl))
+        engine.calibrate(val_rank, val_lbl_binary)
+        logger.info("Calibration fitted on %d val pairs (rank_score signal)", len(val_lbl))
+
+        # 025: couple the calibrator to the reranker it was fitted against.
+        import hashlib
+        rr_path = checkpoint_dir / "reranker.pt"
+        stamp = hashlib.sha256(rr_path.read_bytes()).hexdigest()[:16] if rr_path.exists() else ""
+        engine._calibrator.trained_with = stamp
 
     # --- Save to checkpoint ---
-    engine.reranker.save(checkpoint_dir)
-    logger.info("Saved reranker to %s", checkpoint_dir)
+    if not calibrate_only:
+        engine.reranker.save(checkpoint_dir)
+        logger.info("Saved reranker to %s", checkpoint_dir)
+        # reranker.pt vừa thay đổi → stamp lại calibrator theo file MỚI
+        import hashlib
+        rr_path = checkpoint_dir / "reranker.pt"
+        if rr_path.exists() and engine._calibrator.is_fitted:
+            engine._calibrator.trained_with = hashlib.sha256(rr_path.read_bytes()).hexdigest()[:16]
+    if engine._calibrator.is_fitted:
+        engine._calibrator.save(checkpoint_dir)
+        logger.info("Saved calibration.json (trained_with=%s)", engine._calibrator.trained_with)
 
     # Also save to week10 versioned checkpoint if it exists
     versioned = checkpoint_dir.parent / "week10-b89-auc0790"
@@ -167,6 +194,8 @@ def main(data_dir: Path, checkpoint_dir: Path, *, epochs: int = 150, aux_weight:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--calibrate-only", action="store_true",
+                        help="Skip reranker training; only (re)fit the Platt calibrator on rank_score (025)")
     parser.add_argument("--data",       default="data/processed/b89",  help="Dataset dir with labels.json")
     parser.add_argument("--checkpoint", default="checkpoints/latest",   help="Checkpoint dir to save into")
     parser.add_argument("--epochs",      default=150, type=int,   help="Training epochs (default: 150)")
@@ -177,4 +206,5 @@ if __name__ == "__main__":
         Path(args.data), Path(args.checkpoint),
         epochs=args.epochs, aux_weight=args.aux_weight,
         skill_alias=Path(args.skill_alias) if args.skill_alias else None,
+        calibrate_only=args.calibrate_only,
     )

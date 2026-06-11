@@ -81,3 +81,12 @@ metrics + slice AUC.
 **Vận hành**: `EMBEDDING_PROVIDER=multilingual` trong backend/.env BẮT BUỘC khớp checkpoint;
 quy trình thí nghiệm chuẩn: train exp-dir trên Neptune → `measure_slice.py` trên server →
 chỉ promote khi đủ (slice + pipeline + eval + re-tune + A14 reranker).
+
+## Cập nhật 025-calibrated (2026-06-12): semantics điểm hiển thị
+
+Điểm hiển thị giờ là **xác suất Platt tuyệt đối** của rank_score (xem doc 06 chi
+tiết). Với evaluation: 4 bộ suite đo domain nên BẤT BIẾN qua thay đổi này (đã
+re-run: 20+20+30+15 đều 100%); order-invariance gate xác nhận thứ tự y nguyên
+từng vị trí trên cả 4 employee. Chất lượng calibration đo được: span 0.916,
+reliability worst-decile gap 0.145 (≤0.15), fit trên 1.841 val pairs. Suites
+persona giờ ở backend/evals/ (bài học /tmp bị dọn).

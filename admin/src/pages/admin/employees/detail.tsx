@@ -363,10 +363,18 @@ function JobDetailPanel({
                             ? firedGates.map(([k, v]) => `${gateLabels[k] ?? k} ×${v}`).join(" · ")
                             : "không gate nào kích hoạt (×1.0)"}
                         </div>
+                        {bd.calibrated != null && bd.rank_score != null && (
+                          <div>
+                            <span style={{ color: T.ink3 }}>Calibration&nbsp;&nbsp;</span>
+                            rank {bd.rank_score} → <span style={{ fontWeight: 700 }}>P = {bd.calibrated}</span>
+                            <span style={{ color: T.ink4 }}> (hiển thị)</span>
+                          </div>
+                        )}
                       </div>
                       <div style={{ fontSize: 11, color: T.ink4, marginTop: 6, lineHeight: 1.5 }}>
-                        Overall % = vị trí xếp hạng của job này (reranker × gates) chiếu lên thang điểm của rổ kết quả CV này.
-                        Không phải trung bình 4 chiều, và không so sánh được giữa 2 nhân viên.
+                        Overall % là xác suất TUYỆT ĐỐI đã hiệu chuẩn (Platt) — cùng một thang cho mọi nhân viên,
+                        ổn định qua các lần chạy. Ý nghĩa: khả năng cặp CV–job này được ground truth của hệ chấm
+                        là match. Không phải trung bình của 4 chiều phía trên.
                       </div>
                     </div>
                   );

@@ -124,33 +124,48 @@ class PerCvMetricsTests(TestCase):
 
 
 class FinalOrderTests(TestCase):
-    """021/A3: final order follows rank_score (reranker×penalty); display monotonic."""
+    """021/A3 → 025: final order follows rank_score; display = calibrated(rank)
+    — monotonic by sigmoid, no per-basket remap anymore."""
+
+    def _engine(self, fitted=True):
+        from ml_service.inference.engine import InferenceEngine
+        from ml_service.reranker.calibration import PlattCalibrator
+
+        class _E:
+            ELIGIBLE_MIN_PROB = InferenceEngine.ELIGIBLE_MIN_PROB
+            _finalize_results = InferenceEngine._finalize_results
+            _calibrator = PlattCalibrator()
+        e = _E()
+        if fitted:
+            e._calibrator._a, e._calibrator._b, e._calibrator._fitted = 8.0, -5.0, True
+        return e
 
     def _result(self, job_id, score):
         from ml_service.inference.engine import JobMatchResult
         return JobMatchResult(job_id=job_id, score=score, eligible=True,
                               matched_skills=(), missing_skills=(),
-                              seniority_match=True, title=f"j{job_id}")
+                              seniority_match=True, title=f"j{job_id}",
+                              score_breakdown={})
 
     def test_order_follows_rank_and_display_monotonic(self):
-        from ml_service.inference.engine import InferenceEngine
-        # display says A > B > C, but reranker rank says C > A > B
+        # stage-1 display nói A > B > C, nhưng rank_score nói C > A > B
         results = [self._result(1, 0.9), self._result(2, 0.8), self._result(3, 0.7)]
         rank = [0.30, 0.10, 0.50]
-        final = InferenceEngine._finalize_results(results, rank, top_k=3, remap=True)
-        self.assertEqual([r.job_id for r in final], [3, 1, 2])      # reranker order wins
+        final = self._engine()._finalize_results(results, rank, top_k=3)
+        self.assertEqual([r.job_id for r in final], [3, 1, 2])      # rank order wins
         scores = [r.score for r in final]
-        self.assertEqual(scores, sorted(scores, reverse=True))      # monotonic display
-        self.assertEqual(scores[0], 0.9)                            # mapped into display range
-        self.assertEqual(scores[-1], 0.7)
+        self.assertEqual(scores, sorted(scores, reverse=True))      # monotonic (sigmoid)
+        import math
+        self.assertAlmostEqual(scores[0], 1/(1+math.exp(-(8*0.50-5))), places=3)
 
-    def test_no_reranker_keeps_legacy_behavior(self):
-        from ml_service.inference.engine import InferenceEngine
+    def test_no_calibrator_shows_raw_rank(self):
+        # 025: không còn remap — thiếu calibrator thì hiển thị RAW rank + warn
         results = [self._result(1, 0.9), self._result(2, 0.8)]
-        rank = [0.9, 0.8]  # fallback: rank == penalized stage-1
-        final = InferenceEngine._finalize_results(results, rank, top_k=2, remap=False)
+        rank = [0.9, 0.8]
+        with self.assertLogs("ml_service.inference.engine", level="WARNING"):
+            final = self._engine(fitted=False)._finalize_results(results, rank, top_k=2)
         self.assertEqual([r.job_id for r in final], [1, 2])
-        self.assertEqual([r.score for r in final], [0.9, 0.8])      # untouched
+        self.assertEqual([r.score for r in final], [0.9, 0.8])
 
 
 class GraphConflictGuardTests(TestCase):
@@ -403,3 +418,184 @@ class SkillFitHalfCreditTests(TestCase):
             cv, job, matched, covered={"react", "webpack"})["skill_fit"]
         self.assertAlmostEqual(no_credit, 4 / 10, places=3)
         self.assertAlmostEqual(with_credit, (4 + 0.5 * 6) / 10, places=3)  # 0.7
+
+
+class PlattFitTests(TestCase):
+    """025: sklearn fit recovers a known sigmoid; old GD demonstrably failed."""
+
+    def _make(self):
+        from ml_service.reranker.calibration import PlattCalibrator
+        return PlattCalibrator()
+
+    def test_recovers_known_sigmoid(self):
+        import numpy as np
+        rng = np.random.RandomState(0)
+        scores = rng.uniform(0, 1, 4000)
+        p_true = 1 / (1 + np.exp(-(5.0 * scores - 3.0)))
+        labels = (rng.uniform(size=4000) < p_true).astype(int)
+        cal = self._make()
+        cal.fit(scores, labels)
+        self.assertTrue(cal.is_fitted)
+        self.assertAlmostEqual(cal._a, 5.0, delta=0.8)
+        self.assertAlmostEqual(cal._b, -3.0, delta=0.5)
+
+    def test_transform_strictly_monotonic_and_span(self):
+        import numpy as np
+        cal = self._make()
+        cal._a, cal._b, cal._fitted = 5.0, -3.0, True
+        xs = np.linspace(0.2, 0.98, 50)
+        ys = cal.transform(xs)
+        self.assertTrue(all(ys[i] < ys[i + 1] for i in range(len(ys) - 1)))
+        self.assertGreaterEqual(float(ys.max() - ys.min()), 0.5)  # SC-005 span gate
+
+    def test_negative_slope_refused(self):
+        import numpy as np
+        rng = np.random.RandomState(1)
+        scores = rng.uniform(0, 1, 1000)
+        labels = (scores < 0.3).astype(int)  # tín hiệu NGHỊCH → a < 0
+        cal = self._make()
+        cal.fit(scores, labels)
+        self.assertFalse(cal.is_fitted)  # từ chối, không đảo thứ tự hiển thị
+
+
+class PenaltyParityTests(TestCase):
+    """025: _penalty_product = đúng từng gate như block inline cũ."""
+
+    def _pp(self, cv_kw, job_kw):
+        from ml_service.inference.engine import InferenceEngine
+        from ml_service.graph.schema import CVData, JobData, SeniorityLevel, EducationLevel
+
+        cv = CVData(cv_id=-1, seniority=SeniorityLevel(cv_kw.get("sen", 2)),
+                    experience_years=cv_kw.get("exp", 3.0), education=EducationLevel(2),
+                    skills=("python",), skill_proficiencies=(3,),
+                    text="", role_category=cv_kw.get("role", "backend"))
+        job = JobData(job_id=-1, seniority=SeniorityLevel(job_kw.get("sen", 2)),
+                      skills=("python",), skill_importances=(3,), salary_min=0, salary_max=0,
+                      text="", experience_min=job_kw.get("exp_min", 0.0),
+                      role_category=job_kw.get("role", "backend"))
+
+        class _E:  # chỉ cần các hằng + _role_domain_fit/_cv_role
+            _DOMAIN_GATE_FACTOR = InferenceEngine._DOMAIN_GATE_FACTOR
+            _EXP_PENALTY_FACTOR = InferenceEngine._EXP_PENALTY_FACTOR
+            _EXP_OVERQUAL_GAP = InferenceEngine._EXP_OVERQUAL_GAP
+            _EXP_OVERQUAL_FACTOR = InferenceEngine._EXP_OVERQUAL_FACTOR
+            _SEN_PENALTY_FACTOR = InferenceEngine._SEN_PENALTY_FACTOR
+            _OVERQUAL_PENALTY = InferenceEngine._OVERQUAL_PENALTY
+            _role_domain_fit = staticmethod(InferenceEngine._role_domain_fit)
+            _cv_role = staticmethod(InferenceEngine._cv_role)
+        return InferenceEngine._penalty_product(_E(), cv, job)
+
+    def test_no_gate(self):
+        p, f = self._pp({}, {})
+        self.assertEqual(p, 1.0)
+        self.assertEqual((f["domain"], f["exp_weak"], f["sen_weak"]), (False, False, False))
+
+    def test_domain_gate(self):
+        p, f = self._pp({"role": "backend"}, {"role": "design"})
+        self.assertAlmostEqual(p, 0.40)
+        self.assertTrue(f["domain"])
+
+    def test_exp_under(self):
+        p, f = self._pp({"exp": 1.0}, {"exp_min": 5.0})
+        self.assertAlmostEqual(p, 0.40)
+        self.assertEqual(f["exp_factor"], 0.40)
+
+    def test_exp_overqual(self):
+        p, f = self._pp({"exp": 10.0}, {"exp_min": 5.0})
+        self.assertAlmostEqual(p, 0.85)
+        self.assertEqual(f["exp_factor"], 0.85)
+
+    def test_seniority_gap(self):
+        p, f = self._pp({"sen": 1}, {"sen": 3})
+        self.assertAlmostEqual(p, 0.70)
+        self.assertTrue(f["sen_weak"])
+
+    def test_cv_overqual(self):
+        p, f = self._pp({"sen": 4}, {"sen": 1})
+        self.assertAlmostEqual(p, 0.75)
+        self.assertTrue(f["sen_weak"])
+
+    def test_stacked_gates(self):
+        # khác nghề + thiếu exp + thiếu cấp: 0.40 × 0.40 × 0.70
+        p, f = self._pp({"role": "backend", "exp": 1.0, "sen": 1},
+                        {"role": "design", "exp_min": 5.0, "sen": 3})
+        self.assertAlmostEqual(p, 0.40 * 0.40 * 0.70, places=6)
+
+
+class CalibratedDisplayTests(TestCase):
+    """025: _finalize_results — calibrated display, eligible tuyệt đối, fallback to."""
+
+    def _engine_stub(self, fitted: bool):
+        from ml_service.inference.engine import InferenceEngine, JobMatchResult
+        from ml_service.reranker.calibration import PlattCalibrator
+
+        class _E:
+            ELIGIBLE_MIN_PROB = InferenceEngine.ELIGIBLE_MIN_PROB
+            _finalize_results = InferenceEngine._finalize_results
+            _calibrator = PlattCalibrator()
+        e = _E()
+        if fitted:
+            e._calibrator._a, e._calibrator._b, e._calibrator._fitted = 8.0, -5.0, True
+        return e, JobMatchResult
+
+    def _results(self, JobMatchResult, n=3):
+        return [JobMatchResult(job_id=i, score=0.5, eligible=False, matched_skills=(),
+                               missing_skills=(), seniority_match=True,
+                               score_breakdown={}) for i in range(n)]
+
+    def test_calibrated_display_and_order(self):
+        e, JMR = self._engine_stub(fitted=True)
+        res = self._results(JMR)
+        rank = [0.9, 0.3, 0.7]
+        out = e._finalize_results(res, rank, top_k=3)
+        self.assertEqual([r.job_id for r in out], [0, 2, 1])  # order = rank desc
+        import math
+        expect = [1 / (1 + math.exp(-(8.0 * v - 5.0))) for v in (0.9, 0.7, 0.3)]
+        for r, p in zip(out, expect):
+            self.assertAlmostEqual(r.score, p, places=3)
+            self.assertEqual(r.score_breakdown["calibrated"], r.score)
+        # eligible tuyệt đối: P(0.9)≈0.90 ✓, P(0.7)≈0.65 ✓, P(0.3)≈0.069 ✗
+        self.assertEqual([r.eligible for r in out], [True, True, False])
+
+    def test_fallback_loud_raw_rank(self):
+        e, JMR = self._engine_stub(fitted=False)
+        res = self._results(JMR)
+        with self.assertLogs("ml_service.inference.engine", level="WARNING") as cm:
+            out = e._finalize_results(res, [0.9, 0.3, 0.7], top_k=3)
+        self.assertTrue(any("RAW rank scores" in m for m in cm.output))
+        self.assertAlmostEqual(out[0].score, 0.9, places=4)  # raw, không remap
+        self.assertIsNone(out[0].score_breakdown["calibrated"])
+
+
+class CalibStampTests(TestCase):
+    """025: guard cảnh báo khi calibration lệch reranker đang serve."""
+
+    def test_stamp_roundtrip_and_mismatch_warn(self):
+        import hashlib, tempfile, json
+        from pathlib import Path
+        from ml_service.reranker.calibration import PlattCalibrator
+        from ml_service.inference.engine import InferenceEngine
+
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            (d / "reranker.pt").write_bytes(b"fake-reranker-v1")
+            good = hashlib.sha256(b"fake-reranker-v1").hexdigest()[:16]
+
+            cal = PlattCalibrator()
+            cal._a, cal._b, cal._fitted = 5.0, -3.0, True
+            cal.save(d, trained_with=good)
+            cal2 = PlattCalibrator(); cal2.load(d)
+            self.assertEqual(cal2.trained_with, good)
+
+            class _E:
+                _checkpoint_dir = d
+                _calibrator = cal2
+                _warn_if_calibration_stale = InferenceEngine._warn_if_calibration_stale
+            # khớp → không warn
+            with self.assertNoLogs("ml_service.inference.engine", level="WARNING"):
+                _E()._warn_if_calibration_stale()
+            # đổi reranker → warn
+            (d / "reranker.pt").write_bytes(b"fake-reranker-v2")
+            with self.assertLogs("ml_service.inference.engine", level="WARNING") as cm:
+                _E()._warn_if_calibration_stale()
+            self.assertTrue(any("CALIBRATION STALE" in m for m in cm.output))

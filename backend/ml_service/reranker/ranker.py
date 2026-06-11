@@ -209,7 +209,8 @@ class Reranker:
         """
         if not self._trained or self._model is None:
             return np.full(len(cv_indices), 0.5)
-        X = self._fe.extract_batch(cvs, jobs, cv_indices, job_indices, gnn_scores=gnn_scores)
+        X = self._fe.extract_batch(cvs, jobs, cv_indices, job_indices,
+                                   gnn_scores=gnn_scores, stage1_scores=stage1_scores)
         if len(X) == 0:
             return np.array([])
         X_t = torch.from_numpy(X.astype(np.float32))
@@ -231,6 +232,7 @@ class Reranker:
         cv_indices: list[int],
         job_indices: list[int],
         gnn_scores: list[float] | None = None,
+        stage1_scores: list[float] | None = None,
     ) -> tuple[np.ndarray, list[dict[str, str]]]:
         """Score pairs and return (overall_scores, dim_levels).
 
@@ -242,7 +244,8 @@ class Reranker:
             n = len(cv_indices)
             return np.full(n, 0.5), [{} for _ in range(n)]
 
-        X = self._fe.extract_batch(cvs, jobs, cv_indices, job_indices, gnn_scores=gnn_scores)
+        X = self._fe.extract_batch(cvs, jobs, cv_indices, job_indices,
+                                   gnn_scores=gnn_scores, stage1_scores=stage1_scores)
         if len(X) == 0:
             return np.array([]), []
 

@@ -23,6 +23,7 @@ class PlattCalibrator:
         self._a: float = 1.0  # sigmoid slope
         self._b: float = 0.0  # sigmoid offset
         self._fitted = False
+        self.trained_with: str = ""  # sha256(reranker.pt)[:16] at fit time (025)
 
     @property
     def is_fitted(self) -> bool:
@@ -41,32 +42,56 @@ class PlattCalibrator:
             logger.warning("Not enough data for calibration (%d samples)", len(scores))
             return
 
-        # Platt scaling: fit a, b such that P(y=1|s) = sigmoid(a*s + b)
-        # Using simple gradient descent
-        a, b = 1.0, 0.0
-        lr = 0.01
+        # Platt scaling = unregularized 1-D logistic regression (Platt 1999).
+        # 025: the previous hand-rolled GD (lr=0.01, 1000 iters) did NOT
+        # converge — it compressed the whole score range into P∈[0.37,0.54].
+        # sklearn LBFGS is the canonical implementation (what
+        # CalibratedClassifierCV(method="sigmoid") uses); C=1e6 ≈ no penalty.
+        from sklearn.linear_model import LogisticRegression
 
-        for _ in range(1000):
-            z = a * scores + b
-            p = 1.0 / (1.0 + np.exp(-z))
-            p = np.clip(p, 1e-7, 1 - 1e-7)
+        lr_model = LogisticRegression(solver="lbfgs", C=1e6, max_iter=1000)
+        lr_model.fit(scores.reshape(-1, 1), labels)
+        a = float(lr_model.coef_[0][0])
+        b = float(lr_model.intercept_[0])
 
-            # Cross-entropy gradient
-            grad_a = np.mean((p - labels) * scores)
-            grad_b = np.mean(p - labels)
+        if a <= 0:
+            # The ranking signal anti-predicts labels — calibrating it would
+            # invert the displayed order vs rank order. Refuse loudly.
+            logger.error(
+                "Platt fit produced non-positive slope a=%.4f — ranking signal "
+                "anti-predicts labels; calibration REFUSED (fitted stays False).", a)
+            return
 
-            a -= lr * grad_a
-            b -= lr * grad_b
-
-        self._a = float(a)
-        self._b = float(b)
+        self._a = a
+        self._b = b
         self._fitted = True
 
-        # Log calibration quality
         calibrated = self.transform(scores)
         pred = (calibrated >= 0.5).astype(int)
         accuracy = float((pred == labels).mean())
-        logger.info("Platt calibration fitted: a=%.3f, b=%.3f, accuracy=%.3f", self._a, self._b, accuracy)
+        span = float(calibrated.max() - calibrated.min())
+        logger.info("Platt calibration fitted: a=%.3f, b=%.3f, accuracy=%.3f, span=%.3f",
+                    self._a, self._b, accuracy, span)
+        self._log_reliability(scores, labels)
+
+    def _log_reliability(self, scores: np.ndarray, labels: np.ndarray) -> None:
+        """025: per-decile reliability — mean predicted P vs observed match
+        rate. Contract gate: |predicted − observed| ≤ 0.15 per populated decile."""
+        preds = self.transform(scores)
+        edges = np.quantile(scores, np.linspace(0, 1, 11))
+        logger.info("Calibration reliability (val):  decile | n | mean P̂ | observed")
+        worst = 0.0
+        for i in range(10):
+            lo, hi = edges[i], edges[i + 1]
+            m = (scores >= lo) & (scores <= hi if i == 9 else scores < hi)
+            if m.sum() < 5:
+                continue
+            gap = abs(float(preds[m].mean()) - float(labels[m].mean()))
+            worst = max(worst, gap)
+            logger.info("  [%.3f, %.3f] | %4d | %.3f | %.3f%s",
+                        lo, hi, int(m.sum()), float(preds[m].mean()),
+                        float(labels[m].mean()), "  ⚠ gap>0.15" if gap > 0.15 else "")
+        logger.info("Reliability worst-decile gap: %.3f (gate ≤ 0.15)", worst)
 
     def transform(self, scores: np.ndarray) -> np.ndarray:
         """Apply calibration to raw scores → calibrated probabilities."""
@@ -82,10 +107,14 @@ class PlattCalibrator:
         z = self._a * score + self._b
         return float(1.0 / (1.0 + np.exp(-z)))
 
-    def save(self, path: Path | str) -> None:
+    def save(self, path: Path | str, *, trained_with: str = "") -> None:
+        """025: trained_with = sha256(reranker.pt)[:16] — couples this artifact
+        to the reranker whose score distribution it was fitted on (the engine
+        warns at boot on mismatch, mirroring the A14 weight guard)."""
         path = Path(path)
         with open(path / "calibration.json", "w") as f:
-            json.dump({"a": self._a, "b": self._b, "fitted": self._fitted}, f)
+            json.dump({"a": self._a, "b": self._b, "fitted": self._fitted,
+                       "trained_with": trained_with or self.trained_with}, f)
 
     def load(self, path: Path | str) -> None:
         path = Path(path)
@@ -96,4 +125,5 @@ class PlattCalibrator:
             self._a = data["a"]
             self._b = data["b"]
             self._fitted = data["fitted"]
+            self.trained_with = data.get("trained_with", "")
             logger.info("Calibration loaded: a=%.3f, b=%.3f", self._a, self._b)
