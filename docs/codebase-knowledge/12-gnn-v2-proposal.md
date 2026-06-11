@@ -113,6 +113,11 @@ v1=0.813), NDCG@10 0.894, slice 0.705, eval 20-CV 100%, và **re-tune cho α=0.3
 γ=0.10 / δ=0.40** — GNN lần đầu gánh tín hiệu lớn nhất cùng domain. Reranker retrain đúng A14
 (acc 0.706). Serving yêu cầu `EMBEDDING_PROVIDER=multilingual` trong backend/.env (đã set —
 checkpoint và provider phải đồng bộ). Master plan 3.4 hoàn thành ⇒ TOÀN BỘ master plan đóng.
+**Held-out validation (sau promote)**: bộ 20 persona MỚI (Flask, Svelte, Flutter, SRE, DBA,
+Security, Game Unity, fresh-grad...) → **20/20 (100%), on_domain@5 = 1.00** — model không
+thuộc bài harness; Flask CV → Python Developer top-1 = đúng năng lực related-skill mới.
+Caveat nhỏ còn lại: `infer_role` chưa suy được qa/design/ba (rơi về other, other↔other=match
+→ vài job tạp lọt check domain ở các ngách đó) — refinement tương lai, không khẩn.
 Ghi chú †: global-decode AUC của E6 thấp là artifact lành tính — BPR tối ưu ranking TRONG
 từng CV (đúng nhu cầu serving); offset giữa CV làm AUC phẳng toàn cục méo, per-CV metrics
 mới là thước đúng.

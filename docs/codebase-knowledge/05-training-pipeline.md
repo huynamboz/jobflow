@@ -71,3 +71,18 @@ auc_roc, recall@5/10, precision@5/10, ndcg@10, hit_rate@5/10, mrr — tính tron
 - `run_grid_search.py`: grid hidden×dropout×lr (18 config).
 - `run_experiment_*.py`: thí nghiệm LinkedIn/real-CV cũ.
 - `ml_benchmark/`: sandbox benchmark (feature 007-010), tách khỏi production.
+
+## Cập nhật GNN v2 (024 — 2026-06-11)
+
+Quy trình train production hiện tại (2 bước, đều `EMBEDDING_PROVIDER=multilingual`):
+```bash
+# trên Neptune
+EMBEDDING_PROVIDER=multilingual python run_pretrain.py --out checkpoints/pretrain_ml/backbone.pt
+EMBEDDING_PROVIDER=multilingual PRETRAIN_PATH=checkpoints/pretrain_ml/backbone.pt \
+  python run_train_save.py --data data/processed/v4_relabel --checkpoint-dir checkpoints/<exp>
+python measure_slice.py --checkpoint checkpoints/<exp>   # slice + global decode AUC
+```
+- `LabeledPair.bucket` đi từ labels.json vào sampler; BPR boost ×3 anchor related-skill positives
+- Early-stop signal = 0.8·val_auc + 0.2·related_slice_auc (slice đo bằng PURE decode mỗi epoch)
+- Env gates: AUX_ROLE_WEIGHT=0 (bật = phá BPR — xem doc 12 Vòng 1), SKILL_REL_WEIGHT=0, GNN_MODEL=graphsage
+- Sau train: tune weights → ghi metadata → train_reranker (A14) — ĐÚNG THỨ TỰ NÀY
