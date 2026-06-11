@@ -409,13 +409,18 @@ class InferenceEngine:
             "domain_fit": round(float(domain_fit), 3),
         }
 
-    def match_cv(self, cv: CVData, top_k: int = 10, retrieve_n: int = 200) -> list[JobMatchResult]:
+    def match_cv(self, cv: CVData, top_k: int = 10, retrieve_n: int | None = None) -> list[JobMatchResult]:
         """Two-stage matching: CV against all Jobs.
 
         Stage 1 (Retrieve): Fast hybrid scoring → top N candidates
-        Stage 2 (Rerank):   XGBoost on feature vectors → final top K
+        Stage 2 (Rerank):   MLP reranker on feature vectors → final top K
         If reranker not trained, Stage 1 scores are final.
         """
+        # 025-pagination: stage-2 must see at least top_k candidates, else the
+        # tail of the persisted list silently falls back to stage-1 order.
+        if retrieve_n is None:
+            retrieve_n = max(200, top_k)
+
         cv_skills = set(cv.skills)
 
         # FIX 2: Encode CV text once for the entire request

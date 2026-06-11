@@ -19,7 +19,10 @@ logger = logging.getLogger(__name__)
 
 # How many top-ranked jobs to store per employee. The list is ranked by the GNN,
 # so larger = a longer tail of lower-relevance jobs for HR to browse.
-MATCH_TOP_K = 100
+# 025-pagination: persist top-500 per employee — "Find more" is pure DB
+# pagination over this pool (stage-1 already scores the whole catalog; the
+# cost of a deeper pool is only stage-2 reranking more candidates).
+MATCH_TOP_K = 500
 
 
 def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
