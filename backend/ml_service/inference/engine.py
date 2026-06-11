@@ -1,9 +1,12 @@
-"""Two-stage inference engine for CV-Job matching.
+"""Two-stage inference engine for CV→Jobs matching — ONE path: match_cv().
 
-Stage 1 (Retrieve): Fast scoring via text similarity → top N candidates
-Stage 2 (Rerank):   XGBoost on rich feature vectors → final top K
+Stage 1 (Retrieve): hybrid α·GNN + β·skill + γ·seniority + δ·domain over the
+                    live job pool → top retrieve_n candidates
+Stage 2 (Rerank):   MLP reranker (23 features) × gates → final order
+                    (display score remapped monotonic per A3)
 
-If reranker is not trained, falls back to hybrid scoring (v3).
+The legacy JD→CVs direction and the slow per-pair path were removed in 025 —
+they only served a pre-Django FastAPI sandbox and invited path divergence.
 """
 
 from __future__ import annotations
@@ -17,8 +20,6 @@ import numpy as np
 import torch
 from torch_geometric.data import HeteroData
 
-from ml_service.baselines.skill_overlap import SkillOverlapScorer
-from ml_service.data.skill_extractor import SkillExtractor
 from ml_service.data.skill_graph import build_skill_cooccurrence
 from ml_service.data.skill_normalization import SkillNormalizer
 from ml_service.embedding.base import EmbeddingProvider
@@ -31,18 +32,6 @@ from ml_service.reranker.features import FeatureExtractor
 from ml_service.reranker.ranker import Reranker
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class MatchResult:
-    """Single CV match result (JD → CVs)."""
-
-    cv_id: int
-    score: float
-    eligible: bool
-    matched_skills: tuple[str, ...]
-    missing_skills: tuple[str, ...]
-    seniority_match: bool
 
 
 @dataclass(frozen=True)
@@ -104,8 +93,6 @@ class InferenceEngine:
         self._jobs = jobs
         self._normalizer = normalizer
         self._embed = embedding_provider
-        self._extractor = SkillExtractor(normalizer)
-        self._skill_scorer = SkillOverlapScorer()
         self._alpha = alpha
         self._beta = beta
         self._gamma = gamma
@@ -384,69 +371,6 @@ class InferenceEngine:
             "domain_fit": round(float(domain_fit), 3),
         }
 
-    def match(self, jd_text: str, top_k: int = 10) -> list[MatchResult]:
-        """Match a JD text against all CVs. Returns Top K ranked results."""
-        from ml_service.crawler.base import RawJob
-
-        raw = RawJob(
-            source="query",
-            source_url="",
-            title="",
-            company="",
-            location="",
-            description=jd_text,
-        )
-        job_data = self._extractor.extract(raw, job_id=-1)
-
-        if not job_data.skills:
-            logger.warning("No skills extracted from JD text")
-            return []
-
-        results: list[MatchResult] = []
-        for cv in self._cvs:
-            score = self._score_pair(cv, job_data)
-            cv_skills = set(cv.skills)
-            job_skills = set(job_data.skills)
-            matched = tuple(sorted(cv_skills & job_skills))
-            missing = tuple(sorted(job_skills - cv_skills))
-            sen_match = abs(int(cv.seniority) - int(job_data.seniority)) <= 1
-
-            results.append(
-                MatchResult(
-                    cv_id=cv.cv_id,
-                    score=round(score, 4),
-                    eligible=score >= self._threshold,
-                    matched_skills=matched,
-                    missing_skills=missing,
-                    seniority_match=sen_match,
-                )
-            )
-
-        results.sort(key=lambda r: r.score, reverse=True)
-        return results[:top_k]
-
-    def match_job_data(self, job: JobData, top_k: int = 10) -> list[MatchResult]:
-        """Match a pre-parsed JobData against all CVs."""
-        results: list[MatchResult] = []
-        for cv in self._cvs:
-            score = self._score_pair(cv, job)
-            cv_skills = set(cv.skills)
-            job_skills = set(job.skills)
-
-            results.append(
-                MatchResult(
-                    cv_id=cv.cv_id,
-                    score=round(score, 4),
-                    eligible=score >= self._threshold,
-                    matched_skills=tuple(sorted(cv_skills & job_skills)),
-                    missing_skills=tuple(sorted(job_skills - cv_skills)),
-                    seniority_match=abs(int(cv.seniority) - int(job.seniority)) <= 1,
-                )
-            )
-
-        results.sort(key=lambda r: r.score, reverse=True)
-        return results[:top_k]
-
     def match_cv(self, cv: CVData, top_k: int = 10, retrieve_n: int = 200) -> list[JobMatchResult]:
         """Two-stage matching: CV against all Jobs.
 
@@ -625,19 +549,6 @@ class InferenceEngine:
                 object.__setattr__(r, "eligible", r.score >= thr)
         return final
 
-    def match_cv_text(self, cv_text: str, top_k: int = 10) -> list[JobMatchResult]:
-        """Match raw CV text against all Jobs."""
-        from ml_service.cv_parser import CVParser
-
-        parser = CVParser(self._normalizer)
-        cv = parser.parse_text(cv_text, cv_id=-1)
-
-        if not cv.skills:
-            logger.warning("No skills extracted from CV text")
-            return []
-
-        return self.match_cv(cv, top_k=top_k)
-
     def calibrate(
         self, scores: list[float], labels: list[int],
     ) -> None:
@@ -687,19 +598,6 @@ class InferenceEngine:
     @property
     def cv_pool(self) -> list[CVData]:
         return list(self._cvs)
-
-    def replace_job_skills(self, new_jobs: list[JobData]) -> None:
-        """Replace the job pool with updated JobData (e.g. refreshed DB skills).
-
-        GNN embeddings and text vectors are unchanged — only skill-based scoring
-        (semantic overlap, must-have penalty, role classification) is affected.
-        The new_jobs list must have the same job_ids in the same order as job_pool.
-        """
-        if len(new_jobs) != len(self._jobs):
-            raise ValueError(
-                f"new_jobs length {len(new_jobs)} != current pool {len(self._jobs)}"
-            )
-        self._jobs = list(new_jobs)
 
     @property
     def job_pool(self) -> list[JobData]:
@@ -1026,78 +924,12 @@ class InferenceEngine:
             logger.error("Inductive CV GNN encode failed (no fallback): %s", e)
             raise
 
-    def _gnn_score_for_job(self, cv: CVData, job: JobData) -> float:
-        """GNN score used by the JD→CVs match() path (legacy, may re-encode text)."""
-        job_idx = next(
-            (i for i, j in enumerate(self._jobs) if j.job_id == job.job_id),
-            None,
-        )
-        if job_idx is None or self._job_embeddings is None:
-            return self._text_similarity(cv, job)
-
-        cv_idx = next(
-            (i for i, c in enumerate(self._cvs) if c.cv_id == cv.cv_id),
-            None,
-        )
-
-        if cv_idx is not None:
-            cv_idx_t = torch.tensor([cv_idx], dtype=torch.long)
-            job_idx_t = torch.tensor([job_idx], dtype=torch.long)
-            with torch.no_grad():
-                gnn_raw = self._model.decode(self._z_dict, cv_idx_t, job_idx_t).item()
-            gnn_norm = 1.0 / (1.0 + np.exp(-gnn_raw))
-            # Use precomputed job text vec to avoid re-encoding job text
-            cv_text_vec = self._embed.encode([cv.text])[0]
-            job_text_vec = self._job_text_vecs[job_idx]
-            text_sim = self._cosine(cv_text_vec, job_text_vec)
-            return 0.6 * gnn_norm + 0.4 * text_sim
-
-        # New CV in legacy path: inductive encode without caching on self
-        with self._inductive_lock:
-            cv_emb = self._inductive_gnn_encode_cv(cv)
-
-        if cv_emb is not None:
-            job_emb = self._job_embeddings[job_idx]
-            with torch.no_grad():
-                gnn_raw = self._model.decoder(cv_emb.unsqueeze(0), job_emb.unsqueeze(0)).item()
-            gnn_norm = 1.0 / (1.0 + np.exp(-gnn_raw))
-            cv_text_vec = self._embed.encode([cv.text])[0]
-            job_text_vec = self._job_text_vecs[job_idx]
-            text_sim = self._cosine(cv_text_vec, job_text_vec)
-            return 0.6 * gnn_norm + 0.4 * text_sim
-
-        return self._text_similarity(cv, job)
-
     @staticmethod
     def _cosine(a: np.ndarray, b: np.ndarray) -> float:
         na, nb = np.linalg.norm(a), np.linalg.norm(b)
         if na == 0 or nb == 0:
             return 0.0
         return float((np.dot(a, b) / (na * nb) + 1.0) / 2.0)
-
-    def _score_pair(self, cv: CVData, job: JobData) -> float:
-        """Hybrid score — used by legacy JD→CVs match() path."""
-        gnn_score = self._gnn_score_for_job(cv, job)
-        skill_score = self._semantic_skill_overlap(cv, job)
-        dist = abs(int(cv.seniority) - int(job.seniority))
-        seniority_score = max(0.0, 1.0 - dist * 0.4)
-
-        cv_role = InferenceEngine._cv_role(cv)
-        domain_fit = self._role_domain_fit(cv_role, job)  # feature 020
-        base_score = (
-            self._alpha * gnn_score
-            + self._beta * skill_score
-            + self._gamma * seniority_score
-            + self._delta * domain_fit
-        )
-
-        job_role = infer_role(job.skills, job.text)
-        penalty = role_match_penalty(cv_role, job_role)
-
-        score = base_score * penalty
-        score = self._apply_must_have_penalty(score, cv, job)
-        score = self._apply_edge_case_penalties(score, cv, job)
-        return score
 
     def _semantic_skill_overlap(self, cv: CVData, job: JobData) -> float:
         """Skill overlap with semantic matching via skill graph."""
@@ -1195,8 +1027,3 @@ class InferenceEngine:
             for pair, pmi in cooccurrence.items()
         }
 
-    def _text_similarity(self, cv: CVData, job: JobData) -> float:
-        """Cosine similarity between CV and JD text embeddings (re-encodes both)."""
-        vecs = self._embed.encode([cv.text, job.text])
-        cv_vec, job_vec = vecs[0], vecs[1]
-        return self._cosine(cv_vec, job_vec)

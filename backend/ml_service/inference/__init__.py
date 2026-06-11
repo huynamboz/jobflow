@@ -1,3 +1,3 @@
-from ml_service.inference.engine import InferenceEngine, JobMatchResult, MatchResult
+from ml_service.inference.engine import InferenceEngine, JobMatchResult
 
-__all__ = ["InferenceEngine", "JobMatchResult", "MatchResult"]
+__all__ = ["InferenceEngine", "JobMatchResult"]
