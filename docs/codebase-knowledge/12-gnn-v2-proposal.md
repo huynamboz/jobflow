@@ -116,8 +116,9 @@ checkpoint và provider phải đồng bộ). Master plan 3.4 hoàn thành ⇒ T
 **Held-out validation (sau promote)**: bộ 20 persona MỚI (Flask, Svelte, Flutter, SRE, DBA,
 Security, Game Unity, fresh-grad...) → **20/20 (100%), on_domain@5 = 1.00** — model không
 thuộc bài harness; Flask CV → Python Developer top-1 = đúng năng lực related-skill mới.
-Caveat nhỏ còn lại: `infer_role` chưa suy được qa/design/ba (rơi về other, other↔other=match
-→ vài job tạp lọt check domain ở các ngách đó) — refinement tương lai, không khẩn.
+Caveat qa/design/ba: ĐÃ FIX ngay sau đó (title patterns + skill sets vào role_classifier,
+design/qa/ba đứng trước frontend trong dict vì regex frontend nuốt ui|ux) — QA persona giờ
+match đúng job Software Testing/QA Specialist thay vì job tạp "other"; cả 2 bộ eval giữ 100%.
 Ghi chú †: global-decode AUC của E6 thấp là artifact lành tính — BPR tối ưu ranking TRONG
 từng CV (đúng nhu cầu serving); offset giữa CV làm AUC phẳng toàn cục méo, per-CV metrics
 mới là thước đúng.

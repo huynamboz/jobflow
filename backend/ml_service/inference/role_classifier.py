@@ -16,12 +16,20 @@ _ROLE_SKILLS: dict[str, set[str]] = {
     "data": {"spark", "airflow", "hadoop", "hive", "flink", "snowflake", "databricks", "dbt", "bigquery", "pandas", "numpy", "data_engineering", "data_science", "etl", "sql", "tableau", "powerbi"},
     "ml": {"machine_learning", "deep_learning", "pytorch", "tensorflow", "scikit_learn", "nlp", "computer_vision", "llm", "xgboost", "mlflow", "sagemaker", "langchain"},
     "mobile": {"react_native", "flutter", "ios", "android", "swift", "kotlin"},
+    "qa": {"manual_testing", "api_testing", "selenium", "cypress", "playwright_tool", "appium", "jmeter", "unit_testing", "mockito"},
+    "design": {"figma", "framer", "storybook"},
     "security": {"security", "cybersecurity", "penetration_testing", "soc", "siem"},
     "erp": {"sap", "oracle_erp", "salesforce", "dynamics365", "workday", "servicenow"},
 }
 
 # Role → title keywords
 _ROLE_TITLE_PATTERNS: dict[str, re.Pattern] = {
+    # 024 refinement: qa/design/ba inferable from CV titles too (jobs already
+    # carry these roles via extraction/backfill — the gap was CV-side).
+    # design/qa/ba MUST precede frontend: its pattern includes \b(ui|ux)\b.
+    "design": re.compile(r"\b(?:ui/?ux\s+designer|product\s+designer|graphic\s+designer|web\s+designer|designer)\b", re.I),
+    "qa": re.compile(r"\b(?:qa|qc|tester|sdet|quality\s+(?:assurance|control|engineer)|test\s+(?:engineer|analyst|automation))\b", re.I),
+    "ba": re.compile(r"\b(?:business\s+analyst|product\s+(?:owner|manager)|scrum\s+master|project\s+manager)\b", re.I),
     "frontend": re.compile(r"\b(?:front.?end|ui|ux|react|vue|angular)\b", re.I),
     "backend": re.compile(r"\b(?:back.?end|server|api|django|spring|node)\b", re.I),
     "fullstack": re.compile(r"\b(?:full.?stack)\b", re.I),
@@ -42,6 +50,9 @@ _COMPATIBLE_ROLES: dict[str, set[str]] = {
     "data_eng": {"data_eng", "data_ml", "backend"},
     "data_ml": {"data_ml", "data_eng"},
     "mobile": {"mobile", "frontend"},
+    "qa": {"qa"},
+    "design": {"design"},
+    "ba": {"ba"},
     "other": set(),  # compatible with everything
 }
 
@@ -102,6 +113,8 @@ _ADJACENT_ROLES: dict[str, set[str]] = {
     "data_eng": {"data_ml", "backend"},
     "data_ml": {"data_eng", "backend"},
     "mobile": {"frontend", "fullstack"},
+    "design": {"frontend"},
+    "qa": {"backend", "frontend"},
 }
 
 
