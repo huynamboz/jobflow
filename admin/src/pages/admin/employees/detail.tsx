@@ -329,29 +329,36 @@ function JobDetailPanel({
                   </>
                 )}
 
-                <div style={{ marginTop: 6, marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, color: T.ink3, marginBottom: 4 }}>Matched skills</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                    {(match.matched_skills ?? []).map((s) => (
-                      <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.success50, color: T.success }}>{s}</span>
-                    ))}
-                    {!matched && <span style={{ fontSize: 12, color: T.ink4 }}>none</span>}
-                  </div>
-                </div>
+                {/* Tạm ẩn "Matched skills" + "Likely covered by related skills" —
+                    chỉ hiện Missing (full list). Bật lại bằng SHOW_SKILL_DETAIL. */}
                 {(() => {
+                  const SHOW_SKILL_DETAIL = false;
                   const covered = match.covered_skills ?? {};
-                  const trulyMissing = (match.missing_skills ?? []).filter((s) => !(s in covered));
-                  const nearMisses = (match.missing_skills ?? []).filter((s) => s in covered);
+                  const allMissing = match.missing_skills ?? [];
+                  const trulyMissing = allMissing.filter((s) => !(s in covered));
+                  const nearMisses = allMissing.filter((s) => s in covered);
+                  const missingToShow = SHOW_SKILL_DETAIL ? trulyMissing : allMissing;
                   return (
-                    <div>
+                    <div style={{ marginTop: 6 }}>
+                      {SHOW_SKILL_DETAIL && (
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 12, color: T.ink3, marginBottom: 4 }}>Matched skills</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                            {(match.matched_skills ?? []).map((s) => (
+                              <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.success50, color: T.success }}>{s}</span>
+                            ))}
+                            {!matched && <span style={{ fontSize: 12, color: T.ink4 }}>none</span>}
+                          </div>
+                        </div>
+                      )}
                       <div style={{ fontSize: 12, color: T.ink3, marginBottom: 4 }}>Missing skills</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                        {trulyMissing.map((s) => (
+                        {missingToShow.map((s) => (
                           <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.danger50, color: T.danger }}>{s}</span>
                         ))}
-                        {!trulyMissing.length && <span style={{ fontSize: 12, color: T.success }}>{nearMisses.length ? "no hard gaps" : "meets all required skills"}</span>}
+                        {!missingToShow.length && <span style={{ fontSize: 12, color: T.success }}>meets all required skills</span>}
                       </div>
-                      {nearMisses.length > 0 && (
+                      {SHOW_SKILL_DETAIL && nearMisses.length > 0 && (
                         <div style={{ marginTop: 8 }}>
                           <div style={{ fontSize: 12, color: T.ink3, marginBottom: 4 }}>Likely covered by related skills</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
