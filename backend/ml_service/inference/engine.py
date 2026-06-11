@@ -345,18 +345,28 @@ class InferenceEngine:
         return 0.5
 
     @staticmethod
-    def _dimension_scores(cv: CVData, job: JobData, matched: set[str]) -> dict[str, float]:
+    def _dimension_scores(cv: CVData, job: JobData, matched: set[str],
+                          covered: set[str] | None = None) -> dict[str, float]:
         """Transparent, hand-reproducible per-dimension fit (feature 019), each
         in [0,1]. No learned component — every number is a documented function of
         the match's own data:
 
-        - skill_fit:      importance-weighted matched / total required importance
+        - skill_fit:      (imp(matched) + 0.5·imp(covered)) / total required imp.
+                          The 0.5 is the labeling rubric's transferable-skill
+                          HALF CREDIT (agent-rubric.md: "Vue≈React≈Angular …
+                          half credit") — the display now matches the definition
+                          the ground-truth labels were scored with.
         - experience_fit: 1 − deficit/job.experience_min (under-qual penalized; ≥0)
         - seniority_fit:  max(0, 1 − |Δseniority|·0.3)
-        - domain_fit:     1.0 same role · 0.5 unknown · 0.0 mismatch"""
+        - domain_fit:     1.0 same role · 0.7 related · 0.5 unknown · 0.0 mismatch"""
         job_imp = dict(zip(job.skills, job.skill_importances))
         total_imp = sum(job_imp.values())
-        skill_fit = (sum(job_imp.get(s, 0) for s in matched) / total_imp) if total_imp > 0 else 1.0
+        covered = covered or set()
+        skill_fit = (
+            (sum(job_imp.get(s, 0) for s in matched)
+             + 0.5 * sum(job_imp.get(s, 0) for s in covered if s not in matched))
+            / total_imp
+        ) if total_imp > 0 else 1.0
 
         if job.experience_min and job.experience_min > 0:
             deficit = max(0.0, float(job.experience_min) - float(cv.experience_years))
@@ -500,7 +510,9 @@ class InferenceEngine:
 
             # Feature 019: transparent, hand-reproducible per-dimension fit
             # (replaces the learned aux heads of unknown label provenance).
-            dim_scores = self._dimension_scores(cv, job, cv_skills & job_skills)
+            _covered = self._covered_missing(cv_skills, job_skills - cv_skills)
+            dim_scores = self._dimension_scores(cv, job, cv_skills & job_skills,
+                                                covered=set(_covered))
             if _exp_weak:  # hard experience gate → cap the fit
                 dim_scores["experience_fit"] = min(dim_scores["experience_fit"], 0.15)
             if _sen_weak:  # hard seniority gate → cap the fit
@@ -517,7 +529,7 @@ class InferenceEngine:
                     title=title,
                     match_level=match_level,
                     dim_scores=dim_scores,
-                    covered_skills=self._covered_missing(cv_skills, job_skills - cv_skills),
+                    covered_skills=_covered,
                 )
             )
             # 021/A3: final order = stage-2 reranker score × penalty product

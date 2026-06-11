@@ -383,3 +383,23 @@ class CoveredSkillsTests(TestCase):
         self.assertEqual(cov.get("webpack"), "vite")   # cụm build tool
         self.assertIn(cov.get("html_css"), ("sass", "vuejs"))  # sass/vuejs ⇒ html_css
         self.assertNotIn("python", cov)
+
+
+class SkillFitHalfCreditTests(TestCase):
+    """025: skill_fit display uses the rubric's transferable half credit."""
+
+    def test_covered_skills_earn_half_credit(self):
+        from ml_service.inference.engine import InferenceEngine
+        from ml_service.graph.schema import CVData, JobData, SeniorityLevel, EducationLevel
+        cv = CVData(cv_id=-1, seniority=SeniorityLevel(2), experience_years=3.0,
+                    education=EducationLevel(2), skills=("vuejs", "vite"),
+                    skill_proficiencies=(3, 3), text="fe")
+        job = JobData(job_id=-1, seniority=SeniorityLevel(2),
+                      skills=("vuejs", "react", "webpack"), skill_importances=(4, 4, 2),
+                      salary_min=0, salary_max=0, text="fe job")
+        matched = {"vuejs"}
+        no_credit = InferenceEngine._dimension_scores(cv, job, matched)["skill_fit"]
+        with_credit = InferenceEngine._dimension_scores(
+            cv, job, matched, covered={"react", "webpack"})["skill_fit"]
+        self.assertAlmostEqual(no_credit, 4 / 10, places=3)
+        self.assertAlmostEqual(with_credit, (4 + 0.5 * 6) / 10, places=3)  # 0.7
