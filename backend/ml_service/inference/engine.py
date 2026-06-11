@@ -23,7 +23,7 @@ from torch_geometric.data import HeteroData
 from ml_service.data.skill_graph import build_skill_cooccurrence
 from ml_service.data.skill_normalization import SkillNormalizer
 from ml_service.embedding.base import EmbeddingProvider
-from ml_service.graph.schema import CVData, JobData, SeniorityLevel
+from ml_service.graph.schema import CVData, JobData
 from ml_service.inference.checkpoint import load_checkpoint
 from ml_service.inference.role_classifier import infer_role, role_match_penalty
 from ml_service.models.gnn import HeteroGraphSAGE, prepare_data_for_gnn
@@ -428,7 +428,9 @@ class InferenceEngine:
                 self._gnn_score_fast(cv, self._jobs[idx], idx, cv_text_vec, cv_gnn_emb)
                 for idx in cand_indices
             ]
-            rerank_probs, dim_levels_list = self._reranker.score_batch_with_dims(
+            # 019: dims are transparent formulas now — the reranker's aux-head
+            # dim levels are unused at serving (kept in the model for training).
+            rerank_probs, _ = self._reranker.score_batch_with_dims(
                 [cv] * len(cand_indices),
                 self._jobs,
                 list(range(len(cand_indices))),
@@ -436,7 +438,6 @@ class InferenceEngine:
                 gnn_scores=gnn_scores_for_candidates,
             )
             reranker_score_map = {idx: float(s) for idx, s in zip(cand_indices, rerank_probs)}
-            dim_levels_map = {idx: d for idx, d in zip(cand_indices, dim_levels_list)}
             reranked = sorted(
                 zip(cand_indices, rerank_probs),
                 key=lambda x: -x[1],
@@ -445,7 +446,6 @@ class InferenceEngine:
             scored = [(idx, stage1_score_map[idx]) for idx, _ in reranked]
         else:
             reranker_score_map = {}
-            dim_levels_map = {}
             scored = candidates
 
         # --- Build results: apply all penalties to ALL candidates, then final sort ---
