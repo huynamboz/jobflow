@@ -51,11 +51,16 @@ class JobMatchResult:
     # 025: subset of missing_skills the CV likely covers via a RELATED skill
     # (same relates_to graph the score already credits) → {missing: cv_skill}.
     covered_skills: dict = None
+    # 025: full provenance of the Overall number — stage-1 components + weights,
+    # reranker score, gates fired, rank score. Renders as "How this score is
+    # computed" on the UI so the % never has to be taken on faith.
+    score_breakdown: dict = None
 
     def __post_init__(self):
         # dataclass frozen=True — default mutable arg workaround
         object.__setattr__(self, "dim_scores", self.dim_scores if self.dim_scores is not None else {})
         object.__setattr__(self, "covered_skills", self.covered_skills if self.covered_skills is not None else {})
+        object.__setattr__(self, "score_breakdown", self.score_breakdown if self.score_breakdown is not None else {})
 
 
 @dataclass(frozen=True)
@@ -402,9 +407,11 @@ class InferenceEngine:
 
         # --- Stage 1: Fast retrieve top N (no re-encoding) ---
         stage1_scores: list[tuple[int, float]] = []
+        stage1_components: dict[int, dict] = {}  # 025: score-breakdown display
         for i, job in enumerate(self._jobs):
-            score = self._score_pair_fast(cv, job, i, cv_text_vec, cv_gnn_emb)
+            score, comps = self._score_pair_fast(cv, job, i, cv_text_vec, cv_gnn_emb)
             stage1_scores.append((i, score))
+            stage1_components[i] = comps
 
         stage1_scores.sort(key=lambda x: -x[1])
         candidates = stage1_scores[:retrieve_n]
@@ -464,7 +471,8 @@ class InferenceEngine:
             # it — catalog jobs with degenerate skill profiles (e.g. VFX jobs
             # whose niche skills were dropped by the catalog) otherwise look like
             # perfect skill matches to the reranker features. Soft gate, no removal.
-            if self._role_domain_fit(_cv_role, job) == 0.0:
+            _domain_gated = self._role_domain_fit(_cv_role, job) == 0.0
+            if _domain_gated:
                 penalty *= _DOMAIN_GATE_FACTOR
 
             # Experience gate
@@ -530,6 +538,19 @@ class InferenceEngine:
                     match_level=match_level,
                     dim_scores=dim_scores,
                     covered_skills=_covered,
+                    score_breakdown={
+                        "weights": {"gnn": self._alpha, "skill": self._beta,
+                                     "seniority": self._gamma, "domain": self._delta},
+                        "stage1": stage1_components.get(job_idx, {}),
+                        "reranker": round(rs, 3) if rs >= 0 else None,
+                        "gates": {
+                            "domain": _DOMAIN_GATE_FACTOR if _domain_gated else None,
+                            "experience": _EXP_PENALTY_FACTOR if (_exp_weak and penalty <= _EXP_PENALTY_FACTOR) else (_EXP_OVERQUAL_FACTOR if _exp_weak else None),
+                            "seniority": _SEN_PENALTY_FACTOR if _sen_weak else None,
+                        },
+                        "penalty_product": round(penalty, 3),
+                        "rank_score": round((rs if rs >= 0 else float(raw_score)) * penalty, 4),
+                    },
                 )
             )
             # 021/A3: final order = stage-2 reranker score × penalty product
@@ -783,7 +804,10 @@ class InferenceEngine:
         cv_text_vec: np.ndarray,
         cv_gnn_emb: torch.Tensor | None,
     ) -> float:
-        """Hybrid score using precomputed CV vectors — no text re-encoding."""
+        """Hybrid score using precomputed CV vectors — no text re-encoding.
+
+        Returns (score, components) — components feed the 025 score-breakdown
+        display so the Overall number is fully explainable on the UI."""
         gnn_score = self._gnn_score_fast(cv, job, job_idx, cv_text_vec, cv_gnn_emb)
         skill_score = self._semantic_skill_overlap(cv, job)
         dist = abs(int(cv.seniority) - int(job.seniority))
@@ -804,7 +828,14 @@ class InferenceEngine:
         score = base_score * penalty
         score = self._apply_must_have_penalty(score, cv, job)
         score = self._apply_edge_case_penalties(score, cv, job)
-        return score
+        components = {
+            "gnn": round(float(gnn_score), 3),
+            "skill": round(float(skill_score), 3),
+            "seniority": round(float(seniority_score), 3),
+            "domain": round(float(domain_fit), 3),
+            "stage1": round(float(score), 3),
+        }
+        return score, components
 
     def _gnn_score_fast(
         self,

@@ -95,6 +95,9 @@ class EmployeeJobMatch(models.Model):
     # 025: subset of missing_skills the employee likely covers via a RELATED
     # skill (skill graph) → {"html_css": "sass"}. Display-only nuance.
     covered_skills = models.JSONField(default=dict, blank=True)
+    # 025: provenance of the overall score (stage-1 components+weights, reranker,
+    # gates, rank_score) — renders as "How this score is computed" on the UI.
+    score_breakdown = models.JSONField(default=dict, blank=True)
     seniority_gap = models.IntegerField(null=True, blank=True)
     # Per-dimension fit from the reranker: skill_fit / experience_fit /
     # seniority_fit / domain_fit → "good" | "ok" | "weak". Empty until (re)matched.

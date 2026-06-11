@@ -37,6 +37,15 @@ export interface EmployeeJobMatch {
   missing_skills: string[];
   /** 025: missing skills the employee likely covers via a related skill → {"html_css": "sass"} */
   covered_skills?: Record<string, string>;
+  /** 025: provenance of the overall score — stage-1 components + weights, reranker, gates, rank score */
+  score_breakdown?: {
+    weights?: Record<string, number>;
+    stage1?: Record<string, number>;
+    reranker?: number | null;
+    gates?: Record<string, number | null>;
+    penalty_product?: number;
+    rank_score?: number;
+  };
   seniority_gap: number | null;
   dim_scores?: Record<string, number | string>; // skill_fit/experience_fit/seniority_fit/domain_fit → 0..1 (legacy: good|ok|weak)
   assigned_to: number | null;

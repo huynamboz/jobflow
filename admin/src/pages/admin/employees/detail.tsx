@@ -329,6 +329,48 @@ function JobDetailPanel({
                   </>
                 )}
 
+                {/* 025: How this score is computed — provenance đầy đủ của Overall */}
+                {(() => {
+                  const bd = match.score_breakdown;
+                  if (!bd || !bd.stage1 || !Object.keys(bd.stage1).length) return null;
+                  const w = bd.weights ?? {};
+                  const s1 = bd.stage1 ?? {};
+                  const COMP_LABELS: Record<string, string> = { gnn: "GNN", skill: "Skill", seniority: "Seniority", domain: "Domain" };
+                  const gateLabels: Record<string, string> = { domain: "Khác nghề", experience: "Lệch kinh nghiệm", seniority: "Lệch cấp bậc" };
+                  const firedGates = Object.entries(bd.gates ?? {}).filter(([, v]) => v != null) as [string, number][];
+                  return (
+                    <div style={{ marginTop: 4, marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: T.surface, border: `1px dashed ${T.border ?? "#e2e8f0"}` }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: T.ink3, marginBottom: 6 }}>
+                        How this score is computed
+                      </div>
+                      <div style={{ fontSize: 12, color: T.ink2, lineHeight: 1.7, fontFamily: "ui-monospace, monospace" }}>
+                        <div>
+                          <span style={{ color: T.ink3 }}>Stage 1 · retrieve&nbsp;&nbsp;</span>
+                          {(["gnn", "skill", "seniority", "domain"] as const)
+                            .filter((k) => s1[k] != null && w[k] != null)
+                            .map((k, i) => (
+                              <span key={k}>{i > 0 && " + "}{w[k]}×{COMP_LABELS[k]}({s1[k]})</span>
+                            ))}
+                          {s1.stage1 != null && <span style={{ fontWeight: 700 }}> = {s1.stage1}</span>}
+                        </div>
+                        {bd.reranker != null && (
+                          <div><span style={{ color: T.ink3 }}>Stage 2 · reranker&nbsp;</span>{bd.reranker} <span style={{ color: T.ink4 }}>(quyết định thứ tự)</span></div>
+                        )}
+                        <div>
+                          <span style={{ color: T.ink3 }}>Gates&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+                          {firedGates.length
+                            ? firedGates.map(([k, v]) => `${gateLabels[k] ?? k} ×${v}`).join(" · ")
+                            : "không gate nào kích hoạt (×1.0)"}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 11, color: T.ink4, marginTop: 6, lineHeight: 1.5 }}>
+                        Overall % = vị trí xếp hạng của job này (reranker × gates) chiếu lên thang điểm của rổ kết quả CV này.
+                        Không phải trung bình 4 chiều, và không so sánh được giữa 2 nhân viên.
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Tạm ẩn "Matched skills" + "Likely covered by related skills" —
                     chỉ hiện Missing (full list). Bật lại bằng SHOW_SKILL_DETAIL. */}
                 {(() => {

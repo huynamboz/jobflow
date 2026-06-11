@@ -53,6 +53,7 @@ def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
             "matched_skills": m.get("matched_skills", []),
             "missing_skills": m.get("missing_skills", []),
             "covered_skills": m.get("covered_skills", {}),
+            "score_breakdown": m.get("score_breakdown", {}),
             "seniority_gap": seniority_gap,
             "dim_scores": m.get("dim_scores", {}),
         }
