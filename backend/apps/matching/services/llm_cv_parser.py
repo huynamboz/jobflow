@@ -86,6 +86,10 @@ class LLMCVParser:
             len(skills), seniority.name, experience_years, education.name,
         )
 
+        # 025: role decided once at parse time from the REAL CV text (title at
+        # the top is a legitimate signal there) + skills.
+        from ml_service.inference.role_classifier import infer_role
+
         return CVData(
             cv_id=cv_id,
             seniority=seniority,
@@ -94,6 +98,7 @@ class LLMCVParser:
             skills=tuple(skills),
             skill_proficiencies=tuple(proficiencies),
             text=embed_text,
+            role_category=infer_role(tuple(skills), text),
         )
 
     @staticmethod

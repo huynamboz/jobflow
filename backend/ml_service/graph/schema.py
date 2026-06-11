@@ -96,6 +96,10 @@ class CVData:
     skills: tuple[str, ...]
     skill_proficiencies: tuple[int, ...]  # 1-5 per skill
     text: str  # free-text for embedding
+    # 025: role decided ONCE at construction (deterministic). Empty = legacy
+    # caller → engine falls back to infer_role(skills, text). Title patterns
+    # scanning a synthetic "Skills: react, ..." dump made role flip per path.
+    role_category: str = ""
 
 
 @dataclass(frozen=True)

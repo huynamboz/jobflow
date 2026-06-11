@@ -286,7 +286,7 @@ class InferenceEngine:
             skill = float(self._semantic_skill_overlap(cv, job))
             sen = max(0.0, 1.0 - abs(int(cv.seniority) - int(job.seniority)) * 0.4)
             # feature 020: domain component + roles for the role-aware metric
-            cv_role = infer_role(cv.skills, cv.text)
+            cv_role = InferenceEngine._cv_role(cv)
             domain = self._role_domain_fit(cv_role, job)
             out.append((ci, ji, lab, float(g), skill, sen, domain, cv_role, job.role_category or ""))
         return out
@@ -334,6 +334,13 @@ class InferenceEngine:
             )
 
     @staticmethod
+    def _cv_role(cv: CVData) -> str:
+        """025: single source for the CV's role. Prefer the role decided at
+        CVData construction (deterministic, path-independent); fall back to
+        inference for legacy callers that didn't set it."""
+        return cv.role_category or infer_role(cv.skills, cv.text)
+
+    @staticmethod
     def _role_domain_fit(cv_role: str, job: JobData) -> float:
         """Domain (role) fit: 1.0 same field · 0.7 related (rubric table) ·
         0.5 job role unknown · 0.0 mismatch. Shared by the δ·domain term, the
@@ -368,7 +375,7 @@ class InferenceEngine:
 
         seniority_fit = max(0.0, 1.0 - abs(int(cv.seniority) - int(job.seniority)) * 0.3)
 
-        domain_fit = InferenceEngine._role_domain_fit(infer_role(cv.skills, cv.text), job)
+        domain_fit = InferenceEngine._role_domain_fit(InferenceEngine._cv_role(cv), job)
 
         return {
             "skill_fit": round(float(skill_fit), 3),
@@ -503,7 +510,7 @@ class InferenceEngine:
 
         results: list[JobMatchResult] = []
         rank_scores: list[float] = []  # 021/A3: reranker-driven final order
-        _cv_role = infer_role(cv.skills, cv.text)
+        _cv_role = InferenceEngine._cv_role(cv)
         _DOMAIN_GATE_FACTOR = 0.40  # mirrors the labeling rule: domain=0 → not a match
         for job_idx, raw_score in scored:   # iterate ALL retrieve_n, sort after
             job = self._jobs[job_idx]
@@ -867,7 +874,7 @@ class InferenceEngine:
         dist = abs(int(cv.seniority) - int(job.seniority))
         seniority_score = max(0.0, 1.0 - dist * 0.4)
 
-        cv_role = infer_role(cv.skills, cv.text)
+        cv_role = InferenceEngine._cv_role(cv)
         domain_fit = self._role_domain_fit(cv_role, job)  # feature 020: role match vs job.role_category
         base_score = (
             self._alpha * gnn_score
@@ -953,7 +960,7 @@ class InferenceEngine:
             parts = [cv_emb, cv_extra]
             if expected_dim >= 384 + 2 + len(ROLE_CATEGORIES):
                 role_onehot = np.zeros((1, len(ROLE_CATEGORIES)), dtype=np.float32)
-                cv_role = infer_role(cv.skills, cv.text)
+                cv_role = InferenceEngine._cv_role(cv)
                 role_onehot[0, ROLE_CATEGORIES.index(cv_role) if cv_role in ROLE_CATEGORIES else 0] = 1.0
                 parts.append(role_onehot)
             new_cv_feat = torch.from_numpy(np.concatenate(parts, axis=1))
@@ -1075,7 +1082,7 @@ class InferenceEngine:
         dist = abs(int(cv.seniority) - int(job.seniority))
         seniority_score = max(0.0, 1.0 - dist * 0.4)
 
-        cv_role = infer_role(cv.skills, cv.text)
+        cv_role = InferenceEngine._cv_role(cv)
         domain_fit = self._role_domain_fit(cv_role, job)  # feature 020
         base_score = (
             self._alpha * gnn_score

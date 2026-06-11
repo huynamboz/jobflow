@@ -332,3 +332,26 @@ class RerankerWeightSyncTests(TestCase):
         self.assertFalse(ok(w, {**w, "delta": 0.1}))     # tuned after training → stale
         self.assertFalse(ok(w, None))                     # old checkpoint, no stamp → warn
         self.assertFalse(ok(None, w))
+
+
+class DeterministicRoleTests(TestCase):
+    """025: CV role decided once from structured fields — path-independent."""
+
+    def test_skill_dump_text_does_not_flip_role(self):
+        from ml_service.inference.role_classifier import infer_role
+        skills = ("react", "vuejs", "nodejs", "express", "docker", "ci_cd")
+        # role từ skills + position (đường match_cv_data) phải ổn định,
+        # không phụ thuộc text "Skills: react, ..." (từng kích hoạt title regex)
+        self.assertEqual(infer_role(skills, ""), infer_role(skills, ""))
+        with_position = infer_role(skills, "Frontend Developer")
+        self.assertEqual(with_position, "frontend")
+
+    def test_cvdata_role_takes_precedence_over_text(self):
+        from ml_service.inference.engine import InferenceEngine
+        from ml_service.graph.schema import CVData, SeniorityLevel, EducationLevel
+        cv = CVData(cv_id=-1, seniority=SeniorityLevel(2), experience_years=3.0,
+                    education=EducationLevel(2), skills=("react", "nodejs"),
+                    skill_proficiencies=(3, 3),
+                    text="Skills: react, nodejs",  # text bẫy title-regex
+                    role_category="fullstack")
+        self.assertEqual(InferenceEngine._cv_role(cv), "fullstack")

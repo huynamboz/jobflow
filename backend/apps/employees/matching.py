@@ -34,19 +34,6 @@ def _jobs_to_dicts(result: Any) -> list[dict]:
     ]
 
 
-def match_employee_to_jobs(employee: Any, top_k: int = 30) -> list[dict]:
-    """Full match via the CV-text path (LLM parses the surrogate text). Used
-    right after a CV is (re)parsed."""
-    try:
-        from apps.matching.services import match_cv_text  # type: ignore
-
-        cv_text = _employee_to_cv_text(employee)
-        return _jobs_to_dicts(match_cv_text(cv_text=cv_text, top_k=top_k))
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Matching service unavailable for employee %s: %s", employee.pk, exc)
-        return []
-
-
 def rematch_employee(employee: Any, top_k: int = 30) -> list[dict]:
     """Re-match using the employee's already-parsed skills/seniority — **no LLM
     call** — through the same GNN pipeline. The CV file's text is re-extracted
@@ -64,21 +51,9 @@ def rematch_employee(employee: Any, top_k: int = 30) -> list[dict]:
             experience_years=float(employee.experience_years or 0),
             text=cv_text or None,
             top_k=top_k,
+            position=employee.position or "",  # 025: deterministic role source
         )
         return _jobs_to_dicts(result)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Re-match unavailable for employee %s: %s", employee.pk, exc)
         return []
-
-
-def _employee_to_cv_text(employee: Any) -> str:
-    """Compose a CV-like text from employee fields for matchers that want text."""
-    skills = ", ".join(employee.skills or [])
-    bits = [
-        employee.full_name or "",
-        employee.position or "",
-        f"Seniority: {employee.get_seniority_display() if hasattr(employee, 'get_seniority_display') else employee.seniority}",
-        f"Experience: {employee.experience_years or 0} years",
-        f"Skills: {skills}",
-    ]
-    return "\n".join(b for b in bits if b)

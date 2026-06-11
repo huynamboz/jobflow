@@ -324,6 +324,7 @@ def match_cv_data(
     education: int = 2,
     text: str | None = None,
     top_k: int = 10,
+    position: str = "",
 ) -> dict:
     """Match using already-structured CV fields, **skipping the LLM parse**, then
     run the exact same GNN pipeline (``engine.match_cv``) as the full CV path.
@@ -346,6 +347,11 @@ def match_cv_data(
     else:
         embed_text = ", ".join(canonical)
 
+    # 025: role decided HERE, once, from stable structured fields (skills +
+    # position/title) — never from the free text, whose "Skills: react, ..."
+    # dumps used to trip the title regexes and flip the role per call path.
+    from ml_service.inference.role_classifier import infer_role
+
     cv = CVData(
         cv_id=-1,
         seniority=SeniorityLevel(max(0, min(5, int(seniority)))),
@@ -354,6 +360,7 @@ def match_cv_data(
         skills=tuple(canonical),
         skill_proficiencies=tuple(3 for _ in canonical),
         text=embed_text,
+        role_category=infer_role(tuple(canonical), position or ""),
     )
     engine = _get_engine()
     raw = engine.match_cv(cv, top_k=top_k * 2)

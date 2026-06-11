@@ -11,7 +11,7 @@ import logging
 
 from django.utils import timezone
 
-from apps.employees.matching import match_employee_to_jobs, rematch_employee
+from apps.employees.matching import rematch_employee
 from apps.employees.models import Employee, EmployeeJobMatch
 from apps.employees.parsers import parse_cv_file
 
@@ -128,7 +128,12 @@ def _do_parse_and_match(employee_id: int) -> dict:
         emp.is_parse_failed = bool(emp.cv_file)  # only mark failed if there was a file
     emp.save()
 
-    return _persist_matches(emp, match_employee_to_jobs(emp, top_k=MATCH_TOP_K))
+    # 025: after the parse above the employee's skills/position are stored —
+    # match through the SAME deterministic path as scheduled re-matches
+    # (match_cv_data). The old route synthesized a "Skills: ..." text and
+    # LLM-parsed it AGAIN: a second LLM call whose output could drift from the
+    # stored fields, making upload-time scores differ from rematch-time scores.
+    return _persist_matches(emp, rematch_employee(emp, top_k=MATCH_TOP_K))
 
 
 try:

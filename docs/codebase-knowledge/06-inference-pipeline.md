@@ -90,3 +90,18 @@ Precompute CV/job GNN embeddings + job text vecs lúc init · encode CV 1 lần/
   guard tự warn nếu lệch).
 - Checkpoint loader: strict=False (module train-only như role_head) + model_type-aware
   (graphsage|gat từ metadata train_config).
+
+## Cập nhật 025 (role xác định + hợp nhất đường employee — 2026-06-11)
+
+- **`CVData.role_category`**: role quyết định MỘT LẦN tại nơi tạo CVData — `match_cv_data`
+  (employee) suy từ **skills + position**; LLM parser (CV thật) suy từ full text + skills.
+  Engine dùng `_cv_role()` (cv.role_category ưu tiên, fallback infer) ở cả 7 vị trí: domain
+  term, domain gate, dimension display, CV node one-hot. Trước đó title-regex quét text tổng
+  hợp "Skills: react, ..." làm role nhảy fullstack↔frontend tuỳ đường gọi → domain_fit dao
+  động 0.7↔1.0 cho CÙNG một employee.
+- **Upload ≡ rematch**: sau parse, upload gọi `rematch_employee` (match_cv_data) — bỏ LLM
+  call thứ 2 trên text tổng hợp (đường cũ parse lại bằng LLM, output có thể lệch DB).
+- **Điểm hiển thị giữa các employee KHÔNG so sánh được** (by design A3): score bị min-max
+  remap theo rổ ứng viên riêng của từng CV — "0.77 của người A" không kém "0.92 của người B";
+  so sánh đúng phải dùng dim_scores / thứ hạng trong rổ. Nếu cần so chéo → đổi sang
+  calibrated probability (chưa làm).

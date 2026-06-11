@@ -104,7 +104,7 @@ class GraphBuilder:
         cv_extra = np.stack([exp_norm, edu_norm], axis=1)
         cv_role_onehot = np.zeros((len(cvs), len(ROLE_CATEGORIES)), dtype=np.float32)
         for i, cv in enumerate(cvs):
-            role = infer_role(cv.skills, cv.text)
+            role = getattr(cv, "role_category", "") or infer_role(cv.skills, cv.text)
             cv_role_onehot[i, ROLE_CATEGORIES.index(role) if role in ROLE_CATEGORIES else 0] = 1.0
         data["cv"].x = torch.from_numpy(
             np.concatenate([cv_embeddings, cv_extra, cv_role_onehot], axis=1))
