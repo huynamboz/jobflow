@@ -939,22 +939,80 @@ class InferenceEngine:
     # 025: minimum relates_to weight for a CV skill to count as "covering" a
     # missing JD skill in the DISPLAY (e.g. sass→html_css). Same graph the
     # score already credits at 0.6× — this just surfaces it to the UI.
-    # 0.25 filters co-travel noise (git↔sass 0.198, javascript↔sass 0.208)
-    # while keeping real coverage (html_css↔sass 0.259, vite↔webpack 0.540,
-    # material_ui↔tailwind 0.468). Categories are too coarse to help here.
-    _COVER_MIN_SIM = 0.25
+    # 025: "covered" detection is THREE-tiered, because statistics alone can't
+    # express implication — PMI punishes ubiquitous skills (js↔react 0.16: people
+    # with react don't bother LISTING javascript, which is exactly why the
+    # co-occurrence is unsurprising), while rewarding co-travel (express↔mongodb
+    # 0.40 — MERN stacks, yet express does NOT substitute for mongodb).
+    #
+    # Tier 1 — curated IMPLICATION (having key ⇒ knows value), domain knowledge:
+    _SKILL_IMPLIES: dict[str, tuple[str, ...]] = {
+        "react": ("javascript", "html_css"), "vuejs": ("javascript", "html_css"),
+        "angular": ("javascript", "typescript", "html_css"), "svelte": ("javascript", "html_css"),
+        "nextjs": ("react", "javascript"), "nuxtjs": ("vuejs", "javascript"),
+        "nodejs": ("javascript",), "express": ("nodejs", "javascript"),
+        "nestjs": ("nodejs", "typescript", "javascript"),
+        "typescript": ("javascript",), "redux": ("react", "javascript"),
+        "jquery": ("javascript", "html_css"), "react_native": ("react", "javascript"),
+        "sass": ("html_css",), "tailwind": ("html_css",), "bootstrap": ("html_css",),
+        "django": ("python",), "flask": ("python",), "fastapi": ("python",),
+        "pandas": ("python",), "numpy": ("python",), "pytorch": ("python",),
+        "scikit_learn": ("python",),
+        "spring": ("java",), "hibernate": ("java",),
+        "laravel": ("php",), "rails": ("ruby",),
+        "postgresql": ("sql",), "mysql": ("sql",), "mariadb": ("sql",),
+        "sql_server": ("sql",), "oracle": ("sql",), "sqlite": ("sql",),
+        "kubernetes": ("docker",),
+        "github_actions": ("git", "ci_cd"), "gitlab_ci": ("git", "ci_cd"), "jenkins": ("ci_cd",),
+    }
+    # Tier 2 — same-function alternatives (transferable per the labeling rubric):
+    _EQUIV_CLUSTERS: tuple[frozenset, ...] = (
+        frozenset({"react", "vuejs", "angular", "svelte"}),
+        frozenset({"nextjs", "nuxtjs", "remix"}),
+        frozenset({"django", "flask", "fastapi"}),
+        frozenset({"express", "nestjs"}),
+        frozenset({"postgresql", "mysql", "mariadb", "sql_server", "oracle", "sqlite"}),
+        frozenset({"vite", "webpack"}),
+        frozenset({"material_ui", "ant_design", "bootstrap", "tailwind"}),
+        frozenset({"react_native", "flutter"}),
+        frozenset({"aws", "gcp", "azure"}),
+        frozenset({"selenium", "cypress", "playwright_tool"}),
+        frozenset({"kafka", "rabbitmq", "nats"}),
+    )
+    # Tier 3 — PMI fallback, HIGH bar only (kills co-travel: express↔mongodb
+    # 0.401; keeps genuine same-function pairs the clusters may miss:
+    # vite↔webpack 0.540, material_ui↔tailwind 0.468).
+    _COVER_MIN_SIM = 0.45
 
     def _covered_missing(self, cv_skills: set[str], missing: set[str]) -> dict[str, str]:
-        """For each missing JD skill, the best related CV skill (if any)."""
+        """For each missing JD skill, the CV skill that likely covers it."""
         covered: dict[str, str] = {}
         for m in missing:
-            best_sim, best_via = 0.0, ""
+            via = ""
+            # Tier 1: implication
             for c in cv_skills:
-                sim = self._skill_similarity.get((min(m, c), max(m, c)), 0.0)
-                if sim > best_sim:
-                    best_sim, best_via = sim, c
-            if best_sim >= self._COVER_MIN_SIM:
-                covered[m] = best_via
+                if m in self._SKILL_IMPLIES.get(c, ()):
+                    via = c
+                    break
+            # Tier 2: same-function cluster
+            if not via:
+                for cluster in self._EQUIV_CLUSTERS:
+                    if m in cluster:
+                        hit = cluster & cv_skills
+                        if hit:
+                            via = sorted(hit)[0]
+                        break
+            # Tier 3: strong PMI
+            if not via:
+                best_sim = 0.0
+                for c in cv_skills:
+                    sim = self._skill_similarity.get((min(m, c), max(m, c)), 0.0)
+                    if sim > best_sim:
+                        best_sim, via_c = sim, c
+                if best_sim >= self._COVER_MIN_SIM:
+                    via = via_c
+            if via:
+                covered[m] = via
         return covered
 
     def _semantic_skill_overlap(self, cv: CVData, job: JobData) -> float:

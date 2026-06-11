@@ -355,3 +355,31 @@ class DeterministicRoleTests(TestCase):
                     text="Skills: react, nodejs",  # text bẫy title-regex
                     role_category="fullstack")
         self.assertEqual(InferenceEngine._cv_role(cv), "fullstack")
+
+
+class CoveredSkillsTests(TestCase):
+    """025: 3-tier coverage — implication beats PMI's common-skill blindness."""
+
+    def _covered(self, cv_skills, missing):
+        from ml_service.inference.engine import InferenceEngine
+        class _E:  # chỉ cần _skill_similarity cho tier 3
+            _skill_similarity = {}
+            _SKILL_IMPLIES = InferenceEngine._SKILL_IMPLIES
+            _EQUIV_CLUSTERS = InferenceEngine._EQUIV_CLUSTERS
+            _COVER_MIN_SIM = InferenceEngine._COVER_MIN_SIM
+        return InferenceEngine._covered_missing(_E(), set(cv_skills), set(missing))
+
+    def test_frameworks_imply_javascript(self):
+        cov = self._covered(["react", "nodejs", "express", "ci_cd"],
+                            ["javascript", "microservices", "unit_testing", "mongodb"])
+        self.assertIn("javascript", cov)           # react/nodejs/express ⇒ js
+        self.assertNotIn("mongodb", cov)           # express KHÔNG thay mongodb (co-travel)
+        self.assertNotIn("microservices", cov)     # thiếu thật
+        self.assertNotIn("unit_testing", cov)
+
+    def test_equiv_cluster_and_implies(self):
+        cov = self._covered(["vuejs", "vite", "sass"], ["react", "webpack", "html_css", "python"])
+        self.assertEqual(cov.get("react"), "vuejs")    # cụm FE framework
+        self.assertEqual(cov.get("webpack"), "vite")   # cụm build tool
+        self.assertIn(cov.get("html_css"), ("sass", "vuejs"))  # sass/vuejs ⇒ html_css
+        self.assertNotIn("python", cov)
