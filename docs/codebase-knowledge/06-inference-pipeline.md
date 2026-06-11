@@ -79,3 +79,14 @@ match_cv(CVData, top_k)                          [engine.py:366-503]
 ## Tối ưu hiệu năng
 
 Precompute CV/job GNN embeddings + job text vecs lúc init · encode CV 1 lần/request · reuse stage-1 GNN scores cho reranker · inductive lock chống encode trùng · mtime hot-reload · atomic snapshot swap. Cold load ~60-90s (embeddings + GNN forward); rebuild pool ~61s/6.5k jobs.
+
+## Cập nhật GNN v2 (024 — 2026-06-11)
+
+- **Checkpoint↔provider phải đồng bộ**: model production train bằng embedding ĐA NGỮ →
+  serving bắt buộc `EMBEDDING_PROVIDER=multilingual` trong backend/.env (engine encode CV
+  text lúc request bằng provider này). Lệch provider = điểm vô nghĩa âm thầm.
+- Weights serving mới: α=0.30/β=0.20/γ=0.10/δ=0.40 (metadata) — GNN gánh tín hiệu thật
+  (slice 0.705); domain gate + exp/sen gates giữ nguyên; reranker acc 0.706 (A14-synced,
+  guard tự warn nếu lệch).
+- Checkpoint loader: strict=False (module train-only như role_head) + model_type-aware
+  (graphsage|gat từ metadata train_config).

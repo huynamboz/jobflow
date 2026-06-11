@@ -1,6 +1,6 @@
 # Project Journey — Toàn bộ hành trình về "matching đúng bản chất"
 
-> File tổng hợp duy nhất: đọc file này là nắm được TẤT CẢ những gì đã làm, vì sao, và số liệu ở đâu. Cập nhật: 2026-06-10. Mọi mục đều link tới artifact gốc.
+> File tổng hợp duy nhất: đọc file này là nắm được TẤT CẢ những gì đã làm, vì sao, và số liệu ở đâu. Cập nhật: 2026-06-11 (thêm GNN v2). Mọi mục đều link tới artifact gốc.
 
 ## Bài toán & mục tiêu
 
@@ -38,7 +38,16 @@ Hệ matching CV↔job cho HR shadow-staffing, lõi là GNN (HeteroGraphSAGE) + 
 - **3.5** Taxonomy sync — chìa khoá 2 ca trượt cuối: `infer_role` trả `data`/`ml` không bao giờ khớp `data_ml`/`data_eng` → canonical hoá + bảng related vào engine (data_ml↔data_eng=0.7, gate chỉ bắn khi 0.0) → **eval 20/20 (100%), on_domain@5 = 1.00, 0 off-domain**
 - **3.6** A14 guard: reranker_meta lưu `trained_with_weights`, engine WARN khi lệch serving weights (quy tắc: tune trước → retrain reranker sau)
 - **3.2** Skill-drop reporting trong sync (hết drop âm thầm — cơ chế lẽ ra bắt được vụ VFX-2-skill) · **3.3** seniority null→suy từ experience + cross-check mâu thuẫn
-- Còn lại duy nhất: **3.4** embedding đa ngữ (chủ ý hoãn — cần retrain, gộp lần sau)
+- **3.4** embedding đa ngữ — hoàn thành trong GNN v2 (dưới)
+
+### GNN v2 — làm GNN "thông minh" thật (feature 024, 2026-06-10→11)
+Câu hỏi: GNN decode kẹt ở đoán-mò (slice related-skill AUC 0.512) — cải thiện được không? **8 thí nghiệm có kiểm soát** ([12-gnn-v2-proposal](12-gnn-v2-proposal.md) bảng mục 6), mỗi vòng ~5 phút trên Neptune + đo ngay trên server (`measure_slice.py`):
+- **Vòng 1 (r1a/r1b)**: aux role head + bucket-curriculum + slice early-stop → ❌ aux loss XUNG ĐỘT BPR (best epoch 19-22 rồi thoái hoá, pipeline sụp 0.62)
+- **Vòng 2 (E1-E4)**: self-supervised pretrain (link-prediction, `run_pretrain.py`), skill-relation loss, GATv2 attention → ❌ tất cả kẹt trần slice ~0.55; chẩn đoán trung gian quan trọng: 95% cặp related CÓ cầu `relates_to` trong graph (thông tin có sẵn, model không khai thác) + phân biệt trong-bucket là bài toán ĐẾM partial-credit
+- **Vòng 3 (E5)**: đổi embedding MiniLM tiếng-Anh → **paraphrase-multilingual-MiniLM-L12-v2** (384-dim drop-in) → 🚀 slice 0.512→**0.734** ngay lập tức — **nút thắt thật là chất lượng embedding đầu vào**, không phải training/kiến trúc
+- **E6 = đa ngữ + pretrain → PROMOTED**: pipeline test AUC **0.860** (kỷ lục, cũ 0.813), NDCG@10 0.894, slice 0.705, **re-tune cho α=0.30** (GNN đồng-đứng-đầu với domain; DoD gốc "α≥0.3" đạt bằng thực lực sau khi từng bị sửa vì negative result), eval 20-CV giữ 100%
+- **Held-out validation**: bộ 20 persona MỚI hoàn toàn (gài ca khó: Flask→Django, Svelte, Flutter, SRE, DBA, fresh-grad) → **20/20 (100%), on_domain@5 = 1.00** — không overfit harness; ca đẹp nhất: Flask CV → Python Developer (đúng năng lực related-skill mới), Fresh Grad → Internship/Graduate roles
+- Vận hành: serving yêu cầu `EMBEDDING_PROVIDER=multilingual` (backend/.env — checkpoint↔provider phải đồng bộ); backbone pretrain `run_pretrain.py`; backup model cũ tại `checkpoints/backup_pre_v2`
 
 ## Bảng tiến hoá chất lượng (eval 20-CV cố định)
 
@@ -48,11 +57,14 @@ Hệ matching CV↔job cho HR shadow-staffing, lõi là GNN (HeteroGraphSAGE) + 
 Đợt 0 fix nền:           75%  ← baseline trung thực đầu tiên
 Đợt 2 retrain v4:        90%  ← kiến trúc 2 tầng chạy đúng
 023 role+taxonomy:      100%  ← 0 off-domain
+GNN v2 (024):           100%  ← giữ đỉnh + held-out 100% + α=0.30 (GNN gánh thật)
 ```
 
 ## Trạng thái hệ hiện tại
 
-- **Weights**: `0.05·GNN + 0.35·skill + 0.20·seniority + 0.40·domain` (metadata.json — single source) + domain gate ×0.40 + exp/sen gates; thứ tự = reranker×gates; 4 dim hiển thị = công thức minh bạch
+- **Model (GNN v2/E6)**: HeteroGraphSAGE 256×3, node features 397-dim (embedding ĐA NGỮ 384 + role one-hot 11 + extras), self-supervised pretrain → BPR finetune; slice related-skill AUC 0.705 (từ 0.512)
+- **Weights**: `0.30·GNN + 0.20·skill + 0.10·seniority + 0.40·domain` (metadata.json — single source) + domain gate ×0.40 + exp/sen gates; thứ tự = reranker×gates (acc 0.706, A14-synced); 4 dim hiển thị = công thức minh bạch
+- **Eval**: harness 20-CV 100% · held-out 20-CV mới 100% · pipeline test AUC 0.860 / NDCG@10 0.894 (per-CV, 240 CV)
 - **Guards tự động**: graph conflict (raise) · reranker↔weights skew (warn) · skill-drop (report) · model_signature (snapshot) · serving dedup
 - **Quy trình tái lập 1 lệnh**: train remote (`sync-and-train`), label bằng agents (export→pilot→scale→agreement→import), eval (`eval_matching`), tune (`tune_hybrid_weights`)
 - Test suite ~40 test xanh; memory lưu server Neptune
@@ -62,8 +74,8 @@ Hệ matching CV↔job cho HR shadow-staffing, lõi là GNN (HeteroGraphSAGE) + 
 1. 2 bảng ablation ([019](../../specs/019-match-weight-calibration/ablation.md) nhãn bẩn, [020/v4](../../specs/020-domain-aware-ranking/ablation.md) dual-metric) — minh hoạ "metric sai → trọng số sai"
 2. [Pilot](../../specs/022-relabel-dataset-buckets/pilot-report.md) + [agreement](../../specs/022-relabel-dataset-buckets/agreement-report.md) report — phương pháp đảm bảo chất lượng nhãn
 3. [Audit 20 lỗ hổng](09-pipeline-audit.md) + chuỗi nhân-quả — phần "phân tích hệ thống"
-4. Negative result GNN ([07](07-evaluation-tuning.md)) — xử lý đúng phương pháp khoa học
-5. Bảng tiến hoá 75→90→100% với nguyên nhân từng bước
+4. **Câu chuyện GNN trọn vẹn 2 hồi** ([07](07-evaluation-tuning.md) + [12](12-gnn-v2-proposal.md)): hồi 1 negative result (3 phép đo hội tụ → sửa DoD trung thực); hồi 2 — 8 thí nghiệm có kiểm soát tìm ra nút thắt thật (embedding) → α 0.05→0.30 → DoD khôi phục bằng thực lực. Mẫu mực phương pháp khoa học cho luận văn
+5. Bảng tiến hoá 75→90→100% (+ held-out 100%) với nguyên nhân từng bước
 
 ## Đọc tiếp ở đâu
 

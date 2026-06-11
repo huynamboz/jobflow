@@ -86,14 +86,27 @@ def load_checkpoint(
         dropout = 0.0
 
     node_dims = meta.get("node_dims") or None  # None → GNN uses its built-in default
-    model = HeteroGraphSAGE(
-        metadata=metadata,
-        hidden_channels=hidden_channels,
-        num_layers=num_layers,
-        dropout=dropout,
-        node_dims=node_dims,
-    )
-    model.load_state_dict(torch.load(path / "model.pt", weights_only=True))
+    # GNN v2/E4: reconstruct the class the checkpoint was trained with.
+    _mtype = (meta.get("train_config") or {}).get("model_type", "graphsage")
+    if _mtype == "gat":
+        from ml_service.models.gnn import HeteroGAT
+        model = HeteroGAT(metadata=metadata, hidden_channels=hidden_channels,
+                          num_layers=num_layers, dropout=dropout, node_dims=node_dims)
+    else:
+        model = HeteroGraphSAGE(
+            metadata=metadata,
+            hidden_channels=hidden_channels,
+            num_layers=num_layers,
+            dropout=dropout,
+            node_dims=node_dims,
+        )
+    # GNN v2: strict=False — train-only modules (e.g. role_head) may be absent
+    # in older checkpoints (they're never used at inference) or present-but-
+    # unused. Log any mismatch so silent drift is visible.
+    _missing, _unexpected = model.load_state_dict(
+        torch.load(path / "model.pt", weights_only=True), strict=False)
+    if _missing or _unexpected:
+        logger.info("checkpoint load: missing=%s unexpected=%s", _missing, _unexpected)
     model.eval()
 
     with open(path / "cvs.json", encoding="utf-8") as f:

@@ -59,3 +59,15 @@
 `build_jobdata_from_db` (matching_service.py:262): Job.id, seniority clamp [0,5], skills = JobSkill→`skill.canonical_name`, importance, salary, text = "title. description", experience_min/max, **role_category = Job.role_category** (lowercase, default "other"). Lọc `is_active=True` + ≥1 skill.
 
 **Nguồn `Job.role_category`**: LLM JD extraction (`apps/jobs/services/llm_jd_extractor.py`, 11 giá trị) — extraction fail → "other". ⚠️ Job thiếu nhãn role → domain_fit trung tính 0.5; nhóm "Data Analyst" hiện chưa được label role → 2 ca lệch trong eval 20-CV.
+
+## Cập nhật GNN v2 (024 — 2026-06-11)
+
+- **Embedding provider production = `multilingual`** (paraphrase-multilingual-MiniLM-L12-v2,
+  384-dim, normalize) — thay all-MiniLM-L6-v2 tiếng-Anh. Đây là thay đổi ăn điểm nhất lịch sử
+  model (slice related-skill 0.512→0.73). Đổi provider = đổi node features = PHẢI retrain.
+- **CV node 386 → 397-dim**: thêm role one-hot 11 (suy bằng `infer_role` canonical 023) — đối
+  xứng với job node. Checkpoint cũ không load được vào builder mới → luôn giữ backup.
+- **Pretrain tự giám sát** (`run_pretrain.py`): link-prediction trên has_skill/requires_skill
+  (drop 30%, dot-product, BCE, 120 epoch, link-acc ~0.80) → warm-start BPR qua env `PRETRAIN_PATH`.
+- Trainer env gates: `AUX_ROLE_WEIGHT` (default 0 — 0.3 phá BPR, xem doc 12), `SKILL_REL_WEIGHT`
+  (default 0), `GNN_MODEL` (graphsage|gat|rgcn — HeteroGAT thêm ở 024, không dùng production).

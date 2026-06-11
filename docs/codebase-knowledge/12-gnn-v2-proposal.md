@@ -1,6 +1,6 @@
 # GNN v2 Proposal — tăng "độ thông minh" thật của GNN
 
-> **Handoff document**: file này đủ thông tin để bất kỳ session nào (kể cả mới) triển khai tiếp mà không cần context cũ. Viết: 2026-06-10. Trạng thái: **Vòng 1 ĐÃ CHẠY — negative (bảng mục 6)**; Vòng 2 (pretrain) là bước kế tiếp; code Vòng 1 ở branch `024-gnn-v2`.
+> **Handoff document**: file này đủ thông tin để bất kỳ session nào (kể cả mới) triển khai tiếp mà không cần context cũ. Viết: 2026-06-10. Trạng thái: **HOÀN THÀNH — E6 (đa ngữ + pretrain) PROMOTED lên production**: slice 0.51→0.70, pipeline AUC 0.860 (kỷ lục), eval 100%, **α tune = 0.30** (DoD gốc đạt bằng thực lực).
 
 ## 1. Vì sao cần GNN v2 — chẩn đoán đã chốt (đừng chẩn đoán lại)
 
@@ -79,7 +79,12 @@ Cách đo slice AUC (script đã chạy ở Đợt 2, tái lập): load engine `
 | baseline | 2026-06-10 | 0.512 | ~0.61 | 0.894 | 100% | 0.05 | — |
 | 1a (signal 0.5/0.5) | 2026-06-10 | 0.552 | 0.547 | 0.838 | — | — | ❌ best epoch 22, undertrained |
 | 1b (signal 0.8/0.2 + warmup 40) | 2026-06-10 | 0.550 | 0.618* | 0.833 | — | — | ❌ best epoch 19 rồi thoái hoá |
-| 2 | | | | | | | |
+| E1 pretrain→finetune | 2026-06-10 | 0.517 | 0.540 | 0.872 | — | — | ❌ decode không đổi (pipeline +) |
+| E2 pretrain+skill-rel | 2026-06-10 | 0.509 | 0.525 | — | — | — | ❌ |
+| E3 skill-rel only | 2026-06-10 | 0.529 | 0.613 | — | — | — | ❌ |
+| E4 GATv2 attention | 2026-06-10 | 0.540 | 0.561 | 0.765 | — | — | ❌ attention không phá trần |
+| **E5 embedding đa ngữ** | 2026-06-10 | **0.734** | **0.768** | 0.881 | — | — | 🚀 NÚT THẮT THẬT = embedding |
+| **E6 = E5 + pretrain (PROMOTED)** | 2026-06-11 | **0.705** | 0.492† | **0.894 · AUC 0.860** | **100%** | **α = 0.30** 🏆 | ✅ production |
 
 **Phân tích Vòng 1 (2 biến thể)**: slice chỉ nhích +0.04 trong khi pipeline test AUC tụt mạnh
 (0.813 → ~0.62) và NDCG@10 giảm (0.894 → 0.83x); cả 2 lần "best epoch" rất sớm (19-22) rồi
@@ -97,3 +102,22 @@ hướng bồi đắp cấu trúc TRƯỚC khi supervised, thay vì tranh chấp
 ## 7. Liên quan
 
 [07-evaluation-tuning](07-evaluation-tuning.md) (số liệu + negative result) · [05-training-pipeline](05-training-pipeline.md) (trainer/BPR chi tiết) · [02-graph-features](02-graph-features.md) (node features hiện tại) · [10-master-plan](10-master-plan.md) (3.4 gộp vào Vòng 3) · memory `train-server-neptune`
+
+## 8. Kết luận cuối (2026-06-11)
+
+**Nút thắt thật = chất lượng embedding đầu vào, không phải training/kiến trúc.** 6 thí nghiệm
+đánh vào training (aux head, curriculum, skill-rel loss, pretrain, GAT) đều kẹt trần slice
+~0.55; đổi MiniLM tiếng-Anh → **paraphrase-multilingual-MiniLM-L12-v2** lập tức slice 0.73
+(E5). Bản promote **E6 = đa ngữ + self-supervised pretrain**: pipeline test AUC 0.860 (kỷ lục,
+v1=0.813), NDCG@10 0.894, slice 0.705, eval 20-CV 100%, và **re-tune cho α=0.30 / β=0.20 /
+γ=0.10 / δ=0.40** — GNN lần đầu gánh tín hiệu lớn nhất cùng domain. Reranker retrain đúng A14
+(acc 0.706). Serving yêu cầu `EMBEDDING_PROVIDER=multilingual` trong backend/.env (đã set —
+checkpoint và provider phải đồng bộ). Master plan 3.4 hoàn thành ⇒ TOÀN BỘ master plan đóng.
+**Held-out validation (sau promote)**: bộ 20 persona MỚI (Flask, Svelte, Flutter, SRE, DBA,
+Security, Game Unity, fresh-grad...) → **20/20 (100%), on_domain@5 = 1.00** — model không
+thuộc bài harness; Flask CV → Python Developer top-1 = đúng năng lực related-skill mới.
+Caveat nhỏ còn lại: `infer_role` chưa suy được qa/design/ba (rơi về other, other↔other=match
+→ vài job tạp lọt check domain ở các ngách đó) — refinement tương lai, không khẩn.
+Ghi chú †: global-decode AUC của E6 thấp là artifact lành tính — BPR tối ưu ranking TRONG
+từng CV (đúng nhu cầu serving); offset giữa CV làm AUC phẳng toàn cục méo, per-CV metrics
+mới là thước đúng.
