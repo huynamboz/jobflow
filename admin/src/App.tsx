@@ -10,7 +10,6 @@ import LabelingPage from "@/pages/admin/labeling";
 import ModelsPage from "@/pages/admin/models";
 import JobsPage from "@/pages/admin/jobs";
 import CVsPage from "@/pages/admin/cvs";
-import RecommendPage from "@/pages/admin/recommend";
 import LLMProvidersPage from "@/pages/admin/llm-providers";
 import CVUploadPage from "@/pages/admin/cv-upload";
 import LLMLogsPage from "@/pages/admin/llm-logs";
@@ -44,7 +43,6 @@ function App() {
         <Route path="models" element={<ModelsPage />} />
         <Route path="jobs" element={<JobsPage />} />
         <Route path="cvs" element={<CVsPage />} />
-        <Route path="recommend" element={<RecommendPage />} />
         <Route path="llm-providers" element={<LLMProvidersPage />} />
         <Route path="cvs/upload" element={<CVUploadPage />} />
         <Route path="llm-logs" element={<LLMLogsPage />} />
