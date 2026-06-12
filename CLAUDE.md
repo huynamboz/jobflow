@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
-Active feature plan: [specs/025-calibrated-probability-display/plan.md](specs/025-calibrated-probability-display/plan.md)
+Active feature plan: [specs/026-employee-mail-link/plan.md](specs/026-employee-mail-link/plan.md)
 
 Related artifacts:
 - [spec.md](specs/025-calibrated-probability-display/spec.md)
@@ -9,7 +9,7 @@ Related artifacts:
 - [quickstart.md](specs/025-calibrated-probability-display/quickstart.md)
 - Master plan: [docs/codebase-knowledge/10-master-plan.md](docs/codebase-knowledge/10-master-plan.md)
 
-Previous active plan: [specs/022-relabel-dataset-buckets/plan.md](specs/022-relabel-dataset-buckets/plan.md)
+Previous active plan: [specs/025-calibrated-probability-display/plan.md](specs/025-calibrated-probability-display/plan.md)
 
 Previous features (still in this branch's history):
 - [specs/013-thesis-report/plan.md](specs/013-thesis-report/plan.md) (Thesis report — Vietnamese academic doc)
@@ -71,5 +71,6 @@ cd admin && npm run build && npx tsc --noEmit
 - After editing `tailwind.config.js` or the HeroUI theme, **restart Vite** (build-time, not HMR).
 - **Match weights (features 019+020)**: the hybrid score is **four-term** — `α·GNN + β·skill + γ·seniority + δ·domain` (domain = role match `engine._role_domain_fit`, SOFT term, no hard filter) — tuned by `python manage.py tune_hybrid_weights` (4-weight grid; default **balanced** objective = max role-NDCG@10 s.t. label-AUC ≥ 0.85·max and δ ≤ 0.4 — a pure role-NDCG objective is degenerate at δ=1.0) and loaded from checkpoint `metadata.json` `hybrid_weights` (single source of truth; `settings.py` values are training-only). Current tuned: `0.10/0.25/0.25/0.40`, dual ablation at `specs/020-domain-aware-ranking/ablation.md`. Quality harness: `python manage.py eval_matching` (fixed 20-CV set → on-domain@k; 50%→90% after 020). The four per-dimension scores are **transparent formulas** in `engine._dimension_scores` — reproducible by hand. Re-match (`rematch_employees`/`morning_refresh`) to adopt new weights/dims; restart the server to load them. **Thứ tự bắt buộc khi tune (A14): chốt weights vào metadata TRƯỚC → retrain reranker SAU** — reranker_meta.json lưu `trained_with_weights`, engine WARN to khi lệch với serving weights.
 - **GNN v2 (024)**: model production train bằng **embedding đa ngữ** → backend/.env phải có `EMBEDDING_PROVIDER=multilingual` (khớp checkpoint, lệch = điểm vô nghĩa). Train = pretrain (`run_pretrain.py`) → finetune (`PRETRAIN_PATH=...`); đo decode bằng `measure_slice.py`. Weights hiện hành α=0.30/β=0.20/γ=0.10/δ=0.40. Backup model cũ: `checkpoints/backup_pre_v2`.
+- **Mail-link (026)**: HR link Gmail nhân viên (app password) → gửi đơn apply TỪ địa chỉ nhân viên (đính kèm CV) + poll IMAP bắt reply. `MAIL_CRED_KEY` (Fernet) BẮT BUỘC trong .env (thiếu = fail-loud, không mã hoá được credential). App password mã hoá at-rest, KHÔNG bao giờ vào serializer/log/API. Poller `poll_mail_replies` chỉ đọc thư khớp In-Reply-To với Message-ID hệ tự sinh (BODY.PEEK, không mark read) — phải đăng ký chạy qua schedule_runner (mặc định 15 phút). Notification (chuông header + block dashboard) + EmailLog thread/match. App mới: apps/mail.
 - **Role CV xác định (025)**: `CVData.role_category` quyết định MỘT LẦN lúc tạo CV (employee: skills+position qua `match_cv_data(position=...)`; CV thật: full text qua LLM parser) — engine dùng `_cv_role()` ở mọi chỗ, KHÔNG tự infer lại từ text. Upload employee = rematch path (1 LLM call duy nhất lúc parse).
 - **Điểm hiển thị = xác suất hiệu chuẩn (feature 025-calibrated)**: `score = Platt(rank_score)` — TUYỆT ĐỐI, so sánh được giữa employee, ổn định qua các lần chạy (đã XOÁ remap-theo-rổ A3; sigmoid đơn điệu nên thứ tự ≡ rank). Ý nghĩa: P(cặp được ground-truth v4 chấm match) — phân phối nhãn bucket-selected, đừng phát biểu thành xác suất phổ quát. `eligible = P ≥ ELIGIBLE_MIN_PROB (0.50)`. Calibrator fit trên rank_score val (KHÔNG phải stage-1) trong `train_reranker.py` (`--calibrate-only` để refit nhanh); `calibration.json.trained_with = sha256(reranker.pt)[:16]` — engine WARN khi lệch (họ A14). Gates dùng chung 1 helper `_penalty_product` cho cả serving lẫn fit. Đỉnh bão hoà ~0.995 (ties) — chấp nhận, không cosmetic-rescale.

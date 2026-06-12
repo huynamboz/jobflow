@@ -1,11 +1,66 @@
 import { Menu, Bell } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@heroui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@heroui/popover";
 
 import { useAuthStore } from "@/stores/auth.store";
+import { mailService, type AppNotification } from "@/services/mail.service";
 
 export interface AdminHeaderProps {
   onMenuClick?: () => void;
+}
+
+function NotificationBell() {
+  const navigate = useNavigate();
+  const [unread, setUnread] = useState(0);
+  const [items, setItems] = useState<AppNotification[]>([]);
+  const [open, setOpen] = useState(false);
+
+  const refresh = useCallback(() => {
+    mailService.unreadCount().then(setUnread).catch(() => {});
+  }, []);
+  useEffect(() => {
+    refresh();
+    const t = setInterval(refresh, 60000);
+    return () => clearInterval(t);
+  }, [refresh]);
+
+  const loadList = () => mailService.notifications(1).then((d) => setItems(d.results)).catch(() => {});
+
+  const onItem = async (n: AppNotification) => {
+    setOpen(false);
+    if (!n.read_at) { await mailService.markRead(n.id).catch(() => {}); refresh(); }
+    if (n.link_url) navigate(n.link_url.replace(/^\/admin/, "/admin"));
+  };
+
+  return (
+    <Popover placement="bottom-end" isOpen={open} onOpenChange={(o) => { setOpen(o); if (o) loadList(); }}>
+      <PopoverTrigger>
+        <Button isIconOnly aria-label="Notifications" radius="full" size="sm" variant="light" className="relative">
+          <Bell className="size-[18px] text-default-500" />
+          {unread > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0">
+        <div className="border-b border-default-200 px-4 py-2 text-sm font-semibold">Notifications</div>
+        <div className="max-h-96 overflow-auto">
+          {items.length === 0 && <div className="px-4 py-6 text-center text-sm text-default-400">No notifications</div>}
+          {items.map((n) => (
+            <button key={n.id} type="button" onClick={() => void onItem(n)}
+              className={`block w-full border-b border-default-100 px-4 py-2.5 text-left hover:bg-default-50 ${n.read_at ? "" : "bg-primary-50/40"}`}>
+              <div className="text-[13px] font-semibold text-default-700">{n.title}</div>
+              <div className="mt-0.5 line-clamp-2 text-xs text-default-500">{n.body_preview}</div>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
@@ -31,9 +86,7 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
 
       {/* Right */}
       <div className="flex items-center gap-1">
-        <Button isIconOnly aria-label="Notifications" radius="full" size="sm" variant="light">
-          <Bell className="size-[18px] text-default-500" />
-        </Button>
+        <NotificationBell />
 
         {user && (
           <Popover placement="bottom-end">

@@ -15,10 +15,12 @@ class VerifierSchedule(models.Model):
     COMMAND_VERIFY = "verify_job_status"
     COMMAND_EXTRACT = "extract_job_dates"
     COMMAND_MORNING = "morning_refresh"
+    COMMAND_POLL_MAIL = "poll_mail_replies"
     COMMAND_CHOICES = [
         (COMMAND_VERIFY, "verify_job_status"),
         (COMMAND_EXTRACT, "extract_job_dates"),
         (COMMAND_MORNING, "morning_refresh"),
+        (COMMAND_POLL_MAIL, "poll_mail_replies"),
     ]
 
     command = models.CharField(max_length=32, choices=COMMAND_CHOICES, unique=True)

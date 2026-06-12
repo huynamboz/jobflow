@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { RefreshCcw } from "lucide-react";
 
 import StaffingDashboard from "@/components/dashboard/StaffingDashboard";
+import MailRepliesBlock from "@/components/dashboard/MailRepliesBlock";
 
 export default function DashboardPage() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -51,6 +52,7 @@ export default function DashboardPage() {
         </button>
       </header>
 
+      <MailRepliesBlock refreshKey={refreshKey} />
       <StaffingDashboard refreshKey={refreshKey} />
     </div>
   );

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
+import { mailService } from "@/services/mail.service";
 import { Input } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 import { IconArrowLeft, IconBriefcase, IconBuilding, IconMail, IconMapPin, IconSparkles, IconUser } from "@tabler/icons-react";
@@ -54,6 +55,9 @@ export default function ApplyEmailPage() {
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [to, setTo] = useState("");
+  const [linked, setLinked] = useState(false);
+  const [linkedAddr, setLinkedAddr] = useState("");
+  const [sending, setSending] = useState(false);
   const [subject, setSubject] = useState("");
   const [bodyHTML, setBodyHTML] = useState("");
   const bodyText = useRef("");
@@ -78,6 +82,31 @@ export default function ApplyEmailPage() {
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [employeeId, jobId]);
+
+  // 026: load linked-email status to enable in-system Send.
+  useEffect(() => {
+    if (!employeeId) return;
+    mailService.credentialStatus(employeeId)
+      .then((c) => { setLinked(!!c.linked && c.status === "active"); setLinkedAddr(c.gmail_address || ""); })
+      .catch(() => setLinked(false));
+  }, [employeeId]);
+
+  // 026: send the application from the employee's linked Gmail, with CV attached.
+  const sendFromSystem = async () => {
+    if (!matchId || !to) { addToast({ title: "Recipient required", color: "warning" }); return; }
+    const body = bodyText.current || bodyHTML.replace(/<[^>]+>/g, " ");
+    setSending(true);
+    try {
+      const r = await mailService.sendApply(matchId, to, subject, body);
+      addToast({ title: "Sent & applied", description: r.cv_attached ? "CV attached. Tracked in Job Tracking." : "Sent (no CV on file). Tracked.", color: "success" });
+      navigate(-1);
+    } catch (e: any) {
+      const msg = e?.response?.data?.error?.message || "Send failed";
+      addToast({ title: "Send failed", description: msg, color: "danger" });
+    } finally {
+      setSending(false);
+    }
+  };
 
   const onEditorChange = useCallback((html: string, text: string) => {
     setBodyHTML(html);
@@ -206,11 +235,19 @@ export default function ApplyEmailPage() {
             </div>
             <QuillEditor ref={editorRef} initialHTML={bodyHTML} placeholder="Write your application email…" onChange={onEditorChange} minHeight={300} />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <Button variant="light" onPress={() => navigate(-1)}>Cancel</Button>
-            <Button color="primary" startContent={<IconMail size={16} />} isLoading={marking} onPress={openInGmail}>
-              Open in Gmail
-            </Button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: T.ink3 }}>
+              {linked ? `Send from ${linkedAddr} · CV attached` : "Link this employee's email to send from the system"}
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button variant="light" onPress={() => navigate(-1)}>Cancel</Button>
+              <Button variant="flat" startContent={<IconMail size={16} />} isLoading={marking} onPress={openInGmail}>
+                Open in Gmail
+              </Button>
+              <Button color="primary" startContent={<IconMail size={16} />} isDisabled={!linked} isLoading={sending} onPress={sendFromSystem}>
+                Send
+              </Button>
+            </div>
           </div>
         </Card>
       </div>

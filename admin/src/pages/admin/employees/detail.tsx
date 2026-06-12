@@ -33,6 +33,7 @@ import { Card } from "@/components/ui/card";
 import { employeeService } from "@/services/employee.service";
 import { jobService } from "@/services/job.service";
 import { matchService } from "@/services/match.service";
+import { mailService, type CredentialStatus, type MailLog } from "@/services/mail.service";
 import type { DuplicateApplyError, DuplicateApplyFrontman } from "@/services/match.service";
 import type { Employee } from "@/types/employee.types";
 import type { EmployeeJobMatch, JobLite, MatchStatus } from "@/types/match.types";
@@ -126,6 +127,66 @@ function MetaRow({ icon, children }: { icon: React.ReactNode; children: React.Re
   );
 }
 
+/* ---------------- 026: employee email-account link card ---------------- */
+function EmailAccountCard({ employeeId }: { employeeId: number }) {
+  const [cred, setCred] = useState<CredentialStatus | null>(null);
+  const [open, setOpen] = useState(false);
+  const [addr, setAddr] = useState("");
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    mailService.credentialStatus(employeeId).then(setCred).catch(() => setCred({ linked: false }));
+  }, [employeeId]);
+  useEffect(() => { load(); }, [load]);
+
+  const doLink = async () => {
+    setBusy(true);
+    try {
+      await mailService.link(employeeId, addr.trim(), pw);
+      addToast({ title: "Email linked", color: "success" });
+      setOpen(false); setPw(""); load();
+    } catch (e: any) {
+      addToast({ title: "Link failed", description: e?.response?.data?.error?.message || "Check the app password", color: "danger" });
+    } finally { setBusy(false); }
+  };
+  const doUnlink = async () => {
+    setBusy(true);
+    try { await mailService.unlink(employeeId); addToast({ title: "Email unlinked", color: "default" }); load(); }
+    finally { setBusy(false); }
+  };
+
+  const linked = cred?.linked && cred?.status === "active";
+  const error = cred?.status === "error";
+  return (
+    <div style={{ borderRadius: 12, border: `1px solid ${error ? T.danger : T.line}`, background: T.surface, padding: "10px 14px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <IconMail size={16} style={{ color: linked ? T.success : T.ink4 }} />
+        <span style={{ fontSize: 13, fontWeight: 600, color: T.ink2 }}>
+          {linked ? `Email linked · ${cred?.gmail_address}` : error ? `Email error · ${cred?.gmail_address}` : "No email linked"}
+        </span>
+        {error && <span style={{ fontSize: 11.5, color: T.danger }}>{cred?.last_error?.slice(0, 60)}</span>}
+        <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          {linked || error
+            ? <Button size="sm" variant="light" color="danger" isLoading={busy} onPress={doUnlink}>Unlink</Button>
+            : <Button size="sm" variant="flat" color="primary" onPress={() => setOpen((o) => !o)}>{open ? "Cancel" : "Link Gmail"}</Button>}
+        </span>
+      </div>
+      {open && !linked && (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+          <Input size="sm" label="Gmail address" value={addr} onValueChange={setAddr} type="email" placeholder="employee@gmail.com" />
+          <Input size="sm" label="App password" value={pw} onValueChange={setPw} type="password" placeholder="16-char app password" />
+          <div style={{ fontSize: 11, color: T.ink4, lineHeight: 1.5 }}>
+            Tạo App Password tại Google Account → Security → 2-Step Verification → App passwords (cần bật 2FA).
+            Hệ thống sẽ chỉ gửi đơn ứng tuyển từ tài khoản này và đọc các thư trả lời về đơn đó. Mật khẩu được mã hoá, không hiển thị lại.
+          </div>
+          <Button size="sm" color="primary" isLoading={busy} isDisabled={!addr || !pw} onPress={doLink}>Verify & link</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------------- left: job list card ---------------- */
 function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; selected: boolean; onSelect: () => void }) {
   const j = match.job;
@@ -214,6 +275,10 @@ function JobDetailPanel({
   const [desc, setDesc] = useState<string | null>(null);
   const [descLoading, setDescLoading] = useState(true);
   const [whyOpen, setWhyOpen] = useState(false);
+  const [thread, setThread] = useState<MailLog[]>([]);
+  useEffect(() => {
+    mailService.thread(match.id).then(setThread).catch(() => setThread([]));
+  }, [match.id]);
   useEffect(() => {
     let alive = true;
     setDescLoading(true);
@@ -446,6 +511,27 @@ function JobDetailPanel({
           <div style={{ fontSize: 13, color: T.ink4 }}>No description available.</div>
         )}
       </div>
+
+      {/* 026: mail thread for this application */}
+      {thread.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink3, marginBottom: 8 }}>Email thread</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {thread.map((e) => (
+              <div key={e.id} style={{ borderRadius: 10, border: `1px solid ${e.is_bounce ? T.danger : T.line}`,
+                                       background: e.direction === "in" ? T.accent50 : T.surface, padding: "10px 12px" }}>
+                <div style={{ fontSize: 11.5, color: T.ink4, marginBottom: 4 }}>
+                  {e.direction === "out" ? `Sent to ${e.to_addr}` : `Reply from ${e.from_addr}`}
+                  {e.is_bounce && <span style={{ color: T.danger, fontWeight: 700 }}> · delivery failed</span>}
+                  {e.cv_attached && <span style={{ color: T.success }}> · CV attached</span>}
+                  <span style={{ marginLeft: 8 }}>{new Date(e.created_at).toLocaleString("vi-VN")}</span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.ink2 }}>{e.subject}</div>
+                <div style={{ fontSize: 12.5, color: T.ink2, marginTop: 3, whiteSpace: "pre-line", lineHeight: 1.5 }}>{e.body_text}</div>
+              </div>
+            ))}
+          </div>
+      </div>
     </div>
   );
 }
@@ -659,6 +745,9 @@ export default function EmployeeDetailPage() {
           <Button variant="light" size="sm" color="danger" startContent={<IconTrash size={14} />} onPress={() => setDeleteOpen(true)}>Delete</Button>
         </div>
       </div>
+
+      {/* 026: email account link */}
+      <EmailAccountCard employeeId={empId} />
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

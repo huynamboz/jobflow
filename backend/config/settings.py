@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     # Employee MVP (feature 012)
     "apps.employees",
     "apps.notifications",
+    "apps.mail",
 ]
 
 # ---------------------------------------------------------------------------
