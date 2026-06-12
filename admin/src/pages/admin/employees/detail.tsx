@@ -21,6 +21,7 @@ import {
   IconExternalLink,
   IconMail,
   IconMapPin,
+  IconUser,
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
