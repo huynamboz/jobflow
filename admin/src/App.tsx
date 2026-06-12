@@ -30,6 +30,7 @@ import ExtractSchedulePage from "@/pages/admin/schedule/extract";
 import MorningRefreshSchedulePage from "@/pages/admin/schedule/morning-refresh";
 import EmployeesPage from "@/pages/admin/employees";
 import EmployeeDetailPage from "@/pages/admin/employees/detail";
+import EmployeeInfoPage from "@/pages/admin/employees/info";
 import JobTrackingPage from "@/pages/admin/job-tracking";
 import ApplyEmailPage from "@/pages/admin/apply-email";
 import SettingsPage from "@/pages/admin/settings";
@@ -69,6 +70,7 @@ function App() {
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="mail" element={<MailPage />} />
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
+        <Route path="employees/:id/info" element={<EmployeeInfoPage />} />
         <Route path="job-tracking" element={<JobTrackingPage />} />
         <Route path="apply-email" element={<ApplyEmailPage />} />
         <Route path="settings" element={<SettingsPage />} />

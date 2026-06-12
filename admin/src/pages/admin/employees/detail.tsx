@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
-import { Input, Textarea } from "@heroui/input";
+import { Input } from "@heroui/input";
 import { Tooltip } from "@heroui/tooltip";
 import { Select, SelectItem } from "@heroui/select";
 import {
@@ -17,14 +17,10 @@ import {
   IconBriefcase,
   IconBuilding,
   IconCalendar,
-  IconCheck,
   IconChevronDown,
   IconExternalLink,
   IconMail,
   IconMapPin,
-  IconPencil,
-  IconRefresh,
-  IconTrash,
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
@@ -124,66 +120,6 @@ function MetaRow({ icon, children }: { icon: React.ReactNode; children: React.Re
       <span style={{ color: T.ink4, display: "flex" }}>{icon}</span>
       {children}
     </span>
-  );
-}
-
-/* ---------------- 026: employee email-account link card ---------------- */
-function EmailAccountCard({ employeeId }: { employeeId: number }) {
-  const [cred, setCred] = useState<CredentialStatus | null>(null);
-  const [open, setOpen] = useState(false);
-  const [addr, setAddr] = useState("");
-  const [pw, setPw] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const load = useCallback(() => {
-    mailService.credentialStatus(employeeId).then(setCred).catch(() => setCred({ linked: false }));
-  }, [employeeId]);
-  useEffect(() => { load(); }, [load]);
-
-  const doLink = async () => {
-    setBusy(true);
-    try {
-      await mailService.link(employeeId, addr.trim(), pw);
-      addToast({ title: "Email linked", color: "success" });
-      setOpen(false); setPw(""); load();
-    } catch (e: any) {
-      addToast({ title: "Link failed", description: e?.response?.data?.error?.message || "Check the app password", color: "danger" });
-    } finally { setBusy(false); }
-  };
-  const doUnlink = async () => {
-    setBusy(true);
-    try { await mailService.unlink(employeeId); addToast({ title: "Email unlinked", color: "default" }); load(); }
-    finally { setBusy(false); }
-  };
-
-  const linked = cred?.linked && cred?.status === "active";
-  const error = cred?.status === "error";
-  return (
-    <div style={{ borderRadius: 12, border: `1px solid ${error ? T.danger : T.line}`, background: T.surface, padding: "10px 14px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <IconMail size={16} style={{ color: linked ? T.success : T.ink4 }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: T.ink2 }}>
-          {linked ? `Email linked · ${cred?.gmail_address}` : error ? `Email error · ${cred?.gmail_address}` : "No email linked"}
-        </span>
-        {error && <span style={{ fontSize: 11.5, color: T.danger }}>{cred?.last_error?.slice(0, 60)}</span>}
-        <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-          {linked || error
-            ? <Button size="sm" variant="light" color="danger" isLoading={busy} onPress={doUnlink}>Unlink</Button>
-            : <Button size="sm" variant="flat" color="primary" onPress={() => setOpen((o) => !o)}>{open ? "Cancel" : "Link Gmail"}</Button>}
-        </span>
-      </div>
-      {open && !linked && (
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-          <Input size="sm" label="Gmail address" value={addr} onValueChange={setAddr} type="email" placeholder="employee@gmail.com" />
-          <Input size="sm" label="App password" value={pw} onValueChange={setPw} type="password" placeholder="16-char app password" />
-          <div style={{ fontSize: 11, color: T.ink4, lineHeight: 1.5 }}>
-            Tạo App Password tại Google Account → Security → 2-Step Verification → App passwords (cần bật 2FA).
-            Hệ thống sẽ chỉ gửi đơn ứng tuyển từ tài khoản này và đọc các thư trả lời về đơn đó. Mật khẩu được mã hoá, không hiển thị lại.
-          </div>
-          <Button size="sm" color="primary" isLoading={busy} isDisabled={!addr || !pw} onPress={doLink}>Verify & link</Button>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -557,12 +493,6 @@ export default function EmployeeDetailPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [dup, setDup] = useState<{ match: EmployeeJobMatch; frontman: DuplicateApplyFrontman } | null>(null);
   const [applyTarget, setApplyTarget] = useState<EmployeeJobMatch | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<EditForm | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   // Server-side status filter per tab; matches arrive ranked by score, paginated.
   const listParams = useCallback(
@@ -663,67 +593,6 @@ export default function EmployeeDetailPage() {
     }
   };
 
-  const rescore = async () => {
-    try {
-      await employeeService.rescore(empId);
-      addToast({ title: "Re-score queued", color: "success" });
-    } catch {
-      addToast({ title: "Re-score failed (Celery offline?)", color: "warning" });
-    }
-  };
-
-  const refreshJobs = async () => {
-    setRefreshing(true);
-    try {
-      const res = await employeeService.rematch(empId);
-      await reload();
-      const created = res?.matches_created ?? 0;
-      addToast({
-        title: "Jobs refreshed",
-        description: created > 0 ? `${created} new job${created > 1 ? "s" : ""} matched.` : "List is up to date.",
-        color: "success",
-      });
-    } catch {
-      addToast({ title: "Refresh failed", color: "danger" });
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const startEdit = () => { if (employee) { setForm(toForm(employee)); setEditing(true); } };
-  const saveEdit = async () => {
-    if (!form) return;
-    setSaving(true);
-    try {
-      const skills = form.skills.split(",").map((s) => s.trim()).filter(Boolean);
-      const exp = form.experience_years.trim();
-      await employeeService.update(empId, {
-        full_name: form.full_name.trim(), email: form.email.trim(), phone: form.phone.trim(),
-        position: form.position.trim(), seniority: form.seniority,
-        experience_years: exp === "" ? null : Number(exp), skills, notes: form.notes,
-      });
-      addToast({ title: "Employee updated", color: "success" });
-      setEditing(false); setForm(null);
-      void reload();
-    } catch {
-      addToast({ title: "Update failed", color: "danger" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const doDelete = async () => {
-    setDeleting(true);
-    try {
-      await employeeService.remove(empId);
-      addToast({ title: "Employee deleted", color: "success" });
-      navigate("/admin/employees");
-    } catch {
-      addToast({ title: "Delete failed (admin only?)", color: "danger" });
-      setDeleting(false);
-    }
-  };
-
   if (loading && !employee) return <div style={{ padding: 40, color: T.ink3 }}>Loading…</div>;
   if (!employee) return <div style={{ padding: 40, color: T.ink3 }}>Employee not found.</div>;
 
@@ -744,18 +613,12 @@ export default function EmployeeDetailPage() {
             {employee.experience_years != null && ` · ${employee.experience_years}y exp`}
           </div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <Button variant="bordered" size="sm" startContent={<IconBriefcase size={14} />} onPress={refreshJobs} isLoading={refreshing}>
-            {refreshing ? "Refreshing…" : "Refresh jobs"}
+        <div style={{ marginLeft: "auto" }}>
+          <Button variant="bordered" size="sm" startContent={<IconUser size={14} />} onPress={() => navigate(`/admin/employees/${empId}/info`)}>
+            View detail
           </Button>
-          <Button variant="bordered" size="sm" startContent={<IconRefresh size={14} />} onPress={rescore}>Re-score</Button>
-          <Button variant="bordered" size="sm" startContent={<IconPencil size={14} />} onPress={startEdit}>Edit</Button>
-          <Button variant="light" size="sm" color="danger" startContent={<IconTrash size={14} />} onPress={() => setDeleteOpen(true)}>Delete</Button>
         </div>
       </div>
-
-      {/* 026: email account link */}
-      <EmailAccountCard employeeId={empId} />
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -896,61 +759,7 @@ export default function EmployeeDetailPage() {
         </ModalContent>
       </Modal>
 
-      {/* delete confirm modal */}
-      <Modal isOpen={deleteOpen} onOpenChange={(open) => !open && setDeleteOpen(false)} size="sm">
-        <ModalContent>
-          <ModalHeader>Delete employee</ModalHeader>
-          <ModalBody className="text-sm">
-            Permanently delete <span className="font-semibold">{employee.full_name}</span> and all their job matches? This cannot be undone.
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="light" onPress={() => setDeleteOpen(false)} isDisabled={deleting}>Cancel</Button>
-            <Button color="danger" startContent={<IconTrash size={14} />} onPress={doDelete} isLoading={deleting}>Delete</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* edit modal */}
-      <Modal isOpen={editing} onOpenChange={(open) => !open && setEditing(false)} size="lg">
-        <ModalContent>
-          <ModalHeader>Edit employee</ModalHeader>
-          <ModalBody>
-            {form && (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Input size="sm" label="Full name" value={form.full_name} onValueChange={(v) => setForm({ ...form, full_name: v })} />
-                <Input size="sm" label="Email" value={form.email} onValueChange={(v) => setForm({ ...form, email: v })} />
-                <Input size="sm" label="Phone" value={form.phone} onValueChange={(v) => setForm({ ...form, phone: v })} />
-                <Input size="sm" label="Position" value={form.position} onValueChange={(v) => setForm({ ...form, position: v })} />
-                <Select size="sm" label="Seniority" selectedKeys={[String(form.seniority)]}
-                  onSelectionChange={(keys) => setForm({ ...form, seniority: Number(Array.from(keys)[0]) })}>
-                  {SENIORITY_LABELS.map((label, i) => <SelectItem key={String(i)}>{label}</SelectItem>)}
-                </Select>
-                <Input size="sm" type="number" label="Experience (years)" value={form.experience_years} onValueChange={(v) => setForm({ ...form, experience_years: v })} />
-                <Input size="sm" className="md:col-span-2" label="Skills (comma-separated)" value={form.skills} onValueChange={(v) => setForm({ ...form, skills: v })} />
-                <Textarea size="sm" className="md:col-span-2" label="Notes" value={form.notes} onValueChange={(v) => setForm({ ...form, notes: v })} />
-              </div>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="light" onPress={() => setEditing(false)} isDisabled={saving} startContent={<IconX size={14} />}>Cancel</Button>
-            <Button color="primary" onPress={saveEdit} isLoading={saving} startContent={<IconCheck size={14} />}>Save</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </div>
   );
 }
 
-interface EditForm {
-  full_name: string; email: string; phone: string; position: string;
-  seniority: number; experience_years: string; skills: string; notes: string;
-}
-
-function toForm(e: Employee): EditForm {
-  return {
-    full_name: e.full_name ?? "", email: e.email ?? "", phone: e.phone ?? "",
-    position: e.position ?? "", seniority: e.seniority ?? 2,
-    experience_years: e.experience_years != null ? String(e.experience_years) : "",
-    skills: (e.skills ?? []).join(", "), notes: e.notes ?? "",
-  };
-}
