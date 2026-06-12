@@ -36,8 +36,26 @@ class JobService:
         self._compute_fingerprint = compute_fingerprint
         self._skill_service = SkillService()
 
-    def save_raw_job(self, raw: "RawJob") -> Job | None:
-        """Save a single RawJob to DB. Returns Job or None if duplicate."""
+    def _llm_extract(self, raw: "RawJob") -> dict:
+        """Call the LLM JD extractor → a plain dict (or {} on failure)."""
+        from apps.jobs.services.llm_jd_extractor import extract as llm_jd_extract
+        try:
+            r = llm_jd_extract(f"{raw.title}\n\n{raw.description}".strip())
+        except Exception as e:  # noqa: BLE001 — still import the job, just without rich fields
+            logger.warning("LLM JD extraction failed for %r: %s", (raw.title or "")[:60], e)
+            return {}
+        return {
+            "seniority": r.seniority, "role_category": r.role_category, "job_type": r.job_type,
+            "experience_min": r.experience_min, "experience_max": r.experience_max,
+            "salary_min": r.salary_min, "salary_max": r.salary_max, "skills": r.skills,
+        }
+
+    def save_raw_job(self, raw: "RawJob", extracted: dict | None = None,
+                     skip_non_tech: bool = True) -> Job | None:
+        """Save a single RawJob to DB. `extracted` (pre-computed JD fields) skips
+        the LLM; pass None to extract via LLM. With `skip_non_tech`, drops noise
+        jobs (role 'other' with < 2 canonical skills — won't rank anyway).
+        Returns Job, or None if duplicate / filtered."""
         # Get or create platform
         source = raw.source or "unknown"
         platform_info = _PLATFORM_MAP.get(source, {"name": source.title(), "base_url": ""})
@@ -61,32 +79,43 @@ class JobService:
             size=extra.get("company_size", ""),
         )
 
-        # Extract structured fields with the LLM JD extractor (replaces the old
-        # rule-based SkillExtractor) — one LLM call per job.
-        from apps.jobs.services.llm_jd_extractor import extract as llm_jd_extract
+        # Structured fields. `extracted` may be supplied pre-computed (e.g. by the
+        # agent-extract pipeline → import_extracted) to skip the LLM; otherwise we
+        # call the LLM JD extractor here (one call per job).
+        if extracted is None:
+            extracted = self._llm_extract(raw)
 
-        jd_text = f"{raw.title}\n\n{raw.description}".strip()
-        try:
-            r = llm_jd_extract(jd_text)
-        except Exception as e:  # noqa: BLE001 — still import the job, just without rich fields
-            logger.warning("LLM JD extraction failed for %r: %s", (raw.title or "")[:60], e)
-            r = None
+        seniority = extracted.get("seniority")
+        if seniority is None:
+            seniority = Job.Seniority.MID
+        role_category = (extracted.get("role_category") or "other")
+        exp_min = extracted.get("experience_min")
+        exp_max = extracted.get("experience_max")
+        # Prefer the provider's real salary; fall back to the extracted one.
+        salary_min = int(raw.salary_min or extracted.get("salary_min") or 0)
+        salary_max = int(raw.salary_max or extracted.get("salary_max") or 0)
 
-        seniority = r.seniority if r else Job.Seniority.MID
-        role_category = (r.role_category if r else "other") or "other"
-        exp_min = r.experience_min if r else None
-        exp_max = r.experience_max if r else None
-        # Prefer the provider's real salary; fall back to the LLM's.
-        salary_min = int(raw.salary_min or (r.salary_min if r else 0) or 0)
-        salary_max = int(raw.salary_max or (r.salary_max if r else 0) or 0)
-
-        # job_type: provider value first, else LLM, normalized to a valid choice
-        jt_raw = (getattr(raw, "job_type", "") or (r.job_type if r else "") or "").lower()
+        # job_type: provider value first, else extracted, normalized to a valid choice
+        jt_raw = (getattr(raw, "job_type", "") or extracted.get("job_type") or "").lower()
         job_type = Job.JobType.OTHER
         for choice in Job.JobType.values:
             if choice and choice in jt_raw:
                 job_type = choice
                 break
+
+        # Normalize skills to canonical names (unknown → dropped) up front.
+        norm_skills: list[tuple[str, int]] = []
+        for s in (extracted.get("skills") or []):
+            if not isinstance(s, dict):
+                continue
+            name = self._normalizer.normalize((s.get("name") or "").strip())
+            if name:
+                norm_skills.append((name, max(1, min(5, int(s.get("importance") or 3)))))
+
+        # Filter noise: a role-'other' job with < 2 canonical skills won't rank
+        # (pool needs ≥2 skills) — usually a non-IT posting that leaked in.
+        if skip_non_tech and role_category == "other" and len(norm_skills) < 2:
+            return None
 
         with transaction.atomic():
             job = Job.objects.create(
@@ -108,20 +137,11 @@ class JobService:
                 applicant_count=getattr(raw, "applicant_count", ""),
                 date_posted=raw.date_posted,
             )
-
-            # Skills from the LLM: [{"name", "importance"}]
-            for s in (r.skills if r else []):
-                if not isinstance(s, dict):
-                    continue
-                name = self._normalizer.normalize((s.get("name") or "").strip())
-                if not name:
-                    continue
+            for name, importance in norm_skills:
                 skill = self._skill_service.get_or_create(name)
                 if skill:
-                    importance = max(1, min(5, int(s.get("importance") or 3)))
                     JobSkill.objects.get_or_create(
-                        job=job, skill=skill,
-                        defaults={"importance": importance},
+                        job=job, skill=skill, defaults={"importance": importance},
                     )
 
         return job

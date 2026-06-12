@@ -52,10 +52,11 @@ class OpenAICompatibleClient:
         *,
         temperature: float = 0.0,
         max_tokens: int = 1024,
+        json_schema: dict | None = None,
         **kwargs,
     ) -> str:
         # Use stream=True to support providers that only return SSE chunks
-        stream = self._client.chat.completions.create(
+        create_kwargs = dict(
             model=self._model,
             messages=messages,
             temperature=temperature,
@@ -63,6 +64,13 @@ class OpenAICompatibleClient:
             stream=True,
             **kwargs,
         )
+        if json_schema:
+            # Native structured output → guaranteed valid JSON matching the schema.
+            create_kwargs["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "extract", "schema": json_schema},
+            }
+        stream = self._client.chat.completions.create(**create_kwargs)
         parts = []
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
@@ -120,6 +128,7 @@ class MessagesClient:
         *,
         temperature: float = 0.0,
         max_tokens: int = 1024,
+        json_schema: dict | None = None,
         **kwargs,
     ) -> str:
         import json as _json
@@ -130,6 +139,25 @@ class MessagesClient:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
+
+        if json_schema:
+            # Forced tool-use → structured output (non-streaming): the model must
+            # call the "extract" tool whose input matches the schema.
+            payload = {
+                "model": self._model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "tools": [{"name": "extract", "description": "Return the extracted fields.", "input_schema": json_schema}],
+                "tool_choice": {"type": "tool", "name": "extract"},
+            }
+            resp = httpx.post(self._url, json=payload, headers=headers, timeout=httpx.Timeout(120.0, connect=10.0))
+            resp.raise_for_status()
+            for block in resp.json().get("content", []):
+                if block.get("type") == "tool_use":
+                    return _json.dumps(block.get("input") or {})
+            return ""
+
         payload = {
             "model": self._model,
             "messages": messages,
@@ -138,7 +166,7 @@ class MessagesClient:
             "stream": True,
         }
         parts = []
-        with httpx.stream("POST", self._url, json=payload, headers=headers, timeout=60) as resp:
+        with httpx.stream("POST", self._url, json=payload, headers=headers, timeout=httpx.Timeout(120.0, connect=10.0)) as resp:
             resp.raise_for_status()
             for line in resp.iter_lines():
                 if not line.startswith("data:"):
@@ -182,7 +210,7 @@ class MessagesClient:
             "max_tokens": max_tokens,
             "stream": True,
         }
-        with httpx.stream("POST", self._url, json=payload, headers=headers, timeout=60) as resp:
+        with httpx.stream("POST", self._url, json=payload, headers=headers, timeout=httpx.Timeout(120.0, connect=10.0)) as resp:
             resp.raise_for_status()
             for line in resp.iter_lines():
                 if not line.startswith("data:"):
@@ -271,9 +299,13 @@ class LLMService:
         temperature: float = 0.0,
         max_tokens: int = 1024,
         feature: str = "",
+        json_schema: dict | None = None,
         **kwargs,
     ) -> str:
-        """Send messages to the active LLM provider, log the call, and return response text."""
+        """Send messages to the active LLM provider, log the call, and return
+        response text. Pass `json_schema` to request native structured output
+        (OpenAI response_format / Anthropic forced tool-use); if the provider
+        doesn't support it, automatically falls back to plain prompt-parse."""
         import time
 
         from apps.llm.models import LLMCallLog
@@ -295,7 +327,14 @@ class LLMService:
 
         start = time.time()
         try:
-            result = client.complete(messages, temperature=temperature, max_tokens=max_tokens, **kwargs)
+            try:
+                result = client.complete(messages, temperature=temperature, max_tokens=max_tokens,
+                                         json_schema=json_schema, **kwargs)
+            except Exception as exc:  # noqa: BLE001 — provider may not support structured output
+                if not json_schema:
+                    raise
+                logger.warning("Structured output failed (%s) — falling back to prompt-parse", str(exc)[:150])
+                result = client.complete(messages, temperature=temperature, max_tokens=max_tokens, **kwargs)
             duration_ms = int((time.time() - start) * 1000)
             _safe_log(
                 provider=provider, feature=feature, status="success",

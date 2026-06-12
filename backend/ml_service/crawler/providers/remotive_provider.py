@@ -26,6 +26,12 @@ _IT_CATEGORIES = [
     "product",
 ]
 
+# Remotive's `search` param does a fuzzy full-text match and IGNORES the
+# category filter, so non-IT postings (Writing, Sales, Finance…) leak in when
+# their text mentions an IT keyword. Keep only jobs whose returned category name
+# matches one of these IT keywords; drop the rest at the source.
+_IT_CATEGORY_KEYWORDS = ("software", "data", "devops", "sysadmin", "qa", "product", "design", "engineer")
+
 
 class RemotiveProvider(CrawlProvider):
     """Remotive API provider — free, remote tech jobs.
@@ -99,8 +105,11 @@ class RemotiveProvider(CrawlProvider):
                 pass
 
         tags = item.get("tags", [])
-        extra: dict = {}
         category = (item.get("category") or "").strip()
+        # Drop non-IT categories that leaked through the fuzzy search.
+        if category and not any(k in category.lower() for k in _IT_CATEGORY_KEYWORDS):
+            return None
+        extra: dict = {}
         if category:
             extra["category"] = category
 

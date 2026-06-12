@@ -15,4 +15,5 @@ checkpoints_benchmark/
 auth/
 data/processed/
 data/crawl/
+data/extracted/
 checkpoints/job_pool/

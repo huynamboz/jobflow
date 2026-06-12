@@ -20,6 +20,37 @@ VALID_ROLE_CATEGORIES = {
     "data_ml", "data_eng", "qa", "design", "ba", "other",
 }
 
+# JSON schema for native structured output (response_format / forced tool-use).
+# The provider returns valid JSON matching this — no more "non-JSON response".
+_JD_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "company": {"type": "string"},
+        "location": {"type": "string"},
+        "is_remote": {"type": "boolean"},
+        "seniority": {"type": ["integer", "null"]},
+        "role_category": {"type": "string", "enum": sorted(VALID_ROLE_CATEGORIES)},
+        "job_type": {"type": "string"},
+        "salary_min": {"type": "number"},
+        "salary_max": {"type": "number"},
+        "salary_currency": {"type": "string"},
+        "salary_type": {"type": "string"},
+        "experience_min": {"type": "number"},
+        "experience_max": {"type": ["number", "null"]},
+        "degree_requirement": {"type": "integer"},
+        "skills": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}, "importance": {"type": "integer"}},
+                "required": ["name", "importance"],
+            },
+        },
+    },
+    "required": ["seniority", "role_category", "skills"],
+}
+
 # Default experience_years when seniority is known but years = 0
 SENIORITY_DEFAULT_YEARS = {2: 3.5, 3: 6.5, 4: 10.0, 5: 14.0}
 
@@ -98,6 +129,7 @@ def extract(raw_text: str) -> JDExtractResult:
             temperature=0.0,
             max_tokens=8192,
             feature="jd_extraction",
+            json_schema=_JD_SCHEMA,
         )
     except Exception as exc:
         logger.warning("LLM call failed during JD extraction: %s", exc)
