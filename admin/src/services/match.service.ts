@@ -9,6 +9,8 @@ interface ListParams {
   assigned_to?: number;
   page?: number;
   page_size?: number;
+  /** 025: "-match_score" (default) | "-job__created_at" (job mới vào hệ thống trước) */
+  ordering?: string;
 }
 
 interface ListResponse {

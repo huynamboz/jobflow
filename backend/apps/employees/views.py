@@ -7,6 +7,7 @@ from django.db.models import Count, Q
 from django.http import StreamingHttpResponse
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter
 from rest_framework import status as drf_status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -193,8 +194,12 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
     serializer_class = EmployeeJobMatchSerializer
     permission_classes = [IsAuthenticated, IsHRStaff]
     pagination_class = MatchPagination
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ["status", "employee", "job", "assigned_to"]
+    # 025: HR browse sort — by match score (default) or by when the job
+    # entered the system (job__created_at, for "what's new since yesterday").
+    ordering_fields = ["match_score", "job__created_at", "created_at"]
+    ordering = ["-match_score", "-updated_at"]
 
     def get_queryset(self):
         qs = EmployeeJobMatch.objects.select_related(
