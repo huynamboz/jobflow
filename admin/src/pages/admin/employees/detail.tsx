@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
 import { Input, Textarea } from "@heroui/input";
@@ -540,6 +540,8 @@ function JobDetailPanel({
 /* ============================ page ============================ */
 export default function EmployeeDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const wantMatch = Number(searchParams.get("match")) || null;
   const empId = Number(id);
   const navigate = useNavigate();
 
@@ -611,11 +613,16 @@ export default function EmployeeDetailPage() {
     }
   }, [loadingMore, hasMore, page, listParams]);
 
+  // 026: deep-link from a notification (?match=) selects that match if present;
+  // else default to the top match.
   useEffect(() => {
-    if (matches.length && !matches.some((m) => m.id === selectedId)) {
-      setSelectedId(matches[0].id);
+    if (!matches.length) return;
+    if (wantMatch && matches.some((m) => m.id === wantMatch)) {
+      if (selectedId !== wantMatch) setSelectedId(wantMatch);
+      return;
     }
-  }, [matches, selectedId]);
+    if (!matches.some((m) => m.id === selectedId)) setSelectedId(matches[0].id);
+  }, [matches, selectedId, wantMatch]);
 
   const selected = matches.find((m) => m.id === selectedId) || null;
 
