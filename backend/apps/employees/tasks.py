@@ -19,10 +19,12 @@ logger = logging.getLogger(__name__)
 
 # How many top-ranked jobs to store per employee. The list is ranked by the GNN,
 # so larger = a longer tail of lower-relevance jobs for HR to browse.
-# 025-pagination: persist top-500 per employee — "Find more" is pure DB
-# pagination over this pool (stage-1 already scores the whole catalog; the
-# cost of a deeper pool is only stage-2 reranking more candidates).
-MATCH_TOP_K = 500
+# Pool depth per employee. Measured trade-off (2026-06-12, warm engine):
+# 100 → ~3.7s/employee (engine processes 200 candidates) · 500 → ~18-30s
+# (1,000 candidates through stage-2 + per-result explanation build). 100 is
+# already more than HR browses; revisit with lazy result-building if a deeper
+# reserve is ever needed. engine.match_cv retrieve_n auto-scales to top_k.
+MATCH_TOP_K = 100
 
 
 def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
