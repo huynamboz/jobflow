@@ -13,7 +13,7 @@ from apps.employees.models import Employee, EmployeeJobMatch
 from apps.employees.permissions import IsHRStaff
 from apps.mail.models import EmailLog, EmployeeMailCredential, Notification
 from apps.mail.serializers import (
-    CredentialStatusSerializer, EmailLogSerializer, NotificationSerializer,
+    CredentialStatusSerializer, EmailLogListSerializer, EmailLogSerializer, NotificationSerializer,
 )
 from apps.mail.services.probe import ProbeError, probe
 from apps.mail.services.send import send_apply_email
@@ -117,6 +117,41 @@ def mark_read(request, pk):
         n.read_at = timezone.now()
         n.save(update_fields=["read_at"])
     return Response({"id": n.id, "read_at": n.read_at})
+
+
+@api_view(["GET"])
+@permission_classes(HR)
+def email_log_list(request):
+    """All emails, newest first, filterable. ?direction=out|in &status= &is_bounce=
+    &employee= &page= — for the central Mail management page."""
+    qs = EmailLog.objects.select_related("employee", "match__job").order_by("-created_at")
+    p = request.query_params
+    if p.get("direction"):
+        qs = qs.filter(direction=p["direction"])
+    if p.get("status"):
+        qs = qs.filter(status=p["status"])
+    if p.get("is_bounce") in ("1", "true"):
+        qs = qs.filter(is_bounce=True)
+    if p.get("employee"):
+        qs = qs.filter(employee_id=p["employee"])
+    total = qs.count()
+    page = int(p.get("page", 1)); size = 30
+    rows = qs[(page - 1) * size: page * size]
+    return Response({"count": total, "page": page, "results": EmailLogListSerializer(rows, many=True).data})
+
+
+@api_view(["GET"])
+@permission_classes(HR)
+def credential_list(request):
+    """All linked email accounts — for the Mail page 'Accounts' tab."""
+    out = []
+    for c in EmployeeMailCredential.objects.select_related("employee").order_by("-linked_at"):
+        out.append({
+            "employee": {"id": c.employee_id, "name": c.employee.full_name},
+            "gmail_address": c.gmail_address, "status": c.status,
+            "last_error": c.last_error, "linked_at": c.linked_at,
+        })
+    return Response(out)
 
 
 @api_view(["GET"])

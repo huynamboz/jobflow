@@ -5,6 +5,7 @@ import { PublicRoute } from "@/components/public-route";
 
 import LoginPage from "@/pages/login";
 import DashboardPage from "@/pages/admin/dashboard";
+import MailPage from "@/pages/admin/mail";
 import SystemPage from "@/pages/admin/system";
 import LabelingPage from "@/pages/admin/labeling";
 import ModelsPage from "@/pages/admin/models";
@@ -66,6 +67,7 @@ function App() {
 
         {/* Feature 012 — Employee MVP */}
         <Route path="employees" element={<EmployeesPage />} />
+        <Route path="mail" element={<MailPage />} />
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
         <Route path="job-tracking" element={<JobTrackingPage />} />
         <Route path="apply-email" element={<ApplyEmailPage />} />

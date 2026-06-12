@@ -18,6 +18,7 @@ import {
   IconUserScan,
   IconUsers,
   IconTagStarred,
+  IconMail
 } from "@tabler/icons-react";
 
 export type AdminNavItem = {
@@ -42,6 +43,7 @@ export const adminConfig = {
         { label: "Employees", href: "/admin/employees", icon: IconUsers },
         { label: "Jobs",      href: "/admin/jobs",      icon: IconBriefcase },
         { label: "Job tracking", href: "/admin/job-tracking", icon: IconListCheck },
+        { label: "Mail",         href: "/admin/mail",         icon: IconMail },
         { label: "Morning refresh", href: "/admin/schedule/morning-refresh", icon: IconSunrise },
       ],
     },

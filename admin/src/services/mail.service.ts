@@ -54,5 +54,14 @@ class MailService {
     const r = await apiClient.get("/admin/mail/notifications/recent-replies/");
     return r.data as { employee: { id: number; name: string }; title: string; snippet: string; created_at: string; link_url: string }[];
   }
+
+  async logs(params: { direction?: string; status?: string; is_bounce?: string; employee?: number; page?: number } = {}) {
+    const r = await apiClient.get("/admin/mail/logs/", { params });
+    return r.data as { count: number; page: number; results: (MailLog & { employee: number; employee_name: string; match: number | null; job_title: string })[] };
+  }
+  async accounts() {
+    const r = await apiClient.get("/admin/mail/accounts/");
+    return r.data as { employee: { id: number; name: string }; gmail_address: string; status: string; last_error: string; linked_at: string }[];
+  }
 }
 export const mailService = new MailService();

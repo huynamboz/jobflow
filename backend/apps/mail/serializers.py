@@ -27,3 +27,17 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ("id", "type", "title", "body_preview", "link_url", "employee", "read_at", "created_at")
+
+
+class EmailLogListSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source="employee.full_name", default="")
+    job_title = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EmailLog
+        fields = ("id", "employee", "employee_name", "match", "job_title", "direction",
+                  "from_addr", "to_addr", "subject", "is_bounce", "cv_attached",
+                  "status", "error", "created_at")
+
+    def get_job_title(self, obj) -> str:
+        return obj.match.job.title if obj.match and obj.match.job_id else ""
