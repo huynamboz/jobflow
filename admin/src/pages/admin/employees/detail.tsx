@@ -531,7 +531,8 @@ function JobDetailPanel({
               </div>
             ))}
           </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
