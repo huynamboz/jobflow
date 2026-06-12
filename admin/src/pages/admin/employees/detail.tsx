@@ -62,7 +62,7 @@ const STATUS_META: Record<MatchStatus, { label: string; bg: string; color: strin
   in_progress: { label: "In progress", bg: T.warning50, color: "oklch(0.55 0.12 70)" },
   completed: { label: "Completed", bg: T.success50, color: T.success },
   lost: { label: "Rejected", bg: T.danger50, color: T.danger },
-  dismissed: { label: "Not a fit", bg: T.surface3, color: T.ink4 },
+  dismissed: { label: "Dismissed", bg: T.surface3, color: T.ink4 },
 };
 
 const TABS: { key: MatchStatus | "all"; label: string }[] = [
@@ -127,7 +127,7 @@ function MetaRow({ icon, children }: { icon: React.ReactNode; children: React.Re
 }
 
 /* ---------------- left: job list card ---------------- */
-function JobListItem({ match, selected, onSelect, onSkip }: { match: EmployeeJobMatch; selected: boolean; onSelect: () => void; onSkip: () => void }) {
+function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; selected: boolean; onSelect: () => void }) {
   const j = match.job;
   return (
     <button
@@ -136,32 +136,16 @@ function JobListItem({ match, selected, onSelect, onSkip }: { match: EmployeeJob
       style={{
         display: "block", width: "100%", textAlign: "left", cursor: "pointer",
         padding: 14, borderRadius: 14, border: `1px solid ${selected ? T.accent : T.line}`,
-        background: selected ? T.accent50 : T.surface, transition: "all 0.12s", position: "relative",
+        background: selected ? T.accent50 : T.surface, transition: "all 0.12s",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
-        <span style={{ fontWeight: 700, fontSize: 14, color: T.ink, lineHeight: 1.3, paddingRight: 4 }}>{j.title}</span>
-        <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 8 }}>
-          {SHOW_MATCH_PCT && (
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: T.accent }}>
-              {Math.round((match.match_score || 0) * 100)}%
-            </span>
-          )}
-          {match.status === "suggested" && (
-            <span
-              role="button"
-              tabIndex={0}
-              title="Bỏ qua — ẩn job này khỏi danh sách"
-              onClick={(e) => { e.stopPropagation(); onSkip(); }}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onSkip(); } }}
-              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
-                       width: 22, height: 22, borderRadius: 999, fontSize: 13, fontWeight: 700,
-                       color: T.ink4, background: T.surface3, cursor: "pointer", lineHeight: 1 }}
-            >
-              ✕
-            </span>
-          )}
-        </span>
+        <span style={{ fontWeight: 700, fontSize: 14, color: T.ink, lineHeight: 1.3 }}>{j.title}</span>
+        {SHOW_MATCH_PCT && (
+          <span style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 700, color: T.accent }}>
+            {Math.round((match.match_score || 0) * 100)}%
+          </span>
+        )}
       </div>
       <div style={{ fontSize: 12.5, color: T.ink3, marginTop: 3 }}>
         {j.company_name || "—"}{j.location ? ` · ${j.location}` : ""}
@@ -288,7 +272,7 @@ function JobDetailPanel({
               Apply
             </Button>
             <Button variant="light" color="danger" startContent={<IconX size={15} />} onPress={() => onDismiss(match)}>
-              Not a fit
+              Dismiss
             </Button>
           </>
         )}
@@ -574,24 +558,11 @@ export default function EmployeeDetailPage() {
     navigate(`/admin/apply-email?employee=${empId}&job=${match.job.id}&match=${match.id}`);
   };
 
-  // 025: skip ngay trên card khi lướt — dismiss + gỡ khỏi list tại chỗ
-  // (optimistic; không reload để giữ vị trí scroll khi đang lướt).
-  const skipMatch = async (match: EmployeeJobMatch) => {
-    setMatches((prev) => prev.filter((m) => m.id !== match.id));
-    setTotal((t) => Math.max(0, t - 1));
-    try {
-      await matchService.update(match.id, { status: "dismissed" });
-    } catch {
-      addToast({ title: "Failed to skip", color: "danger" });
-      await reload();
-    }
-  };
-
-  // Not a fit: hide from the list, keep out of re-ranking, store as a label.
+  // Dismiss: hide from the list, keep out of re-ranking, store as a label.
   const dismissMatch = async (match: EmployeeJobMatch) => {
     try {
       await matchService.update(match.id, { status: "dismissed" });
-      addToast({ title: "Marked as not a fit", description: "Hidden from this list and won't be re-ranked.", color: "default" });
+      addToast({ title: "Dismissed", description: "Hidden from this list and won't be re-ranked.", color: "default" });
       await reload();
     } catch {
       addToast({ title: "Failed to update", color: "danger" });
@@ -739,7 +710,7 @@ export default function EmployeeDetailPage() {
           {/* left list — explicit "View more" button (no auto-scroll load) */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0, overflow: "auto", paddingRight: 4 }}>
             {matches.map((m) => (
-              <JobListItem key={m.id} match={m} selected={m.id === selectedId} onSelect={() => setSelectedId(m.id)} onSkip={() => void skipMatch(m)} />
+              <JobListItem key={m.id} match={m} selected={m.id === selectedId} onSelect={() => setSelectedId(m.id)} />
             ))}
             {hasMore ? (
               <Button
