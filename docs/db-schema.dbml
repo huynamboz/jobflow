@@ -1,0 +1,424 @@
+// JobFlow-GNN — DB schema (DBML). Paste into https://dbdiagram.io
+// Generated from Django models. ~28 tables.
+
+// ===== users =====
+Table users {
+  id int [pk]
+  password varchar
+  last_login datetime [null]
+  is_superuser boolean
+  username varchar [unique]
+  first_name varchar
+  last_name varchar
+  email varchar
+  is_staff boolean
+  is_active boolean
+  date_joined datetime
+  role varchar
+  notify_daily_digest boolean
+  unsubscribe_token varchar [unique]
+}
+
+// ===== skills =====
+Table skills {
+  id int [pk]
+  canonical_name varchar [unique]
+  category int
+  aliases json
+}
+
+// ===== employees (staffing) =====
+Table employees {
+  id int [pk]
+  full_name varchar
+  email varchar
+  phone varchar
+  position varchar
+  seniority int
+  experience_years float [null]
+  skills json
+  cv_file varchar [null]
+  parsed_at datetime [null]
+  is_parse_failed boolean
+  notes text
+  created_by_id int [null, ref: > users.id]
+  created_at datetime
+  updated_at datetime
+}
+Table employee_cvs {
+  id int [pk]
+  employee_id int [ref: > employees.id]
+  cv_file varchar
+  label varchar
+  position varchar
+  seniority int
+  experience_years float [null]
+  skills json
+  parsed_at datetime [null]
+  is_parse_failed boolean
+  is_active boolean
+  created_at datetime
+}
+Table employee_job_matches {
+  id int [pk]
+  employee_id int [ref: > employees.id]
+  job_id int [ref: > jobs.id]
+  status varchar
+  match_score float
+  matched_skills json
+  missing_skills json
+  covered_skills json
+  score_breakdown json
+  seniority_gap int [null]
+  dim_scores json
+  assigned_to_id int [null, ref: > users.id]
+  notes text
+  applied_at datetime [null]
+  won_at datetime [null]
+  lost_at datetime [null]
+  created_at datetime
+  updated_at datetime
+}
+
+// ===== mail (026) =====
+Table employee_mail_credentials {
+  id int [pk]
+  employee_id int [unique, ref: > employees.id]
+  gmail_address varchar [unique]
+  password_encrypted text
+  status varchar
+  last_error text
+  last_polled_at datetime [null]
+  linked_at datetime
+  updated_at datetime
+}
+Table email_logs {
+  id int [pk]
+  employee_id int [ref: > employees.id]
+  match_id int [null, ref: > employee_job_matches.id]
+  direction varchar
+  from_addr varchar
+  to_addr varchar
+  subject text
+  body_text text
+  message_id text
+  in_reply_to text
+  is_bounce boolean
+  cv_attached boolean
+  status varchar
+  error text
+  created_at datetime
+}
+Table notifications {
+  id int [pk]
+  "type" varchar
+  title varchar
+  body_preview text
+  link_url text
+  employee_id int [null, ref: > employees.id]
+  read_at datetime [null]
+  created_at datetime
+}
+
+// ===== jobs catalog =====
+Table platforms {
+  id int [pk]
+  name varchar [unique]
+  slug varchar [unique]
+  base_url varchar
+  logo_url varchar
+  is_active boolean
+  created_at datetime
+}
+Table companies {
+  id int [pk]
+  name varchar
+  logo_url varchar
+  website_url varchar
+  industry varchar
+  size varchar
+  location varchar
+  created_at datetime
+  updated_at datetime
+}
+Table company_platforms {
+  id int [pk]
+  company_id int [ref: > companies.id]
+  platform_id int [ref: > platforms.id]
+  profile_url varchar
+}
+Table jobs {
+  id int [pk]
+  platform_id int [null, ref: > platforms.id]
+  company_id int [null, ref: > companies.id]
+  title varchar
+  description text
+  location varchar
+  seniority int
+  job_type varchar
+  salary_min int
+  salary_max int
+  salary_currency varchar
+  role_category varchar
+  experience_min float [null]
+  experience_max float [null]
+  source_url varchar
+  fingerprint varchar
+  applicant_count varchar
+  is_active boolean
+  lifecycle varchar
+  last_seen_at datetime
+  last_verified_at datetime [null]
+  verification_attempts int
+  verification_backoff_until datetime [null]
+  date_posted datetime [null]
+  created_at datetime
+  updated_at datetime
+}
+Table job_skills {
+  id int [pk]
+  job_id int [ref: > jobs.id]
+  skill_id int [ref: > skills.id]
+  importance int
+}
+Table jd_extraction_batches {
+  id int [pk]
+  file_path varchar
+  fields_config json
+  status varchar
+  total int
+  done_count int
+  error_count int
+  workers varchar
+  created_at datetime
+}
+Table jd_extraction_records {
+  id int [pk]
+  batch_id int [ref: > jd_extraction_batches.id]
+  "index" int
+  raw_data json
+  source_url varchar
+  combined_text text
+  content_hash varchar
+  status varchar
+  result json [null]
+  error_msg varchar
+  created_at datetime
+}
+Table verifier_run_logs {
+  id int [pk]
+  command varchar
+  platform varchar
+  started_at datetime
+  finished_at datetime
+  batch_size_requested int
+  total_examined int
+  skipped_unsupported_url int
+  counts_by_outcome json
+  session_expired_count int
+  error_count int
+  dry_run boolean
+}
+
+// ===== cv dataset =====
+Table cvs {
+  id int [pk]
+  user_id int [null, ref: > users.id]
+  file varchar [null]
+  file_name varchar
+  raw_text text
+  parsed_text text
+  candidate_name varchar
+  seniority int
+  experience_years float
+  education int
+  role_category varchar
+  work_experience json
+  source varchar
+  source_category varchar
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+Table cv_skills {
+  id int [pk]
+  cv_id int [ref: > cvs.id]
+  skill_id int [ref: > skills.id]
+  proficiency int
+}
+Table cv_extraction_batches {
+  id int [pk]
+  filter_source varchar
+  filter_source_categories json
+  status varchar
+  total int
+  done_count int
+  error_count int
+  created_at datetime
+}
+Table cv_extraction_records {
+  id int [pk]
+  batch_id int [ref: > cv_extraction_batches.id]
+  cv_id int [ref: > cvs.id]
+  status varchar
+  result json [null]
+  error_msg varchar
+  created_at datetime
+}
+
+// ===== matching / training =====
+Table match_results {
+  id int [pk]
+  cv_id int [ref: > cvs.id]
+  job_id int [ref: > jobs.id]
+  score float
+  eligible boolean
+  matched_skills json
+  missing_skills json
+  seniority_match boolean
+  created_at datetime
+}
+Table feedback {
+  id int [pk]
+  match_id int [ref: > match_results.id]
+  user_id int [ref: > users.id]
+  rating varchar
+  comment text
+  created_at datetime
+}
+Table train_runs {
+  id int [pk]
+  version varchar [unique]
+  is_active boolean
+  description text
+  status varchar
+  num_jobs int
+  num_cvs int
+  num_pairs int
+  num_skills int
+  auc_roc float [null]
+  recall_at_5 float [null]
+  recall_at_10 float [null]
+  precision_at_5 float [null]
+  precision_at_10 float [null]
+  ndcg_at_10 float [null]
+  mrr float [null]
+  best_epoch int [null]
+  final_loss float [null]
+  reranker_accuracy float [null]
+  metrics_json json
+  model_type varchar
+  hidden_channels int
+  num_layers int
+  learning_rate float
+  config_json json
+  checkpoint_path varchar
+  started_at datetime
+  completed_at datetime [null]
+  training_duration_seconds int [null]
+}
+
+// ===== labeling (ground truth) =====
+Table labeling_cv {
+  id int [pk]
+  cv_id int [unique]
+  source varchar
+  role_category varchar
+  skills json
+  seniority varchar
+  experience_years float
+  education varchar
+  text_summary text
+  pdf_path varchar
+  created_at datetime
+}
+Table labeling_job {
+  id int [pk]
+  job_id int [unique]
+  title varchar
+  role_category varchar
+  skills json
+  seniority varchar
+  experience_min float
+  experience_max float [null]
+  salary_min int [null]
+  salary_max int [null]
+  text_summary text
+  created_at datetime
+}
+Table labeling_batches {
+  id int [pk]
+  status varchar
+  total int
+  done_count int
+  error_count int
+  workers varchar
+  created_at datetime
+}
+Table labeling_pair_queue {
+  id int [pk]
+  cv_id int [ref: > labeling_cv.id]
+  job_id int [ref: > labeling_job.id]
+  skill_overlap_score float
+  bm25_score float
+  selection_reason varchar
+  priority int
+  status varchar
+  split varchar
+  created_at datetime
+}
+Table labeling_human_label {
+  id int [pk]
+  pair_id int [ref: > labeling_pair_queue.id]
+  batch_id int [null, ref: > labeling_batches.id]
+  skill_fit int
+  seniority_fit int
+  experience_fit int
+  domain_fit int
+  overall int
+  note text
+  labeled_by_id int [null, ref: > users.id]
+  created_at datetime
+}
+
+// ===== llm =====
+Table llm_providers {
+  id int [pk]
+  name varchar [unique]
+  api_key varchar
+  model varchar
+  base_url varchar
+  client_type varchar
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+Table llm_call_logs {
+  id int [pk]
+  provider_id int [null, ref: > llm_providers.id]
+  feature varchar
+  status varchar
+  input_preview varchar
+  output text
+  error_message text
+  duration_ms int [null]
+  created_at datetime
+}
+
+// ===== schedule =====
+Table verifier_schedules {
+  id int [pk]
+  command varchar [unique]
+  enabled boolean
+  batch_size int
+  batches_per_day int
+  hours_utc json
+  use_no_auth_check boolean
+  headless boolean
+  platform varchar
+  current_run_pid int [null]
+  current_run_started_at datetime [null]
+  current_run_log_path varchar
+  last_fired_at datetime [null]
+  updated_at datetime
+}

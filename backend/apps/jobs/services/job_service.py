@@ -30,11 +30,9 @@ class JobService:
 
     def __init__(self):
         from ml_service.crawler.storage import compute_fingerprint
-        from ml_service.data.skill_extractor import SkillExtractor
         from ml_service.data.skill_normalization import SkillNormalizer
 
         self._normalizer = SkillNormalizer()
-        self._extractor = SkillExtractor(self._normalizer)
         self._compute_fingerprint = compute_fingerprint
         self._skill_service = SkillService()
 
@@ -63,21 +61,33 @@ class JobService:
             size=extra.get("company_size", ""),
         )
 
-        # Extract skills + seniority
-        job_data = self._extractor.extract(raw, job_id=0)
+        # Extract structured fields with the LLM JD extractor (replaces the old
+        # rule-based SkillExtractor) — one LLM call per job.
+        from apps.jobs.services.llm_jd_extractor import extract as llm_jd_extract
 
-        # Infer job_type
-        job_type = getattr(raw, "job_type", "") or ""
-        if job_type:
-            # Take first valid choice
-            for choice in Job.JobType.values:
-                if choice in job_type.lower():
-                    job_type = choice
-                    break
-            else:
-                job_type = Job.JobType.OTHER
+        jd_text = f"{raw.title}\n\n{raw.description}".strip()
+        try:
+            r = llm_jd_extract(jd_text)
+        except Exception as e:  # noqa: BLE001 — still import the job, just without rich fields
+            logger.warning("LLM JD extraction failed for %r: %s", (raw.title or "")[:60], e)
+            r = None
 
-        # Create job
+        seniority = r.seniority if r else Job.Seniority.MID
+        role_category = (r.role_category if r else "other") or "other"
+        exp_min = r.experience_min if r else None
+        exp_max = r.experience_max if r else None
+        # Prefer the provider's real salary; fall back to the LLM's.
+        salary_min = int(raw.salary_min or (r.salary_min if r else 0) or 0)
+        salary_max = int(raw.salary_max or (r.salary_max if r else 0) or 0)
+
+        # job_type: provider value first, else LLM, normalized to a valid choice
+        jt_raw = (getattr(raw, "job_type", "") or (r.job_type if r else "") or "").lower()
+        job_type = Job.JobType.OTHER
+        for choice in Job.JobType.values:
+            if choice and choice in jt_raw:
+                job_type = choice
+                break
+
         with transaction.atomic():
             job = Job.objects.create(
                 platform=platform,
@@ -85,21 +95,30 @@ class JobService:
                 title=raw.title,
                 description=raw.description[:10000],
                 location=raw.location,
-                seniority=job_data.seniority,
+                seniority=seniority,
                 job_type=job_type,
-                salary_min=job_data.salary_min,
-                salary_max=job_data.salary_max,
+                role_category=role_category,
+                salary_min=salary_min,
+                salary_max=salary_max,
                 salary_currency=raw.salary_currency,
+                experience_min=exp_min,
+                experience_max=exp_max,
                 source_url=raw.source_url,
                 fingerprint=fingerprint,
                 applicant_count=getattr(raw, "applicant_count", ""),
                 date_posted=raw.date_posted,
             )
 
-            # Create skill associations
-            for skill_name, importance in zip(job_data.skills, job_data.skill_importances):
-                skill = self._skill_service.get_or_create(skill_name)
+            # Skills from the LLM: [{"name", "importance"}]
+            for s in (r.skills if r else []):
+                if not isinstance(s, dict):
+                    continue
+                name = self._normalizer.normalize((s.get("name") or "").strip())
+                if not name:
+                    continue
+                skill = self._skill_service.get_or_create(name)
                 if skill:
+                    importance = max(1, min(5, int(s.get("importance") or 3)))
                     JobSkill.objects.get_or_create(
                         job=job, skill=skill,
                         defaults={"importance": importance},

@@ -2,7 +2,7 @@
 
 Core modules:
     inference   — InferenceEngine, MatchResult, JobMatchResult
-    crawler     — CrawlProvider, RawJob, SkillExtractor
+    crawler     — CrawlProvider, RawJob
     cv_parser   — CVParser
     embedding   — EmbeddingProvider
     graph       — GraphBuilder, schema

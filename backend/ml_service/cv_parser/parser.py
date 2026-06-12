@@ -14,11 +14,17 @@ import logging
 import re
 from pathlib import Path
 
-from ml_service.data.skill_extractor import SkillExtractor
 from ml_service.data.skill_normalization import SkillNormalizer
 from ml_service.graph.schema import CVData, EducationLevel, SeniorityLevel
 
 logger = logging.getLogger(__name__)
+
+# Single-char skills ("c", "r") require a context pattern to avoid matching
+# standalone letters. (Inlined from the removed rule-based SkillExtractor.)
+_CONTEXT_REQUIRED: dict[str, re.Pattern] = {
+    "c": re.compile(r"\bC(?:\s*[/+]|(?:\s+(?:programming|language|developer|code)))", re.I),
+    "r": re.compile(r"\bR(?:\s+(?:programming|language|Studio|developer|statistical))", re.I),
+}
 
 _SENIORITY_PATTERNS: list[tuple[re.Pattern, SeniorityLevel]] = [
     (re.compile(r"\b(?:intern|internship|trainee)\b", re.I), SeniorityLevel.INTERN),
@@ -204,7 +210,7 @@ class CVParser:
                 result.append(canonical)
 
         # Context-required skills (c, r)
-        for canonical, pattern in SkillExtractor._CONTEXT_REQUIRED.items():
+        for canonical, pattern in _CONTEXT_REQUIRED.items():
             if canonical not in seen and pattern.search(text):
                 seen.add(canonical)
                 result.append(canonical)
