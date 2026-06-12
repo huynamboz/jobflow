@@ -63,5 +63,14 @@ class MailService {
     const r = await apiClient.get("/admin/mail/accounts/");
     return r.data as { employee: { id: number; name: string }; gmail_address: string; status: string; last_error: string; linked_at: string }[];
   }
+
+  async sync() {
+    const r = await apiClient.post("/admin/mail/sync/", {});
+    return r.data as { last_synced: string | null; active_accounts: number; errored_accounts: number; new: number };
+  }
+  async syncStatus() {
+    const r = await apiClient.get("/admin/mail/sync-status/");
+    return r.data as { last_synced: string | null; active_accounts: number; errored_accounts: number };
+  }
 }
 export const mailService = new MailService();

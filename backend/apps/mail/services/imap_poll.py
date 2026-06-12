@@ -43,7 +43,10 @@ def poll_credential(credential) -> int:
     try:
         m.login(credential.gmail_address, credential.get_password())
         m.select("INBOX", readonly=True)
-        since = (credential.updated_at or timezone.now()).strftime("%d-%b-%Y")
+        # SINCE window from the poll watermark (1-day back-buffer for safety),
+        # not updated_at (which bumps on unrelated saves).
+        watermark = credential.last_polled_at or (timezone.now() - timezone.timedelta(days=1))
+        since = (watermark - timezone.timedelta(days=1)).strftime("%d-%b-%Y")
         typ, data = m.search(None, f'(SINCE {since})')
         if typ != "OK":
             return 0
@@ -90,6 +93,8 @@ def poll_credential(credential) -> int:
             m.logout()
         except Exception:  # noqa: BLE001
             pass
+    credential.last_polled_at = timezone.now()
+    credential.save(update_fields=["last_polled_at"])
     return created
 
 

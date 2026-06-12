@@ -11,6 +11,8 @@ urlpatterns = [
     path("notifications/unread-count/", views.unread_count, name="mail-unread-count"),
     path("notifications/<int:pk>/read/", views.mark_read, name="mail-mark-read"),
     path("notifications/recent-replies/", views.recent_replies, name="mail-recent-replies"),
+    path("sync/", views.sync_now, name="mail-sync"),
+    path("sync-status/", views.sync_status, name="mail-sync-status"),
     path("logs/", views.email_log_list, name="mail-logs"),
     path("accounts/", views.credential_list, name="mail-accounts"),
 ]

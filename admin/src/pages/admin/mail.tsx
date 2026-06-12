@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IconMail, IconArrowDownLeft, IconArrowUpRight, IconAlertTriangle, IconCircleCheck, IconCircleX } from "@tabler/icons-react";
+import { IconMail, IconArrowDownLeft, IconArrowUpRight, IconAlertTriangle, IconCircleCheck, IconCircleX, IconRefresh } from "@tabler/icons-react";
+import { addToast } from "@heroui/toast";
 
 import { mailService, type MailLog } from "@/services/mail.service";
 
@@ -28,6 +29,8 @@ export default function MailPage() {
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,6 +45,24 @@ export default function MailPage() {
     } finally { setLoading(false); }
   }, [tab, page]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { mailService.syncStatus().then((d) => setLastSync(d.last_synced)).catch(() => {}); }, []);
+
+  const doSync = async () => {
+    setSyncing(true);
+    try {
+      const d = await mailService.sync();
+      setLastSync(d.last_synced);
+      addToast({ title: d.new > 0 ? `${d.new} new mail` : "Up to date", color: d.new > 0 ? "success" : "default" });
+      await load();
+    } catch {
+      addToast({ title: "Sync failed", color: "danger" });
+    } finally { setSyncing(false); }
+  };
+
+  const syncLabel = lastSync
+    ? (() => { const m = Math.round((Date.now() - new Date(lastSync).getTime()) / 60000);
+               return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; })()
+    : "never";
   useEffect(() => { setPage(1); }, [tab]);
 
   return (
@@ -50,7 +71,18 @@ export default function MailPage() {
         <IconMail size={22} style={{ color: T.accent }} />
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: T.ink, letterSpacing: "-0.02em" }}>Mail</h1>
         <span style={{ fontSize: 13, color: T.ink3 }}>Application emails, recruiter replies, and linked accounts.</span>
+        <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 12, color: T.ink4 }}>Last sync: {syncLabel}</span>
+          <button type="button" onClick={() => void doSync()} disabled={syncing}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10,
+                     border: `1px solid ${T.line}`, background: "#fff", cursor: syncing ? "default" : "pointer",
+                     fontSize: 12.5, fontWeight: 600, color: T.ink2 }}>
+            <IconRefresh size={15} style={{ color: T.accent, animation: syncing ? "mailspin 0.8s linear infinite" : "none" }} />
+            {syncing ? "Syncing…" : "Sync now"}
+          </button>
+        </span>
       </div>
+      <style>{`@keyframes mailspin { to { transform: rotate(360deg); } }`}</style>
 
       <div style={{ display: "flex", gap: 6 }}>
         {TABS.map((t) => (

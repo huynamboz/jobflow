@@ -18,6 +18,7 @@ class EmployeeMailCredential(models.Model):
     password_encrypted = models.TextField()
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
     last_error = models.TextField(blank=True, default="")
+    last_polled_at = models.DateTimeField(null=True, blank=True)  # 026: IMAP poll watermark + UI "last sync"
     linked_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

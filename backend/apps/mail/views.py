@@ -119,6 +119,39 @@ def mark_read(request, pk):
     return Response({"id": n.id, "read_at": n.read_at})
 
 
+@api_view(["POST"])
+@permission_classes(HR)
+def sync_now(request):
+    """Run the IMAP poller on demand for all active mailboxes; return new count
+    + the latest sync time (026 UI sync button)."""
+    from apps.mail.services.imap_poll import poll_credential
+    total = 0
+    for cred in EmployeeMailCredential.objects.filter(status=EmployeeMailCredential.STATUS_ACTIVE):
+        try:
+            total += poll_credential(cred)
+        except Exception as e:  # noqa: BLE001
+            cred.status = EmployeeMailCredential.STATUS_ERROR
+            cred.last_error = str(e)[:500]
+            cred.save(update_fields=["status", "last_error"])
+    return Response(_sync_status_payload(new=total))
+
+
+@api_view(["GET"])
+@permission_classes(HR)
+def sync_status(request):
+    return Response(_sync_status_payload())
+
+
+def _sync_status_payload(new: int | None = None):
+    latest = (EmployeeMailCredential.objects
+              .filter(last_polled_at__isnull=False).order_by("-last_polled_at")
+              .values_list("last_polled_at", flat=True).first())
+    active = EmployeeMailCredential.objects.filter(status=EmployeeMailCredential.STATUS_ACTIVE).count()
+    errored = EmployeeMailCredential.objects.filter(status=EmployeeMailCredential.STATUS_ERROR).count()
+    return {"last_synced": latest, "active_accounts": active, "errored_accounts": errored,
+            **({"new": new} if new is not None else {})}
+
+
 @api_view(["GET"])
 @permission_classes(HR)
 def email_log_list(request):
