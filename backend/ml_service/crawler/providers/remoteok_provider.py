@@ -127,18 +127,19 @@ class RemoteOKProvider(CrawlProvider):
         if not title or not description:
             return None
 
+        # RemoteOK descriptions are HTML — strip tags + collapse whitespace.
+        import re
+        description = re.sub(r"<[^>]+>", " ", description)
+        description = re.sub(r"\s+", " ", description).strip()
+
         company = (item.get("company") or "").strip() or "Unknown"
         location = (item.get("location") or "").strip() or "Remote"
 
-        salary_min = item.get("salary_min")
-        salary_max = item.get("salary_max")
-        # RemoteOK doesn't expose currency. Best heuristic guess: USD when in
-        # plausible annual range; otherwise leave as None to avoid bad signal.
-        currency = "USD"
-        if salary_min and salary_max and 1000 < salary_max < 1_000_000:
-            pass
-        else:
-            currency = ""
+        salary_min = _num(item.get("salary_min"))
+        salary_max = _num(item.get("salary_max"))
+        # RemoteOK doesn't expose currency. USD when in a plausible annual range;
+        # otherwise blank to avoid a bad signal.
+        currency = "USD" if (salary_max and 1000 < salary_max < 1_000_000) else ""
 
         date_posted = None
         date_str = item.get("date")
@@ -149,6 +150,8 @@ class RemoteOKProvider(CrawlProvider):
                 pass
 
         source_url = (item.get("apply_url") or item.get("url") or "").strip()
+        tags = item.get("tags") or []
+        logo = (item.get("company_logo") or item.get("logo") or "").strip()
 
         return RawJob(
             source="remoteok",
@@ -157,8 +160,19 @@ class RemoteOKProvider(CrawlProvider):
             company=company,
             location=location,
             description=description,
-            salary_min=float(salary_min) if salary_min else None,
-            salary_max=float(salary_max) if salary_max else None,
+            salary_min=salary_min,
+            salary_max=salary_max,
             salary_currency=currency,
             date_posted=date_posted,
+            raw_skills=tuple(t for t in tags if isinstance(t, str) and t.strip()),
+            company_logo_url=logo,
         )
+
+
+def _num(val) -> float | None:
+    """RemoteOK salary → float; treat 0 / empty / invalid as None."""
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return None
+    return f if f > 0 else None

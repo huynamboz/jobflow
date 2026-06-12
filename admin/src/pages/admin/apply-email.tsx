@@ -5,7 +5,8 @@ import { Button } from "@heroui/button";
 import { mailService } from "@/services/mail.service";
 import { Input } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
-import { IconArrowLeft, IconBriefcase, IconBuilding, IconMail, IconMapPin, IconSparkles, IconUser } from "@tabler/icons-react";
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/modal";
+import { IconArrowLeft, IconBriefcase, IconBuilding, IconMail, IconMailExclamation, IconMapPin, IconSparkles, IconUser } from "@tabler/icons-react";
 
 import { Card } from "@/components/ui/card";
 import { QuillEditor, type QuillHandle } from "@/components/quill-editor";
@@ -57,6 +58,7 @@ export default function ApplyEmailPage() {
   const [to, setTo] = useState("");
   const [linked, setLinked] = useState(false);
   const [linkedAddr, setLinkedAddr] = useState("");
+  const [credChecked, setCredChecked] = useState(false);
   const [sending, setSending] = useState(false);
   const [subject, setSubject] = useState("");
   const [bodyHTML, setBodyHTML] = useState("");
@@ -88,7 +90,8 @@ export default function ApplyEmailPage() {
     if (!employeeId) return;
     mailService.credentialStatus(employeeId)
       .then((c) => { setLinked(!!c.linked && c.status === "active"); setLinkedAddr(c.gmail_address || ""); })
-      .catch(() => setLinked(false));
+      .catch(() => setLinked(false))
+      .finally(() => setCredChecked(true));
   }, [employeeId]);
 
   // 026: send the application from the employee's linked Gmail, with CV attached.
@@ -251,6 +254,32 @@ export default function ApplyEmailPage() {
           </div>
         </Card>
       </div>
+
+      {/* 026: block compose if the employee has no linked Gmail */}
+      <Modal isOpen={credChecked && !linked && !!employeeId} hideCloseButton isDismissable={false} isKeyboardDismissDisabled size="md">
+        <ModalContent>
+          <ModalHeader className="flex items-center gap-2">
+            <span className="grid size-9 place-items-center rounded-xl bg-warning/10 text-warning">
+              <IconMailExclamation size={20} stroke={1.75} />
+            </span>
+            Chưa liên kết email
+          </ModalHeader>
+          <ModalBody className="text-sm text-default-600">
+            <p>
+              Nhân viên <span className="font-semibold text-foreground">{emp?.full_name || "này"}</span> chưa liên kết tài khoản Gmail,
+              nên hệ thống chưa thể gửi đơn ứng tuyển thay họ (đính kèm CV) và theo dõi thư trả lời.
+            </p>
+            <p className="text-xs text-default-400">
+              Liên kết Gmail (app password) ở trang thông tin nhân viên, sau đó quay lại đây để gửi.
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" startContent={<IconArrowLeft size={16} />} onPress={() => navigate(-1)}>Trở lại</Button>
+            <Button color="primary" startContent={<IconMail size={16} />}
+              onPress={() => navigate(`/admin/employees/${employeeId}/info`)}>Liên kết email</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

@@ -6,21 +6,16 @@ import { Input, Textarea } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/modal";
 import {
-  IconArrowLeft, IconBriefcase, IconCheck, IconMail, IconPhone, IconRefresh, IconTrash, IconUser,
+  IconArrowLeft, IconBriefcase, IconCheck, IconMail, IconPhone, IconRefresh,
+  IconTrash, IconUser, IconSettings, IconAlertTriangle,
 } from "@tabler/icons-react";
 
 import { Card } from "@/components/ui/card";
 import EmailAccountCard from "@/components/admin/email-account-card";
+import CvVersionsCard from "@/components/admin/cv-versions-card";
 import { employeeService } from "@/services/employee.service";
 import type { Employee } from "@/types/employee.types";
 
-const T = {
-  accent: "#167a7a", accent50: "#e8f4f4",
-  danger: "oklch(0.60 0.22 25)",
-  ink: "oklch(0.18 0.02 265)", ink2: "oklch(0.38 0.015 265)",
-  ink3: "oklch(0.56 0.012 265)", ink4: "oklch(0.72 0.008 265)",
-  surface: "#ffffff", surface2: "oklch(0.97 0.005 85)", line: "rgba(226,232,240,0.7)",
-};
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
 
 function initials(name: string): string {
@@ -39,6 +34,15 @@ const toForm = (e: Employee): Form => ({
   experience_years: e.experience_years != null ? String(e.experience_years) : "",
   skills: (e.skills ?? []).join(", "), notes: e.notes ?? "",
 });
+
+function SectionHeading({ icon, children, danger }: { icon: React.ReactNode; children: React.ReactNode; danger?: boolean }) {
+  return (
+    <div className={`mb-3 flex items-center gap-2 text-sm font-semibold ${danger ? "text-danger" : "text-foreground"}`}>
+      <span className={danger ? "text-danger/70" : "text-default-400"}>{icon}</span>
+      {children}
+    </div>
+  );
+}
 
 export default function EmployeeInfoPage() {
   const { id } = useParams<{ id: string }>();
@@ -94,42 +98,51 @@ export default function EmployeeInfoPage() {
     catch { addToast({ title: "Delete failed (admin only?)", color: "danger" }); setDeleting(false); }
   };
 
-  if (loading || !emp || !form) return <div style={{ padding: 40, color: T.ink4 }}>Loading…</div>;
+  if (loading || !emp || !form) {
+    return (
+      <div className="mx-auto flex max-w-5xl flex-col gap-4">
+        <div className="h-28 animate-pulse rounded-2xl bg-default-100" />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="h-72 animate-pulse rounded-2xl bg-default-100 lg:col-span-2" />
+          <div className="h-72 animate-pulse rounded-2xl bg-default-100" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 760 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <Button variant="light" isIconOnly onPress={() => navigate(`/admin/employees/${empId}`)}><IconArrowLeft size={18} /></Button>
-        <span style={{ width: 48, height: 48, borderRadius: "50%", display: "grid", placeItems: "center", background: T.accent50, color: T.accent, fontWeight: 700, fontSize: 17 }}>
+    <div className="mx-auto flex max-w-5xl flex-col gap-4">
+      {/* ── Hero header ── */}
+      <Card padding={20} className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <Button isIconOnly variant="light" radius="full" className="shrink-0" onPress={() => navigate(`/admin/employees/${empId}`)}>
+          <IconArrowLeft size={18} />
+        </Button>
+        <div className="grid size-14 shrink-0 place-items-center rounded-full bg-default-100 text-lg font-semibold text-default-600">
           {initials(emp.full_name)}
-        </span>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: T.ink, letterSpacing: "-0.02em" }}>{emp.full_name}</h1>
-          <div style={{ fontSize: 13, color: T.ink3 }}>Employee information & settings</div>
         </div>
-        <Button variant="bordered" size="sm" style={{ marginLeft: "auto" }} startContent={<IconBriefcase size={14} />}
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-xl font-bold tracking-tight text-foreground">{emp.full_name}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-default-500">
+            <span className="font-medium text-default-600">{emp.position || "—"}</span>
+            <span className="text-default-300">·</span>
+            <span>{SENIORITY_LABELS[emp.seniority] ?? emp.seniority}</span>
+            {emp.experience_years != null && <><span className="text-default-300">·</span><span>{emp.experience_years}y exp</span></>}
+            {emp.email && <span className="inline-flex items-center gap-1"><IconMail size={13} className="text-default-400" />{emp.email}</span>}
+            {emp.phone && <span className="inline-flex items-center gap-1"><IconPhone size={13} className="text-default-400" />{emp.phone}</span>}
+          </div>
+        </div>
+        <Button variant="bordered" size="sm" className="shrink-0" startContent={<IconBriefcase size={14} />}
           onPress={() => navigate(`/admin/employees/${empId}`)}>Back to jobs</Button>
-      </div>
-
-      {/* contact glance */}
-      <Card>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 18, fontSize: 13, color: T.ink2 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconUser size={14} style={{ color: T.ink4 }} />{emp.position || "—"} · {SENIORITY_LABELS[emp.seniority] ?? emp.seniority}{emp.experience_years != null ? ` · ${emp.experience_years}y` : ""}</span>
-          {emp.email && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconMail size={14} style={{ color: T.ink4 }} />{emp.email}</span>}
-          {emp.phone && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconPhone size={14} style={{ color: T.ink4 }} />{emp.phone}</span>}
-        </div>
       </Card>
 
-      {/* email link section */}
-      <section>
-        <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink3, marginBottom: 8 }}>Email account</div>
-        <EmailAccountCard employeeId={empId} />
-      </section>
+      {/* ── CV versions (drives ranking) ── */}
+      <CvVersionsCard employeeId={empId} onChanged={load} />
 
-      {/* settings / edit */}
-      <section>
-        <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink3, marginBottom: 8 }}>Settings</div>
-        <Card>
+      {/* ── Bento: settings (2col) + side stack ── */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Settings */}
+        <Card padding={20} className="lg:col-span-2">
+          <SectionHeading icon={<IconSettings size={16} />}>Settings</SectionHeading>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <Input size="sm" label="Full name" value={form.full_name} onValueChange={(v) => setForm({ ...form, full_name: v })} />
             <Input size="sm" label="Email" value={form.email} onValueChange={(v) => setForm({ ...form, email: v })} />
@@ -143,22 +156,32 @@ export default function EmployeeInfoPage() {
             <Input size="sm" className="md:col-span-2" label="Skills (comma-separated)" value={form.skills} onValueChange={(v) => setForm({ ...form, skills: v })} />
             <Textarea size="sm" className="md:col-span-2" label="Notes" value={form.notes} onValueChange={(v) => setForm({ ...form, notes: v })} />
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+          <div className="mt-4 flex flex-wrap gap-2">
             <Button color="primary" size="sm" startContent={<IconCheck size={14} />} isLoading={saving} onPress={save}>Save changes</Button>
             <Button variant="bordered" size="sm" startContent={<IconBriefcase size={14} />} isLoading={refreshing} onPress={refreshJobs}>Refresh jobs</Button>
             <Button variant="bordered" size="sm" startContent={<IconRefresh size={14} />} onPress={rescore}>Re-score (re-parse CV)</Button>
           </div>
         </Card>
-      </section>
 
-      {/* danger zone */}
-      <section>
-        <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.danger, marginBottom: 8 }}>Danger zone</div>
-        <div style={{ border: `1px solid ${T.danger}`, borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 13, color: T.ink2 }}>Delete this employee and all their job matches. This cannot be undone.</span>
-          <Button color="danger" size="sm" variant="flat" style={{ marginLeft: "auto" }} startContent={<IconTrash size={14} />} onPress={() => setDeleteOpen(true)}>Delete employee</Button>
+        {/* Side stack: email + danger */}
+        <div className="flex flex-col gap-4">
+          <section>
+            <SectionHeading icon={<IconUser size={16} />}>Email account</SectionHeading>
+            <EmailAccountCard employeeId={empId} />
+          </section>
+
+          <section>
+            <SectionHeading icon={<IconAlertTriangle size={16} />} danger>Danger zone</SectionHeading>
+            <Card padding={16}>
+              <p className="text-xs leading-relaxed text-default-500">
+                Delete this employee and all their job matches. This action cannot be undone.
+              </p>
+              <Button color="danger" size="sm" variant="light" className="mt-2 w-full justify-start px-2" startContent={<IconTrash size={14} />}
+                onPress={() => setDeleteOpen(true)}>Delete employee</Button>
+            </Card>
+          </section>
         </div>
-      </section>
+      </div>
 
       <Modal isOpen={deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(false)} size="sm">
         <ModalContent>

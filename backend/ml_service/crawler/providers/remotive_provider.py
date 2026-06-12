@@ -99,6 +99,10 @@ class RemotiveProvider(CrawlProvider):
                 pass
 
         tags = item.get("tags", [])
+        extra: dict = {}
+        category = (item.get("category") or "").strip()
+        if category:
+            extra["category"] = category
 
         return RawJob(
             source="remotive",
@@ -112,17 +116,35 @@ class RemotiveProvider(CrawlProvider):
             salary_currency="USD",
             date_posted=date_posted,
             raw_skills=tuple(tags) if tags else (),
+            company_logo_url=(item.get("company_logo") or "").strip(),
+            job_type=(item.get("job_type") or "").strip(),
+            extra=extra,
         )
 
 
 def _parse_salary(salary_str: str) -> tuple[float | None, float | None]:
-    """Parse salary string like '$50,000 - $80,000' or '50000-80000'."""
+    """Parse salary like '$60k-$130k', '$50,000 - $80,000', '50000-80000',
+    '$1.2m'. Understands k/m suffixes and $/comma. Returns (min, max)."""
     if not salary_str:
         return None, None
     import re
-    numbers = re.findall(r"[\d,]+", salary_str.replace(",", ""))
-    if len(numbers) >= 2:
-        return float(numbers[0]), float(numbers[1])
-    elif len(numbers) == 1:
-        return float(numbers[0]), float(numbers[0])
-    return None, None
+
+    nums: list[float] = []
+    for raw, suffix in re.findall(r"(\d[\d.,]*)\s*([kKmM])?", salary_str):
+        raw = raw.replace(",", "").rstrip(".")
+        try:
+            val = float(raw)
+        except ValueError:
+            continue
+        suffix = suffix.lower()
+        if suffix == "k":
+            val *= 1_000
+        elif suffix == "m":
+            val *= 1_000_000
+        nums.append(val)
+
+    if not nums:
+        return None, None
+    if len(nums) == 1:
+        return nums[0], nums[0]
+    return nums[0], nums[1]

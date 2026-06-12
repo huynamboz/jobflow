@@ -19,9 +19,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.employees.models import Employee, EmployeeJobMatch
+from apps.employees.models import Employee, EmployeeCV, EmployeeJobMatch
 from apps.employees.permissions import IsAdminUserRole, IsHRStaff
 from apps.employees.serializers import (
+    EmployeeCVSerializer,
     EmployeeDetailSerializer,
     EmployeeJobMatchSerializer,
     EmployeeListSerializer,
@@ -73,6 +74,42 @@ def _process_employee(employee_id: int) -> None:
                 connection.close()
 
         _get_parse_pool().submit(_run)
+
+
+def _process_rematch(employee_id: int) -> None:
+    """Run a rematch-only (no re-parse) in the background thread pool so the
+    caller returns immediately (027 — used after switching the active CV)."""
+    from apps.employees.tasks import _do_rematch
+
+    def _run() -> None:
+        try:
+            _do_rematch(employee_id)
+        except Exception:  # noqa: BLE001
+            logger.warning("Background rematch failed for %s", employee_id, exc_info=True)
+        finally:
+            from django.db import connection
+
+            connection.close()
+
+    _get_parse_pool().submit(_run)
+
+
+def _process_cv_version(cv_id: int) -> None:
+    """Parse one uploaded CV version in the background (027). Mirrors the
+    thread-pool fallback used for employee parse so the upload returns at once."""
+    from apps.employees.tasks import _do_parse_cv_version
+
+    def _run() -> None:
+        try:
+            _do_parse_cv_version(cv_id)
+        except Exception:  # noqa: BLE001
+            logger.warning("CV-version parse failed for %s", cv_id, exc_info=True)
+        finally:
+            from django.db import connection
+
+            connection.close()
+
+    _get_parse_pool().submit(_run)
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
@@ -171,6 +208,72 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 {"success": False, "error": {"message": str(exc)}},
                 status=drf_status.HTTP_503_SERVICE_UNAVAILABLE,
             )
+
+    # ── 027: CV versions ──────────────────────────────────────────────────
+    @action(
+        detail=True, methods=["get", "post"],
+        parser_classes=[MultiPartParser, FormParser], url_path="cvs",
+    )
+    def cvs(self, request, pk=None):
+        """GET → list CV versions (newest/active first). POST (multipart
+        `cv_file`) → store + parse a new version; the FIRST version auto-
+        activates, later uploads stay inactive until HR selects them."""
+        emp = self.get_object()
+        if request.method.lower() == "post":
+            f = request.FILES.get("cv_file") or request.FILES.get("file")
+            if not f:
+                raise ValidationError("No file provided (field name: 'cv_file').")
+            has_active = emp.cvs.filter(is_active=True).exists()
+            cv = EmployeeCV.objects.create(
+                employee=emp, cv_file=f, label=(request.data.get("label") or "").strip(),
+                is_active=not has_active,
+            )
+            _process_cv_version(cv.id)
+            return Response(
+                EmployeeCVSerializer(cv, context={"request": request}).data,
+                status=drf_status.HTTP_201_CREATED,
+            )
+        qs = emp.cvs.all()
+        return Response(EmployeeCVSerializer(qs, many=True, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"], url_path=r"cvs/(?P<cv_id>[0-9]+)/activate")
+    def cv_activate(self, request, pk=None, cv_id=None):
+        """Select a version for ranking — mirrors it onto the employee + rematch."""
+        emp = self.get_object()
+        cv = emp.cvs.filter(pk=cv_id).first()
+        if not cv:
+            return Response({"success": False, "error": {"message": "Version not found."}},
+                            status=drf_status.HTTP_404_NOT_FOUND)
+        if cv.is_parse_failed:
+            return Response({"success": False, "error": {"message": "CV này parse thất bại, không thể dùng."}},
+                            status=drf_status.HTTP_400_BAD_REQUEST)
+        if cv.parsed_at is None:
+            return Response({"success": False, "error": {"message": "CV đang được phân tích, thử lại sau."}},
+                            status=drf_status.HTTP_400_BAD_REQUEST)
+        from apps.employees.tasks import activate_cv
+
+        # flip + mirror synchronously (fast); rematch (slow GNN) runs in the
+        # background so the button returns immediately.
+        result = activate_cv(cv.id, rematch=False)
+        _process_rematch(emp.id)
+        return Response({"success": True, "data": {**result, "rematching": True}})
+
+    @action(detail=True, methods=["delete"], url_path=r"cvs/(?P<cv_id>[0-9]+)")
+    def cv_delete(self, request, pk=None, cv_id=None):
+        """Delete a non-active version (and its file). The active one is kept —
+        switch to another version first."""
+        emp = self.get_object()
+        cv = emp.cvs.filter(pk=cv_id).first()
+        if not cv:
+            return Response(status=drf_status.HTTP_204_NO_CONTENT)
+        if cv.is_active:
+            return Response(
+                {"success": False, "error": {"message": "Không thể xoá version đang dùng. Chọn version khác làm active trước."}},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+        cv.cv_file.delete(save=False)
+        cv.delete()
+        return Response(status=drf_status.HTTP_204_NO_CONTENT)
 
 
 class MatchPagination(PageNumberPagination):

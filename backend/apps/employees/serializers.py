@@ -1,7 +1,35 @@
 from rest_framework import serializers
 
-from apps.employees.models import Employee, EmployeeJobMatch
+from apps.employees.models import Employee, EmployeeCV, EmployeeJobMatch
 from apps.jobs.serializers import JobListSerializer
+
+
+class EmployeeCVSerializer(serializers.ModelSerializer):
+    """A CV version — file URL + its own parse + active flag (027)."""
+
+    filename = serializers.SerializerMethodField()
+    skills_count = serializers.SerializerMethodField()
+    parsing = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EmployeeCV
+        fields = (
+            "id", "employee", "cv_file", "filename", "label",
+            "position", "seniority", "experience_years", "skills", "skills_count",
+            "parsed_at", "is_parse_failed", "parsing", "is_active", "created_at",
+        )
+        read_only_fields = fields
+
+    def get_filename(self, obj) -> str:
+        import os
+        return os.path.basename(obj.cv_file.name) if obj.cv_file else ""
+
+    def get_skills_count(self, obj) -> int:
+        return len(obj.skills or [])
+
+    def get_parsing(self, obj) -> bool:
+        # freshly uploaded, parse not finished and not failed yet
+        return obj.parsed_at is None and not obj.is_parse_failed
 
 
 class EmployeeListSerializer(serializers.ModelSerializer):

@@ -36,6 +36,13 @@ class CredentialView(APIView):
         pw = (request.data.get("app_password") or "").replace(" ", "")
         if not address or not pw:
             return Response({"success": False, "error": {"code": "BAD_REQUEST", "message": "address + app_password required"}}, status=400)
+        # gmail_address is unique — surface a clear conflict instead of a 500
+        conflict = (EmployeeMailCredential.objects.filter(gmail_address=address)
+                    .exclude(employee=emp).select_related("employee").first())
+        if conflict:
+            return Response({"success": False, "error": {"code": "EMAIL_IN_USE",
+                "message": f"Gmail {address} đã được liên kết với nhân viên {conflict.employee.full_name}. "
+                           f"Hãy gỡ liên kết ở nhân viên đó trước, hoặc dùng địa chỉ khác."}}, status=400)
         try:
             probe(address, pw)
         except ProbeError as e:
@@ -95,7 +102,10 @@ class NotificationListView(APIView):
     permission_classes = HR
 
     def get(self, request):
-        qs = Notification.objects.all().order_by("read_at", "-created_at")
+        from django.db.models import F
+
+        # unread first (NULL read_at), then newest-first within each group
+        qs = Notification.objects.all().order_by(F("read_at").asc(nulls_first=True), "-created_at")
         unread = Notification.objects.filter(read_at__isnull=True).count()
         page = int(request.query_params.get("page", 1))
         size = 20
@@ -171,6 +181,52 @@ def email_log_list(request):
     page = int(p.get("page", 1)); size = 30
     rows = qs[(page - 1) * size: page * size]
     return Response({"count": total, "page": page, "results": EmailLogListSerializer(rows, many=True).data})
+
+
+@api_view(["GET"])
+@permission_classes(HR)
+def email_log_detail(request, pk):
+    """One email with its candidate, job, match context + the full thread for
+    its match (026 mail detail page)."""
+    log = get_object_or_404(
+        EmailLog.objects.select_related("employee", "match__job__company"), pk=pk
+    )
+    emp = log.employee
+    match = log.match
+    job = match.job if match and match.job_id else None
+
+    emp_data = None
+    if emp:
+        cred = EmployeeMailCredential.objects.filter(employee=emp).first()
+        emp_data = {
+            "id": emp.id, "full_name": emp.full_name, "position": emp.position,
+            "email": emp.email, "phone": emp.phone, "seniority": emp.seniority,
+            "experience_years": emp.experience_years, "skills": emp.skills or [],
+            # linked Gmail (the address mail is sent FROM) — never the password
+            "linked_email": cred.gmail_address if cred else "",
+            "linked_status": cred.status if cred else "",
+        }
+    job_data = None
+    if job:
+        job_data = {
+            "id": job.id, "title": job.title,
+            "company": job.company.name if job.company_id else "",
+            "location": job.location, "job_type": job.job_type,
+            "source_url": job.source_url,
+        }
+    match_data = None
+    if match:
+        match_data = {
+            "id": match.id, "status": match.status, "match_score": match.match_score,
+            "matched_skills": match.matched_skills or [], "missing_skills": match.missing_skills or [],
+        }
+    thread_qs = (EmailLog.objects.filter(match=match).order_by("created_at")
+                 if match else EmailLog.objects.filter(pk=log.pk))
+    return Response({
+        "log": EmailLogListSerializer(log).data,
+        "employee": emp_data, "job": job_data, "match": match_data,
+        "thread": EmailLogSerializer(thread_qs, many=True).data,
+    })
 
 
 @api_view(["GET"])

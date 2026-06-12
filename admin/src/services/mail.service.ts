@@ -18,6 +18,17 @@ export interface AppNotification {
   body_preview: string; link_url: string; employee: number | null;
   read_at: string | null; created_at: string;
 }
+export interface MailLogDetail {
+  log: MailLog & { employee: number; employee_name: string; match: number | null; job_title: string };
+  employee: {
+    id: number; full_name: string; position: string; email: string; phone: string;
+    seniority: number; experience_years: number | null; skills: string[];
+    linked_email: string; linked_status: string;
+  } | null;
+  job: { id: number; title: string; company: string; location: string; job_type: string; source_url: string } | null;
+  match: { id: number; status: string; match_score: number | null; matched_skills: string[]; missing_skills: string[] } | null;
+  thread: MailLog[];
+}
 
 class MailService {
   async credentialStatus(employee: number): Promise<CredentialStatus> {
@@ -58,6 +69,10 @@ class MailService {
   async logs(params: { direction?: string; status?: string; is_bounce?: string; employee?: number; page?: number } = {}) {
     const r = await apiClient.get("/admin/mail/logs/", { params });
     return r.data as { count: number; page: number; results: (MailLog & { employee: number; employee_name: string; match: number | null; job_title: string })[] };
+  }
+  async logDetail(id: number) {
+    const r = await apiClient.get<MailLogDetail>(`/admin/mail/logs/${id}/`);
+    return r.data;
   }
   async accounts() {
     const r = await apiClient.get("/admin/mail/accounts/");

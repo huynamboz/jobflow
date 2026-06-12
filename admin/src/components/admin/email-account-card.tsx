@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
+import { Chip } from "@heroui/chip";
 import { addToast } from "@heroui/toast";
-import { IconMail } from "@tabler/icons-react";
+import { IconMail, IconMailCheck, IconMailExclamation, IconShieldLock } from "@tabler/icons-react";
 
+import { Card } from "@/components/ui/card";
 import { mailService, type CredentialStatus } from "@/services/mail.service";
-
-const T = {
-  accent: "#167a7a", success: "oklch(0.62 0.17 155)", danger: "oklch(0.60 0.22 25)",
-  ink2: "oklch(0.38 0.015 265)", ink4: "oklch(0.72 0.008 265)",
-  surface: "#fff", line: "rgba(226,232,240,0.7)",
-};
 
 /** 026: link / unlink an employee's Gmail (app password). Shared by the
  *  employee info page (and previously the detail header). */
@@ -44,31 +40,51 @@ export default function EmailAccountCard({ employeeId }: { employeeId: number })
 
   const linked = cred?.linked && cred?.status === "active";
   const error = cred?.status === "error";
+
   return (
-    <div style={{ borderRadius: 12, border: `1px solid ${error ? T.danger : T.line}`, background: T.surface, padding: "12px 14px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <IconMail size={16} style={{ color: linked ? T.success : T.ink4 }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: T.ink2 }}>
-          {linked ? `Email linked · ${cred?.gmail_address}` : error ? `Email error · ${cred?.gmail_address}` : "No email linked"}
+    <Card padding={16} className={error ? "border-l-2 border-l-danger/60" : ""}>
+      <div className="flex items-center gap-3">
+        <span className={`shrink-0 ${linked ? "text-success" : error ? "text-danger" : "text-default-400"}`}>
+          {linked ? <IconMailCheck size={22} stroke={1.75} /> : error ? <IconMailExclamation size={22} stroke={1.75} /> : <IconMail size={22} stroke={1.75} />}
         </span>
-        {error && <span style={{ fontSize: 11.5, color: T.danger }}>{cred?.last_error?.slice(0, 60)}</span>}
-        <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-          {linked || error
-            ? <Button size="sm" variant="light" color="danger" isLoading={busy} onPress={doUnlink}>Unlink</Button>
-            : <Button size="sm" variant="flat" color="primary" onPress={() => setOpen((o) => !o)}>{open ? "Cancel" : "Link Gmail"}</Button>}
-        </span>
-      </div>
-      {open && !linked && (
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-          <Input size="sm" label="Gmail address" value={addr} onValueChange={setAddr} type="email" placeholder="employee@gmail.com" />
-          <Input size="sm" label="App password" value={pw} onValueChange={setPw} type="password" placeholder="16-char app password" />
-          <div style={{ fontSize: 11, color: T.ink4, lineHeight: 1.5 }}>
-            Tạo App Password tại Google Account → Security → 2-Step Verification → App passwords (cần bật 2FA).
-            Hệ thống sẽ chỉ gửi đơn ứng tuyển từ tài khoản này và đọc các thư trả lời về đơn đó. Mật khẩu được mã hoá, không hiển thị lại.
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-foreground">
+              {linked ? "Email linked" : error ? "Email error" : "No email linked"}
+            </span>
+            {linked && <Chip size="sm" variant="flat" color="success">active</Chip>}
+            {error && <Chip size="sm" variant="flat" color="danger">error</Chip>}
           </div>
-          <Button size="sm" color="primary" isLoading={busy} isDisabled={!addr || !pw} onPress={doLink}>Verify & link</Button>
+          <div className="mt-0.5 truncate text-xs text-default-500">
+            {cred?.gmail_address || "Link a Gmail to send applications from this employee's address."}
+          </div>
+          {error && cred?.last_error && <div className="mt-1 truncate text-xs text-danger">{cred.last_error.slice(0, 80)}</div>}
+        </div>
+        <div className="shrink-0">
+          {linked || error
+            ? <Button size="sm" variant="flat" color="danger" isLoading={busy} onPress={doUnlink}>Unlink</Button>
+            : <Button size="sm" variant="flat" color="primary" onPress={() => setOpen((o) => !o)}>{open ? "Cancel" : "Link Gmail"}</Button>}
+        </div>
+      </div>
+
+      {open && !linked && (
+        <div className="mt-4 flex flex-col gap-3 border-t border-default-100 pt-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Input size="sm" label="Gmail address" value={addr} onValueChange={setAddr} type="email" placeholder="employee@gmail.com" autoComplete="off" />
+            <Input size="sm" label="App password" value={pw} onValueChange={setPw} type="password" placeholder="16-char app password" autoComplete="off" />
+          </div>
+          <div className="flex items-start gap-2 rounded-xl bg-default-50 p-3 text-xs leading-relaxed text-default-500">
+            <IconShieldLock size={26} stroke={1.5} className="shrink-0 text-default-400" />
+            <span>
+              Create an App Password at <span className="font-medium text-default-600">Google Account → Security → 2-Step Verification → App passwords</span> (2FA required).
+              The system only sends applications from this account and reads replies to them. The password is encrypted and never shown again.
+            </span>
+          </div>
+          <Button size="sm" color="primary" className="self-start" isLoading={busy} isDisabled={!addr || !pw} onPress={doLink}>
+            Verify &amp; link
+          </Button>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

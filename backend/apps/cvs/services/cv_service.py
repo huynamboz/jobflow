@@ -167,10 +167,6 @@ class CVService:
         cv_data = self._parser.parse_file(file_path)
         return self._save_cv(cv_data, file_path=file_path, user=user, source=source)
 
-    def save_from_text(self, text: str, user=None, source: str = "upload") -> CV:
-        cv_data = self._parser.parse_text(text)
-        return self._save_cv(cv_data, raw_text=text, user=user, source=source)
-
     def _save_cv(self, cv_data, file_path=None, raw_text=None, user=None, source="upload", source_category="") -> CV:
         with transaction.atomic():
             cv = CV.objects.create(
@@ -193,21 +189,6 @@ class CVService:
                     )
         logger.info("Saved CV #%d: %d skills, seniority=%s", cv.id, len(cv_data.skills), cv_data.seniority.name)
         return cv
-
-    @staticmethod
-    def to_cv_data(cv: CV):
-        from ml_service.graph.schema import CVData, EducationLevel, SeniorityLevel
-        skills = tuple(cv.cv_skills.values_list("skill__canonical_name", flat=True))
-        proficiencies = tuple(cv.cv_skills.values_list("proficiency", flat=True))
-        return CVData(
-            cv_id=cv.id,
-            seniority=SeniorityLevel(cv.seniority),
-            experience_years=cv.experience_years,
-            education=EducationLevel(cv.education),
-            skills=skills,
-            skill_proficiencies=proficiencies,
-            text=cv.parsed_text or cv.raw_text,
-        )
 
     @staticmethod
     def get_all_cv_data() -> list:

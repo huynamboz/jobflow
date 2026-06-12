@@ -6,15 +6,14 @@ import { PublicRoute } from "@/components/public-route";
 import LoginPage from "@/pages/login";
 import DashboardPage from "@/pages/admin/dashboard";
 import MailPage from "@/pages/admin/mail";
+import MailDetailPage from "@/pages/admin/mail-detail";
 import SystemPage from "@/pages/admin/system";
 import LabelingPage from "@/pages/admin/labeling";
-import ModelsPage from "@/pages/admin/models";
 import JobsPage from "@/pages/admin/jobs";
 import CVsPage from "@/pages/admin/cvs";
 import LLMProvidersPage from "@/pages/admin/llm-providers";
 import CVUploadPage from "@/pages/admin/cv-upload";
 import LLMLogsPage from "@/pages/admin/llm-logs";
-import JDExtractPage from "@/pages/admin/jd-extract";
 import JDBatchLayout from "@/pages/admin/jd-batch";
 import JDBatchOverview from "@/pages/admin/jd-batch/overview";
 import JDBatchNew from "@/pages/admin/jd-batch/new";
@@ -42,13 +41,11 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="system" element={<SystemPage />} />
         <Route path="labeling" element={<LabelingPage />} />
-        <Route path="models" element={<ModelsPage />} />
         <Route path="jobs" element={<JobsPage />} />
         <Route path="cvs" element={<CVsPage />} />
         <Route path="llm-providers" element={<LLMProvidersPage />} />
         <Route path="cvs/upload" element={<CVUploadPage />} />
         <Route path="llm-logs" element={<LLMLogsPage />} />
-        <Route path="jd-extract" element={<JDExtractPage />} />
         <Route path="jd-batch" element={<JDBatchLayout />}>
           <Route index element={<JDBatchOverview />} />
           <Route path="new" element={<JDBatchNew />} />
@@ -69,6 +66,7 @@ function App() {
         {/* Feature 012 — Employee MVP */}
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="mail" element={<MailPage />} />
+        <Route path="mail/:id" element={<MailDetailPage />} />
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
         <Route path="employees/:id/info" element={<EmployeeInfoPage />} />
         <Route path="job-tracking" element={<JobTrackingPage />} />

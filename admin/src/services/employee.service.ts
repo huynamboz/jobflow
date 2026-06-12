@@ -11,6 +11,24 @@ interface ListParams {
   page?: number;
 }
 
+export interface EmployeeCV {
+  id: number;
+  employee: number;
+  cv_file: string;
+  filename: string;
+  label: string;
+  position: string;
+  seniority: number;
+  experience_years: number | null;
+  skills: string[];
+  skills_count: number;
+  parsed_at: string | null;
+  is_parse_failed: boolean;
+  parsing: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
 const PARSE_TIMEOUT = 120_000;
 
 class EmployeeService {
@@ -65,6 +83,32 @@ class EmployeeService {
       `/admin/employees/${id}/rematch/`, {}, { timeout: 120_000 },
     );
     return res.data.data;
+  }
+
+  // ── 027: CV versions ──
+  async listCvs(id: number): Promise<EmployeeCV[]> {
+    const res = await apiClient.get<EmployeeCV[]>(`/admin/employees/${id}/cvs/`);
+    return res.data;
+  }
+
+  async uploadCv(id: number, file: File, label = ""): Promise<EmployeeCV> {
+    const form = new FormData();
+    form.append("cv_file", file);
+    if (label) form.append("label", label);
+    const res = await apiClient.post<EmployeeCV>(`/admin/employees/${id}/cvs/`, form, {
+      timeout: PARSE_TIMEOUT,
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  }
+
+  /** Select a version for ranking — mirrors it onto the employee + rematch (sync). */
+  async activateCv(id: number, cvId: number): Promise<void> {
+    await apiClient.post(`/admin/employees/${id}/cvs/${cvId}/activate/`, {}, { timeout: 120_000 });
+  }
+
+  async deleteCv(id: number, cvId: number): Promise<void> {
+    await apiClient.delete(`/admin/employees/${id}/cvs/${cvId}/`);
   }
 }
 

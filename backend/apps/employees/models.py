@@ -57,6 +57,51 @@ class Employee(models.Model):
         return self.full_name
 
 
+class EmployeeCV(models.Model):
+    """A versioned CV (PDF) for an employee with its OWN parse result.
+
+    An employee can hold several CV versions; exactly one is ``is_active`` at a
+    time and its parsed fields are mirrored onto the parent ``Employee`` row —
+    which is what the matching engine reads — so ranking stays unchanged.
+    Switching the active version copies that version's parse onto the employee
+    and re-matches. (Feature 027.)
+    """
+
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name="cvs"
+    )
+    cv_file = models.FileField(upload_to="employee_cvs/")
+    label = models.CharField(max_length=200, blank=True, default="")
+
+    # per-version parse snapshot (the ranking-relevant fields)
+    position = models.CharField(max_length=200, blank=True, default="")
+    seniority = models.IntegerField(
+        choices=Job.Seniority.choices, default=Job.Seniority.MID
+    )
+    experience_years = models.FloatField(null=True, blank=True)
+    skills = models.JSONField(default=list, blank=True)
+    parsed_at = models.DateTimeField(null=True, blank=True)
+    is_parse_failed = models.BooleanField(default=False)
+
+    is_active = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "employee_cvs"
+        ordering = ["-is_active", "-created_at"]
+        constraints = [
+            # at most one active CV per employee
+            models.UniqueConstraint(
+                fields=["employee"],
+                condition=models.Q(is_active=True),
+                name="uniq_active_cv_per_employee",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"CV<{self.employee_id}> {self.label or self.cv_file.name}"
+
+
 class EmployeeJobMatch(models.Model):
     """Tracks a (employee, job) match through the staffing pipeline."""
 

@@ -14,14 +14,21 @@ logger = logging.getLogger(__name__)
 _KEEP_COLS = [
     "site",
     "job_url",
+    "job_url_direct",
     "title",
     "company",
     "location",
     "description",
+    "job_type",
+    "is_remote",
     "min_amount",
     "max_amount",
     "currency",
     "date_posted",
+    "company_url",
+    "company_industry",
+    "company_num_employees",
+    "logo_photo_url",
 ]
 
 
@@ -92,6 +99,21 @@ class JobSpyProvider(CrawlProvider):
             if pd.isna(date_posted):
                 date_posted = None
 
+            # Extra metadata that RawJob has no first-class field for.
+            extra: dict = {}
+            industry = _safe_str(row.get("company_industry"))
+            if industry:
+                extra["company_industry"] = industry
+            size = _safe_str(row.get("company_num_employees"))
+            if size:
+                extra["company_size"] = size
+            remote = row.get("is_remote")
+            if pd.notna(remote):
+                extra["is_remote"] = bool(remote)
+            apply_url = _safe_str(row.get("job_url_direct"))
+            if apply_url:
+                extra["apply_url"] = apply_url
+
             jobs.append(
                 RawJob(
                     source=_safe_str(row.get("site")) or "indeed",
@@ -104,6 +126,10 @@ class JobSpyProvider(CrawlProvider):
                     salary_max=salary_max,
                     salary_currency=currency,
                     date_posted=date_posted,
+                    job_type=_safe_str(row.get("job_type")),
+                    company_logo_url=_safe_str(row.get("logo_photo_url")),
+                    company_url=_safe_str(row.get("company_url")),
+                    extra=extra,
                 )
             )
         return jobs

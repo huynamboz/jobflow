@@ -14,5 +14,6 @@ urlpatterns = [
     path("sync/", views.sync_now, name="mail-sync"),
     path("sync-status/", views.sync_status, name="mail-sync-status"),
     path("logs/", views.email_log_list, name="mail-logs"),
+    path("logs/<int:pk>/", views.email_log_detail, name="mail-log-detail"),
     path("accounts/", views.credential_list, name="mail-accounts"),
 ]

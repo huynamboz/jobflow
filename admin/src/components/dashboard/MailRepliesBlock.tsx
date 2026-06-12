@@ -1,10 +1,21 @@
 import { useEffect, useState } from "react";
-import { Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { IconMail, IconArrowDownLeft } from "@tabler/icons-react";
+import { Chip } from "@heroui/chip";
 
+import { Card } from "@/components/ui/card";
 import { mailService } from "@/services/mail.service";
 
 type Reply = { employee: { id: number; name: string }; title: string; snippet: string; created_at: string; link_url: string };
+
+function relTime(iso: string): string {
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
 
 export default function MailRepliesBlock({ refreshKey }: { refreshKey?: number }) {
   const navigate = useNavigate();
@@ -15,23 +26,31 @@ export default function MailRepliesBlock({ refreshKey }: { refreshKey?: number }
   }, [refreshKey]);
 
   if (items.length === 0) return null;
+
   return (
-    <div style={{ background: "#fff", border: "1px solid var(--line-2)", borderRadius: 14, padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <Mail className="size-4" strokeWidth={1.75} style={{ color: "var(--accent, #167a7a)" }} />
-        <span style={{ font: "600 14px/1 var(--font-node-sans)", color: "var(--ink)" }}>Mail replies</span>
-        <span style={{ marginLeft: "auto", font: "600 11px/1 var(--font-node-sans)", color: "var(--muted)" }}>{items.length}</span>
+    <Card padding={20} className="space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="grid size-9 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600">
+          <IconMail size={18} stroke={1.75} />
+        </div>
+        <h3 className="text-sm font-semibold text-foreground">Mail replies</h3>
+        <Chip size="sm" color="success" variant="flat" className="ml-auto">{items.length}</Chip>
       </div>
-      <div style={{ display: "flex", flexDirection: "column" }}>
+      <div className="flex flex-col">
         {items.map((r, i) => (
           <button key={i} type="button" onClick={() => navigate(r.link_url.replace(/^\/admin/, "/admin"))}
-            style={{ textAlign: "left", padding: "8px 0", borderTop: i ? "1px solid var(--line)" : "none", background: "none", cursor: "pointer" }}>
-            <div style={{ font: "600 12.5px/1.3 var(--font-node-sans)", color: "var(--ink)" }}>{r.title}</div>
-            <div style={{ font: "400 12px/1.4 var(--font-node-sans)", color: "var(--muted)", marginTop: 2,
-                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.snippet}</div>
+            className={`flex items-start gap-3 px-1 py-2.5 text-left transition-colors hover:bg-default-50 ${i ? "border-t border-default-100" : ""}`}>
+            <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600">
+              <IconArrowDownLeft size={15} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold text-foreground">{r.title}</span>
+              <span className="mt-0.5 block truncate text-xs text-default-500">{r.snippet}</span>
+            </span>
+            <span className="shrink-0 text-[11px] tabular-nums text-default-400">{relTime(r.created_at)}</span>
           </button>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }

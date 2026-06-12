@@ -1,36 +1,58 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IconMail, IconArrowDownLeft, IconArrowUpRight, IconAlertTriangle, IconCircleCheck, IconCircleX, IconRefresh } from "@tabler/icons-react";
+import {
+  IconMail, IconArrowDownLeft, IconArrowUpRight, IconAlertTriangle,
+  IconCircleCheck, IconCircleX, IconRefresh, IconInbox, IconSend, IconUserCircle,
+} from "@tabler/icons-react";
+import { Button } from "@heroui/button";
+import { Chip } from "@heroui/chip";
 import { addToast } from "@heroui/toast";
 
+import { Card } from "@/components/ui/card";
 import { mailService, type MailLog } from "@/services/mail.service";
-
-const T = {
-  ink: "var(--ink, #0f172a)", ink2: "#334155", ink3: "#64748b", ink4: "#94a3b8",
-  line: "var(--line, #e2e8f0)", surface: "#fff", surface2: "#f8fafc",
-  accent: "#167a7a", accent50: "#e8f4f4", success: "#16a34a", danger: "#dc2626", warning: "#c2410c",
-};
 
 type LogRow = MailLog & { employee: number; employee_name: string; match: number | null; job_title: string };
 type Account = { employee: { id: number; name: string }; gmail_address: string; status: string; last_error: string; linked_at: string };
+type TabKey = "sent" | "replies" | "bounces" | "accounts";
 
 const TABS = [
-  { key: "sent", label: "Sent", dir: "out", bounce: "" },
-  { key: "replies", label: "Replies", dir: "in", bounce: "" },
-  { key: "bounces", label: "Bounces", dir: "in", bounce: "1" },
-  { key: "accounts", label: "Linked accounts", dir: "", bounce: "" },
+  { key: "sent", label: "Sent", dir: "out", bounce: "", icon: IconSend, tint: "text-primary bg-primary/10" },
+  { key: "replies", label: "Replies", dir: "in", bounce: "", icon: IconInbox, tint: "text-emerald-600 bg-emerald-500/10" },
+  { key: "bounces", label: "Bounces", dir: "in", bounce: "1", icon: IconAlertTriangle, tint: "text-danger bg-danger/10" },
+  { key: "accounts", label: "Linked accounts", dir: "", bounce: "", icon: IconUserCircle, tint: "text-violet-600 bg-violet-500/10" },
 ] as const;
+
+const PAGE = 30;
+
+function relTime(iso: string | null): string {
+  if (!iso) return "never";
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`;
+}
 
 export default function MailPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("sent");
+  const [tab, setTab] = useState<TabKey>("sent");
   const [rows, setRows] = useState<LogRow[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [counts, setCounts] = useState({ sent: 0, replies: 0, bounces: 0, accounts: 0 });
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+
+  const loadCounts = useCallback(async () => {
+    try {
+      const [s, r, b, a] = await Promise.all([
+        mailService.logs({ direction: "out", page: 1 }),
+        mailService.logs({ direction: "in", page: 1 }),
+        mailService.logs({ direction: "in", is_bounce: "1", page: 1 }),
+        mailService.accounts(),
+      ]);
+      setCounts({ sent: s.count, replies: r.count, bounces: b.count, accounts: a.length });
+    } catch { /* counts are best-effort */ }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,8 +66,11 @@ export default function MailPage() {
       }
     } finally { setLoading(false); }
   }, [tab, page]);
+
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void loadCounts(); }, [loadCounts]);
   useEffect(() => { mailService.syncStatus().then((d) => setLastSync(d.last_synced)).catch(() => {}); }, []);
+  useEffect(() => { setPage(1); }, [tab]);
 
   const doSync = async () => {
     setSyncing(true);
@@ -53,125 +78,179 @@ export default function MailPage() {
       const d = await mailService.sync();
       setLastSync(d.last_synced);
       addToast({ title: d.new > 0 ? `${d.new} new mail` : "Up to date", color: d.new > 0 ? "success" : "default" });
-      await load();
+      await Promise.all([load(), loadCounts()]);
     } catch {
       addToast({ title: "Sync failed", color: "danger" });
     } finally { setSyncing(false); }
   };
 
-  const syncLabel = lastSync
-    ? (() => { const m = Math.round((Date.now() - new Date(lastSync).getTime()) / 60000);
-               return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; })()
-    : "never";
-  useEffect(() => { setPage(1); }, [tab]);
+  const pages = useMemo(() => Math.max(1, Math.ceil(count / PAGE)), [count]);
+  const activeTab = TABS.find((t) => t.key === tab)!;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <IconMail size={22} style={{ color: T.accent }} />
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: T.ink, letterSpacing: "-0.02em" }}>Mail</h1>
-        <span style={{ fontSize: 13, color: T.ink3 }}>Application emails, recruiter replies, and linked accounts.</span>
-        <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 12, color: T.ink4 }}>Last sync: {syncLabel}</span>
-          <button type="button" onClick={() => void doSync()} disabled={syncing}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 10,
-                     border: `1px solid ${T.line}`, background: "#fff", cursor: syncing ? "default" : "pointer",
-                     fontSize: 12.5, fontWeight: 600, color: T.ink2 }}>
-            <IconRefresh size={15} style={{ color: T.accent, animation: syncing ? "mailspin 0.8s linear infinite" : "none" }} />
-            {syncing ? "Syncing…" : "Sync now"}
-          </button>
-        </span>
-      </div>
+    <div className="flex flex-col gap-5">
       <style>{`@keyframes mailspin { to { transform: rotate(360deg); } }`}</style>
 
-      <div style={{ display: "flex", gap: 6 }}>
-        {TABS.map((t) => (
-          <button key={t.key} type="button" onClick={() => setTab(t.key)}
-            style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-                     border: `1px solid ${tab === t.key ? T.accent : T.line}`,
-                     background: tab === t.key ? T.accent : T.surface, color: tab === t.key ? "#fff" : T.ink2 }}>
-            {t.label}
-          </button>
-        ))}
+      {/* ── Hero header ── */}
+      <Card padding={20} className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <IconMail size={26} stroke={1.75} />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight text-foreground">Mail</h1>
+            <p className="truncate text-sm text-default-500">Application emails, recruiter replies, and linked Gmail accounts.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 sm:ml-auto">
+          <div className="text-right leading-tight">
+            <div className="text-[11px] uppercase tracking-wide text-default-400">Last sync</div>
+            <div className="text-xs font-semibold tabular-nums text-default-600">{relTime(lastSync)}</div>
+          </div>
+          <Button color="primary" variant="shadow" size="sm" isLoading={syncing}
+            onPress={() => void doSync()}
+            startContent={!syncing && <IconRefresh size={16} style={{ animation: syncing ? "mailspin 0.8s linear infinite" : "none" }} />}>
+            {syncing ? "Syncing…" : "Sync now"}
+          </Button>
+        </div>
+      </Card>
+
+      {/* ── Stat strip = tab selector ── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          const active = tab === t.key;
+          const value = counts[t.key];
+          return (
+            <Card key={t.key} hoverable padding={16} onClick={() => setTab(t.key)}
+              className={`relative ${active ? "ring-2 ring-primary ring-offset-1" : ""}`}>
+              <div className="flex items-center gap-3">
+                <div className={`grid size-10 shrink-0 place-items-center rounded-xl ${t.tint}`}>
+                  <Icon size={20} stroke={1.75} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-2xl font-bold tabular-nums leading-none text-foreground">{value}</div>
+                  <div className="mt-1 truncate text-xs font-medium text-default-500">{t.label}</div>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
-      <div style={{ border: `1px solid ${T.line}`, borderRadius: 14, overflow: "hidden", background: T.surface }}>
+      {/* ── Body ── */}
+      <Card padding={0} className="overflow-hidden">
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: T.ink4 }}>Loading…</div>
+          <div className="flex flex-col gap-2 p-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-11 animate-pulse rounded-lg bg-default-100" />
+            ))}
+          </div>
         ) : tab === "accounts" ? (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead><tr style={{ background: T.surface2, color: T.ink3, textAlign: "left" }}>
-              <th style={th}>Employee</th><th style={th}>Gmail</th><th style={th}>Status</th><th style={th}>Linked</th>
-            </tr></thead>
-            <tbody>
-              {accounts.length === 0 && <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: T.ink4 }}>No linked accounts</td></tr>}
-              {accounts.map((a, i) => (
-                <tr key={i} style={{ borderTop: `1px solid ${T.line}`, cursor: "pointer" }}
-                    onClick={() => navigate(`/admin/employees/${a.employee.id}`)}>
-                  <td style={td}>{a.employee.name}</td>
-                  <td style={td}>{a.gmail_address}</td>
-                  <td style={td}>
-                    {a.status === "active"
-                      ? <span style={{ color: T.success, display: "inline-flex", alignItems: "center", gap: 4 }}><IconCircleCheck size={14} />active</span>
-                      : <span style={{ color: T.danger, display: "inline-flex", alignItems: "center", gap: 4 }} title={a.last_error}><IconCircleX size={14} />error</span>}
-                  </td>
-                  <td style={{ ...td, color: T.ink4 }}>{new Date(a.linked_at).toLocaleDateString("vi-VN")}</td>
+          accounts.length === 0 ? (
+            <EmptyState icon={<IconUserCircle size={28} stroke={1.5} />}
+              title="No linked accounts"
+              hint="Link an employee's Gmail from their info page to send applications from their own address." />
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-default-50 text-left text-[11px] uppercase tracking-wide text-default-400">
+                  <Th>Employee</Th><Th>Gmail</Th><Th>Status</Th><Th>Linked</Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead><tr style={{ background: T.surface2, color: T.ink3, textAlign: "left" }}>
-                <th style={th}></th><th style={th}>Employee</th><th style={th}>Job</th>
-                <th style={th}>{tab === "sent" ? "To" : "From"}</th><th style={th}>Subject</th>
-                <th style={th}>Status</th><th style={th}>Time</th>
-              </tr></thead>
+              </thead>
               <tbody>
-                {rows.length === 0 && <tr><td colSpan={7} style={{ ...td, textAlign: "center", color: T.ink4 }}>No emails</td></tr>}
-                {rows.map((r) => (
-                  <tr key={r.id} style={{ borderTop: `1px solid ${T.line}`, cursor: r.match ? "pointer" : "default" }}
-                      onClick={() => r.match && navigate(`/admin/employees/${r.employee}?match=${r.match}`)}>
-                    <td style={td}>
-                      {r.is_bounce ? <IconAlertTriangle size={15} style={{ color: T.danger }} />
-                        : r.direction === "in" ? <IconArrowDownLeft size={15} style={{ color: T.accent }} />
-                        : <IconArrowUpRight size={15} style={{ color: T.ink4 }} />}
-                    </td>
-                    <td style={td}>{r.employee_name}</td>
-                    <td style={{ ...td, color: T.ink3 }}>{r.job_title || "—"}</td>
-                    <td style={{ ...td, color: T.ink3 }}>{tab === "sent" ? r.to_addr : r.from_addr}</td>
-                    <td style={td}>{r.subject}</td>
-                    <td style={td}>
-                      {r.is_bounce ? <span style={{ color: T.danger }}>bounced</span>
-                        : r.status === "failed" ? <span style={{ color: T.danger }}>failed</span>
-                        : <span style={{ color: T.ink3 }}>{r.status}</span>}
-                    </td>
-                    <td style={{ ...td, color: T.ink4, whiteSpace: "nowrap" }}>{new Date(r.created_at).toLocaleString("vi-VN")}</td>
+                {accounts.map((a, i) => (
+                  <tr key={i} onClick={() => navigate(`/admin/employees/${a.employee.id}/info`)}
+                    className="cursor-pointer border-t border-default-100 transition-colors hover:bg-default-50">
+                    <Td className="font-medium text-foreground">{a.employee.name}</Td>
+                    <Td className="text-default-600">{a.gmail_address}</Td>
+                    <Td>
+                      {a.status === "active"
+                        ? <Chip size="sm" variant="flat" color="success" startContent={<IconCircleCheck size={13} />}>active</Chip>
+                        : <Chip size="sm" variant="flat" color="danger" startContent={<IconCircleX size={13} />} title={a.last_error}>error</Chip>}
+                    </Td>
+                    <Td className="tabular-nums text-default-400">{new Date(a.linked_at).toLocaleDateString("vi-VN")}</Td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {count > 30 && (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderTop: `1px solid ${T.line}`, fontSize: 12.5, color: T.ink3 }}>
-                <span>{count} total</span>
-                <span style={{ display: "flex", gap: 8 }}>
-                  <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={pbtn(page <= 1)}>Prev</button>
-                  <span>page {page} / {Math.ceil(count / 30)}</span>
-                  <button type="button" disabled={page >= Math.ceil(count / 30)} onClick={() => setPage((p) => p + 1)} style={pbtn(page >= Math.ceil(count / 30))}>Next</button>
+          )
+        ) : rows.length === 0 ? (
+          <EmptyState icon={<activeTab.icon size={28} stroke={1.5} />}
+            title={tab === "sent" ? "No sent emails yet" : tab === "bounces" ? "No bounces — all delivered" : "No replies yet"}
+            hint={tab === "sent"
+              ? "Application emails you send from the system will appear here."
+              : tab === "bounces"
+                ? "Delivery failures to recruiters would show up here."
+                : "Recruiter replies to applications land here after a sync."} />
+        ) : (
+          <>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-default-50 text-left text-[11px] uppercase tracking-wide text-default-400">
+                  <Th className="w-10"> </Th><Th>Employee</Th><Th>Job</Th>
+                  <Th>{tab === "sent" ? "To" : "From"}</Th><Th>Subject</Th><Th>Status</Th><Th>Time</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} onClick={() => navigate(`/admin/mail/${r.id}`)}
+                    className="cursor-pointer border-t border-default-100 transition-colors hover:bg-default-50">
+                    <Td>
+                      <span className={`grid size-7 place-items-center rounded-lg ${
+                        r.is_bounce ? "bg-danger/10 text-danger"
+                          : r.direction === "in" ? "bg-emerald-500/10 text-emerald-600"
+                            : "bg-default-100 text-default-500"}`}>
+                        {r.is_bounce ? <IconAlertTriangle size={15} />
+                          : r.direction === "in" ? <IconArrowDownLeft size={15} />
+                            : <IconArrowUpRight size={15} />}
+                      </span>
+                    </Td>
+                    <Td className="font-medium text-foreground">{r.employee_name}</Td>
+                    <Td className="text-default-500">{r.job_title || "—"}</Td>
+                    <Td className="text-default-500">{tab === "sent" ? r.to_addr : r.from_addr}</Td>
+                    <Td className="max-w-[22ch] truncate text-default-700">{r.subject}</Td>
+                    <Td>
+                      {r.is_bounce
+                        ? <Chip size="sm" variant="flat" color="danger">bounced</Chip>
+                        : r.status === "failed"
+                          ? <Chip size="sm" variant="flat" color="danger">failed</Chip>
+                          : <Chip size="sm" variant="flat" color={r.direction === "in" ? "success" : "default"}>{r.status}</Chip>}
+                    </Td>
+                    <Td className="whitespace-nowrap tabular-nums text-default-400">{new Date(r.created_at).toLocaleString("vi-VN")}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {count > PAGE && (
+              <div className="flex items-center justify-between border-t border-default-100 px-4 py-2.5 text-xs text-default-500">
+                <span className="tabular-nums">{count} total</span>
+                <span className="flex items-center gap-3">
+                  <Button size="sm" variant="flat" isDisabled={page <= 1} onPress={() => setPage((p) => p - 1)}>Prev</Button>
+                  <span className="tabular-nums">page {page} / {pages}</span>
+                  <Button size="sm" variant="flat" isDisabled={page >= pages} onPress={() => setPage((p) => p + 1)}>Next</Button>
                 </span>
               </div>
             )}
           </>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
 
-const th: React.CSSProperties = { padding: "10px 14px", fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" };
-const td: React.CSSProperties = { padding: "10px 14px", color: T.ink2 };
-const pbtn = (disabled: boolean): React.CSSProperties => ({
-  padding: "4px 10px", borderRadius: 8, border: `1px solid ${T.line}`, background: "#fff",
-  cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, color: T.ink2,
-});
+function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <th className={`px-4 py-2.5 font-bold ${className}`}>{children}</th>;
+}
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <td className={`px-4 py-2.5 align-middle ${className}`}>{children}</td>;
+}
+function EmptyState({ icon, title, hint }: { icon: React.ReactNode; title: string; hint: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+      <div className="grid size-14 place-items-center rounded-2xl bg-default-100 text-default-400">{icon}</div>
+      <div className="text-sm font-semibold text-foreground">{title}</div>
+      <p className="max-w-xs text-xs leading-relaxed text-default-400">{hint}</p>
+    </div>
+  );
+}

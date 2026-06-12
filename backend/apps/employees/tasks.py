@@ -12,7 +12,7 @@ import logging
 from django.utils import timezone
 
 from apps.employees.matching import rematch_employee
-from apps.employees.models import Employee, EmployeeJobMatch
+from apps.employees.models import Employee, EmployeeCV, EmployeeJobMatch
 from apps.employees.parsers import parse_cv_file
 
 logger = logging.getLogger(__name__)
@@ -135,12 +135,100 @@ def _do_parse_and_match(employee_id: int) -> dict:
         emp.is_parse_failed = bool(emp.cv_file)  # only mark failed if there was a file
     emp.save()
 
+    # 027: keep an active CV version mirroring the employee's current parse so
+    # the versions list on the detail page is always consistent with what ranks.
+    _sync_active_version_from_employee(emp)
+
     # 025: after the parse above the employee's skills/position are stored —
     # match through the SAME deterministic path as scheduled re-matches
     # (match_cv_data). The old route synthesized a "Skills: ..." text and
     # LLM-parsed it AGAIN: a second LLM call whose output could drift from the
     # stored fields, making upload-time scores differ from rematch-time scores.
     return _persist_matches(emp, rematch_employee(emp, top_k=MATCH_TOP_K))
+
+
+# ── 027: CV versions ──────────────────────────────────────────────────────────
+
+def _sync_active_version_from_employee(emp: Employee) -> None:
+    """Ensure an active EmployeeCV mirrors the employee's current file + parse.
+    Used by the creation/rescore path (which writes parse onto Employee directly)
+    so every employee with a CV has a corresponding active version row."""
+    if not emp.cv_file:
+        return
+    snapshot = dict(
+        cv_file=emp.cv_file.name, position=emp.position, seniority=emp.seniority,
+        experience_years=emp.experience_years, skills=list(emp.skills or []),
+        parsed_at=emp.parsed_at, is_parse_failed=emp.is_parse_failed,
+    )
+    active = emp.cvs.filter(is_active=True).first()
+    if active is None:
+        EmployeeCV.objects.create(employee=emp, is_active=True, **snapshot)
+    else:
+        for k, v in snapshot.items():
+            setattr(active, k, v)
+        active.save()
+
+
+def _apply_version_to_employee(emp: Employee, cv: EmployeeCV) -> None:
+    """Copy a version's parse + file onto the employee (the engine's source)."""
+    emp.cv_file = cv.cv_file.name
+    emp.position = cv.position
+    emp.seniority = cv.seniority
+    emp.experience_years = cv.experience_years
+    emp.skills = list(cv.skills or [])
+    emp.parsed_at = cv.parsed_at
+    emp.is_parse_failed = cv.is_parse_failed
+    emp.save()
+
+
+def _do_parse_cv_version(cv_id: int) -> dict:
+    """Parse ONE uploaded CV version onto itself (its own snapshot). If it is the
+    active version, mirror onto the employee + rematch."""
+    try:
+        cv = EmployeeCV.objects.select_related("employee").get(pk=cv_id)
+    except EmployeeCV.DoesNotExist:
+        return {"cv_id": cv_id, "skipped": "not_found"}
+
+    parsed = parse_cv_file(cv.cv_file) if cv.cv_file else {}
+    if parsed:
+        cv.position = parsed.get("position", cv.position)
+        cv.skills = parsed.get("skills", cv.skills)
+        if "seniority" in parsed:
+            cv.seniority = parsed["seniority"]
+        if "experience_years" in parsed:
+            cv.experience_years = parsed["experience_years"]
+        cv.parsed_at = timezone.now()
+        cv.is_parse_failed = False
+    else:
+        cv.is_parse_failed = True
+    cv.save()
+
+    if cv.is_active:
+        _apply_version_to_employee(cv.employee, cv)
+        _persist_matches(cv.employee, rematch_employee(cv.employee, top_k=MATCH_TOP_K))
+    return {"cv_id": cv_id, "parsed": bool(parsed)}
+
+
+def activate_cv(cv_id: int, rematch: bool = True) -> dict:
+    """Make a version the active one: flip flags + mirror onto the employee. The
+    flip/mirror is fast; the GNN rematch is the slow part, so callers that want a
+    snappy response can pass ``rematch=False`` and run ``_do_rematch`` in the
+    background instead."""
+    try:
+        cv = EmployeeCV.objects.select_related("employee").get(pk=cv_id)
+    except EmployeeCV.DoesNotExist:
+        return {"cv_id": cv_id, "skipped": "not_found"}
+    emp = cv.employee
+    # deactivate others first to respect the one-active partial unique constraint
+    emp.cvs.exclude(pk=cv.pk).filter(is_active=True).update(is_active=False)
+    if not cv.is_active:
+        cv.is_active = True
+        cv.save(update_fields=["is_active"])
+    _apply_version_to_employee(emp, cv)
+    if not rematch:
+        return {"cv_id": cv_id, "activated": True}
+    result = _persist_matches(emp, rematch_employee(emp, top_k=MATCH_TOP_K))
+    return {"cv_id": cv_id, "activated": True, **result}
 
 
 try:
