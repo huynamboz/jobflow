@@ -37,14 +37,18 @@ function NotificationBell() {
   return (
     <Popover placement="bottom-end" isOpen={open} onOpenChange={(o) => { setOpen(o); if (o) loadList(); }}>
       <PopoverTrigger>
-        <Button isIconOnly aria-label="Notifications" radius="full" size="sm" variant="light" className="relative">
-          <Bell className="size-[18px] text-default-500" />
+        {/* badge sits on a relative wrapper OUTSIDE the Button — HeroUI Button
+            clips with overflow-hidden (ripple), which was cutting the badge. */}
+        <div className="relative inline-flex">
+          <Button isIconOnly aria-label="Notifications" radius="full" size="sm" variant="light">
+            <Bell className="size-[18px] text-default-500" />
+          </Button>
           {unread > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
+            <span className="pointer-events-none absolute -right-0.5 -top-0.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
-        </Button>
+        </div>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0">
         <div className="border-b border-default-200 px-4 py-2 text-sm font-semibold">Notifications</div>
