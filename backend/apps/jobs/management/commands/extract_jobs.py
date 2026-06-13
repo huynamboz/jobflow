@@ -1,18 +1,30 @@
-"""Extract structured JD fields from crawled jobs using the LLM (LLMService /
-llm_jd_extractor), writing data/extracted/<provider>/<date>.json.
+"""Extract structured JD fields from crawled jobs, writing
+data/extracted/<provider>/<date>.json.
 
-Decouples extraction (the expensive LLM step) from the DB write: run this to
-produce the extracted files, then `import_extracted` loads them with NO further
-LLM call. Live dashboard shows each worker + the job title it's processing.
+Decouples extraction (the expensive step) from the DB write: run this to produce
+the extracted files, then `import_extracted` loads them with NO further LLM call.
+
+Two engines (--engine):
+  llm   (default) — LLMService / llm_jd_extractor over a thread pool. The
+                    production path; works headless / in cron. Live dashboard
+                    shows each worker + the job title it's processing.
+  agent           — drive an interactive `claude` session (poc_tell_claude.sh):
+                    host slices the file → parallel subagents extract → host
+                    merges. Subscription-billed, needs a TTY/tmux, DEV/MANUAL
+                    only (do NOT schedule). Lets you extract without spending
+                    LLM-API credits for a one-off.
 
 Usage:
-    python manage.py extract_jobs                       # today, all providers
+    python manage.py extract_jobs                       # today, all providers (llm)
     python manage.py extract_jobs --provider remotive --workers 6
     python manage.py extract_jobs --provider jobspy --workers 2 --retries 3
+    python manage.py extract_jobs --provider remotive --engine agent  # via claude
 """
 import glob
 import json
 import logging
+import os
+import subprocess
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -115,11 +127,21 @@ class Command(BaseCommand):
         parser.add_argument("--date", type=str, default="", help="<date> file (default: today)")
         parser.add_argument("--in-dir", type=str, default="", help="Crawl root (default <BASE_DIR>/data/crawl)")
         parser.add_argument("--out-dir", type=str, default="", help="Output root (default <BASE_DIR>/data/extracted)")
-        parser.add_argument("--workers", type=int, default=4, help="Parallel LLM calls")
-        parser.add_argument("--retries", type=int, default=2, help="Retries on timeout/empty result per job")
+        parser.add_argument("--engine", choices=["llm", "agent"], default="agent",
+                            help="llm = LLMService API (default, headless/cron). "
+                                 "agent = drive interactive claude (poc_tell_claude.sh; subscription, dev only)")
+        parser.add_argument("--workers", type=int, default=4,
+                            help="llm: parallel LLM calls · agent: subagents per wave (12-16 good for big files)")
+        parser.add_argument("--retries", type=int, default=2, help="[llm] Retries on timeout/empty result per job")
         parser.add_argument("--desc-chars", type=int, default=6000, help="Truncate description per job (token cost)")
-        parser.add_argument("--flush-every", type=int, default=10, help="Write the output file every N done jobs")
-        parser.add_argument("--limit", type=int, default=0, help="Cap jobs per file (debug)")
+        parser.add_argument("--flush-every", type=int, default=10, help="[llm] Write the output file every N done jobs")
+        parser.add_argument("--limit", type=int, default=0, help="[llm] Cap jobs per file (debug)")
+        # agent-engine only
+        parser.add_argument("--model", type=str, default="claude-sonnet-4-6",
+                            help="[agent] claude model for the session + subagents")
+        parser.add_argument("--per-shard", type=int, default=12, help="[agent] target jobs per subagent")
+        parser.add_argument("--fresh", action="store_true",
+                            help="[agent] re-slice shards from scratch (use after changing --workers/--per-shard)")
 
     def handle(self, *args, **o):
         in_root = Path(o["in_dir"]) if o["in_dir"] else Path(settings.BASE_DIR) / "data" / "crawl"
@@ -131,6 +153,9 @@ class Command(BaseCommand):
             self.stderr.write(self.style.WARNING(f"No crawl files under {in_root}/{provider}/{date}.json"))
             return
 
+        if o["engine"] == "agent":
+            return self._run_agent_engine([Path(f) for f in files], date, o)
+
         self._console = Console() if _RICH else None
         total_ok = 0
         for f in files:
@@ -141,6 +166,48 @@ class Command(BaseCommand):
             self._console.print(f"[bold green]✓ {msg}")
         else:
             self.stdout.write(self.style.SUCCESS(msg))
+
+    def _run_agent_engine(self, files, date, o):
+        """Extract by driving an interactive claude session via poc_tell_claude.sh,
+        once per provider. The script slices/merges on the host; claude only runs
+        the per-shard extraction. Writes the SAME data/extracted/<provider>/<date>.json
+        the llm engine does, so import_extracted is unchanged.
+
+        Dev/manual only — needs a TTY + tmux + a logged-in `claude`; subscription
+        billed. Do NOT schedule this. --in-dir/--out-dir are ignored (the script
+        uses the repo defaults)."""
+        script = Path(settings.BASE_DIR).parent / "poc_tell_claude.sh"
+        if not script.exists():
+            self.stderr.write(self.style.ERROR(f"agent engine needs {script} (not found)"))
+            return
+        if os.environ.get("CLAUDECODE"):
+            self.stderr.write(self.style.ERROR(
+                "Refusing: CLAUDECODE is set — run --engine agent from a NORMAL terminal, "
+                "not inside a Claude Code session (the script spawns its own claude)."))
+            return
+
+        env = {
+            **os.environ,
+            "MODEL": o["model"],
+            "MAX_AGENTS": str(max(1, o["workers"])),
+            "PER_SHARD": str(max(1, o["per_shard"])),
+            "DESC": str(o["desc_chars"]),
+            "FRESH": "1" if o["fresh"] else "0",
+        }
+        ok = 0
+        for fpath in files:
+            provider = fpath.parent.name
+            self.stdout.write(self.style.NOTICE(
+                f"[agent] {provider}/{date} → poc_tell_claude.sh "
+                f"(model={o['model']}, ~{o['per_shard']} jobs/shard, {o['workers']} agents/wave)"))
+            rc = subprocess.run(["bash", str(script), provider, date], env=env).returncode
+            if rc == 0:
+                ok += 1
+            else:
+                self.stderr.write(self.style.WARNING(f"[agent] {provider}: script exited {rc} (gaps may remain — re-run to resume)"))
+        self.stdout.write(self.style.SUCCESS(
+            f"Done {date}. agent engine processed {ok}/{len(files)} provider file(s). "
+            f"Next: python manage.py import_extracted --date {date} --dry-run"))
 
     def _process_file(self, fpath, out_root, date, o):
         from apps.jobs.services.llm_jd_extractor import extract as llm_jd_extract

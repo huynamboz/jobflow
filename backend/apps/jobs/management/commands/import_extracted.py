@@ -59,11 +59,10 @@ class Command(BaseCommand):
                 ex = j.get("extracted")
                 if ex is None:
                     noextract += 1
-                if options["dry_run"]:
-                    created += 1
-                    continue
                 try:
-                    job = svc.save_raw_job(_dict_to_raw_job(j), extracted=ex or {})
+                    # dry_run runs the real dedup + non-tech checks read-only (no writes)
+                    job = svc.save_raw_job(_dict_to_raw_job(j), extracted=ex or {},
+                                           dry_run=options["dry_run"])
                     if job:
                         created += 1
                     else:

@@ -17,7 +17,7 @@ Audit end-to-end: crawl → extraction → labeling → export → train → ser
 | A7 | **Test metrics trong metadata degenerate**: rank toàn cục 1.744 cặp thay vì per-CV → precision@5=1.0/NDCG=1.0/MRR=1.0 vô nghĩa (AUC 0.876 là số tin được duy nhất) | Train/Eval | 🟠 HIGH | 🔎 trainer.py:373-433 |
 | A8 | **34% job live thiếu role** (2.198/6.536 trống/"other"; phía labeling 45%) → δ·domain trung tính 1/3 pool | Data | 🟠 HIGH | ✅ DB |
 | A9 | **731 row job trùng** (343 nhóm title+company) + **không dedup trong top-K** → "JavaScript Tutor" ×3 | Data/Serving | 🟠 MED-HIGH | ✅ DB + eval output |
-| A10 | Skill LLM trả về **không validate với catalog** → drop âm thầm ở sync (log DEBUG, không đếm) | Extraction | 🟠 MED | 🔎 sync_extracted.py:176-182 |
+| A10 | Skill LLM trả về **không validate với catalog** → drop âm thầm khi import (save_raw_job, không đếm) | Extraction | 🟠 MED | 🔎 job_service.py:108-115 |
 | A11 | `importance`/`proficiency` **default 3** khi LLM bỏ trống → tín hiệu "required (≥4)" (must_have penalty, missing_required features) không đáng tin | Extraction | 🟠 MED | 🔎 llm_jd_extractor.py:137 |
 | A12 | **46% job seniority=MID (3.006)** — nghi default model (`Job.seniority default=MID`) khi extraction không xác định → gate seniority méo | Data | 🟠 MED | ✅ DB + models.py:89 |
 | A13 | **48% job thiếu experience_min** (3.153 null/0) → kể cả fix A1, gate vẫn no-op nửa pool | Data | 🟠 MED | ✅ DB |

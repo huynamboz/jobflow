@@ -173,7 +173,6 @@ Auto-discovered — không cần sửa factory hay file nào khác.
 ml_service/crawler/
 ├── base.py            CrawlProvider ABC + RawJob (dataclass)
 ├── factory.py         Auto-discover providers (get_provider / list_providers)
-├── scheduler.py       CrawlScheduler — orchestrator nhiều provider (tuỳ chọn)
 ├── storage.py         JSONL save/load + fingerprint dedup + _raw_job_to_dict
 ├── README.md
 └── providers/
@@ -228,4 +227,4 @@ print(f'{len(jobs)} -> {len(unique)} unique')
 "
 ```
 
-> **Nạp DB + train**: import vào DB qua `manage.py import_jobs` / `import_cvs` / `sync_skills`. Việc **train model là offline** (script `run_train_save.py` trên LLM labels, chạy GPU Neptune — xem `docs/codebase-knowledge/05-training-pipeline.md`); đường retrain in-app (`retrain_model`/`TrainService`) **đã bị gỡ**.
+> **Nạp DB + train**: file crawl mới (`data/crawl/<provider>/*.json`) vào DB qua `manage.py extract_jobs` → `import_extracted` (xem `apps/jobs/management/commands/README.md`). Việc **train model là offline** (script `run_train_save.py` trên LLM labels, chạy GPU Neptune — xem `docs/codebase-knowledge/05-training-pipeline.md`); đường retrain in-app (`retrain_model`/`TrainService`) **đã bị gỡ**.

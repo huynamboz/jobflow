@@ -90,7 +90,7 @@ Crawl **16 role IT curated** từ LinkedIn, **tuần tự (serial main-thread)**
 ```
 - **Ghi dần (crash-safe)**: lưu file mỗi `--flush-every` job xong (mặc định 10), không gom tới cuối. File trung gian luôn hợp lệ (`extracted` hoặc `null`).
 - **Resume**: chạy lại cùng file → **bỏ qua job đã có `extracted`**, chỉ làm phần còn thiếu (tiết kiệm phí, tiếp tục sau khi Ctrl+C).
-- Tách extraction (bước LLM tốn phí) khỏi DB-write: ra file rồi `import_extracted` nạp **không gọi LLM lại**. (Còn `import_jobs`/`save_raw_job` thì extract LLM **inline** lúc import.)
+- Tách extraction (bước LLM tốn phí) khỏi DB-write: ra file rồi `import_extracted` nạp **không gọi LLM lại**. (Còn `save_raw_job(extracted=None)` thì extract LLM **inline** lúc import.)
 
 | Flag | Mặc định | Ý nghĩa |
 |---|---|---|
@@ -122,21 +122,6 @@ Crawl **16 role IT curated** từ LinkedIn, **tuần tự (serial main-thread)**
 | `--dry-run` | off | Chỉ đếm, không ghi DB |
 
 ## 📥 Nạp vào DB (đường khác)
-
-### `import_jobs` — JSONL → DB
-
-```bash
-.venv/bin/python manage.py import_jobs --file data/raw_jobs.jsonl
-```
-> ⚠️ Đọc **JSONL** (`save_raw_jobs`), KHÔNG phải file `data/crawl/<provider>/*.json` mới (mảng JSON). Đường ingest từ file crawl mới vào DB chưa được wire — cần lệnh riêng nếu muốn.
-
-### `sync_extracted` — đẩy kết quả LLM-extract vào Job/CV
-
-```bash
-.venv/bin/python manage.py sync_extracted              # cả jobs + cvs
-.venv/bin/python manage.py sync_extracted --jobs-only --dry-run
-```
-Sync `JDExtractionRecord` / `CVExtractionRecord` → `Job` / `CV`. Flags: `--jobs-only`, `--cvs-only`, `--dry-run`.
 
 ### `rebuild_jobs` — dedup + apply extraction + import
 

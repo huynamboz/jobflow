@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from django.db import transaction
@@ -18,10 +19,12 @@ logger = logging.getLogger(__name__)
 
 # Map crawl source names to platform info
 _PLATFORM_MAP = {
-    "indeed": {"name": "Indeed", "base_url": "https://indeed.com"},
-    "linkedin": {"name": "LinkedIn", "base_url": "https://linkedin.com"},
-    "adzuna": {"name": "Adzuna", "base_url": "https://adzuna.com"},
-    "remotive": {"name": "Remotive", "base_url": "https://remotive.com"},
+    "indeed": {"name": "Indeed", "base_url": "https://indeed.com", "logo_url": "https://www.google.com/s2/favicons?domain=indeed.com&sz=128"},
+    "linkedin": {"name": "LinkedIn", "base_url": "https://linkedin.com", "logo_url": "https://www.google.com/s2/favicons?domain=linkedin.com&sz=128"},
+    "adzuna": {"name": "Adzuna", "base_url": "https://adzuna.com", "logo_url": "https://www.google.com/s2/favicons?domain=adzuna.com&sz=128"},
+    "remotive": {"name": "Remotive", "base_url": "https://remotive.com", "logo_url": "https://www.google.com/s2/favicons?domain=remotive.com&sz=128"},
+    "freelancer": {"name": "Freelancer", "base_url": "https://freelancer.com", "logo_url": "https://www.google.com/s2/favicons?domain=freelancer.com&sz=128"},
+    "remoteok": {"name": "RemoteOK", "base_url": "https://remoteok.com", "logo_url": "https://www.google.com/s2/favicons?domain=remoteok.com&sz=128"},
 }
 
 
@@ -51,33 +54,44 @@ class JobService:
         }
 
     def save_raw_job(self, raw: "RawJob", extracted: dict | None = None,
-                     skip_non_tech: bool = True) -> Job | None:
+                     skip_non_tech: bool = True, dry_run: bool = False) -> "Job | bool | None":
         """Save a single RawJob to DB. `extracted` (pre-computed JD fields) skips
         the LLM; pass None to extract via LLM. With `skip_non_tech`, drops noise
         jobs (role 'other' with < 2 canonical skills — won't rank anyway).
-        Returns Job, or None if duplicate / filtered."""
-        # Get or create platform
+        Returns Job, or None if duplicate / filtered.
+
+        With `dry_run=True`, runs the SAME dedup + non-tech checks read-only (no
+        platform/company/job rows written) and returns True for "would import",
+        None for "would be skipped" — so a preview reflects real DB dedup."""
+        # Get or create platform (read-only in dry_run — a missing platform means
+        # no existing jobs for it, so the fingerprint can't be a duplicate).
         source = raw.source or "unknown"
         platform_info = _PLATFORM_MAP.get(source, {"name": source.title(), "base_url": ""})
-        platform = PlatformService.get_or_create_platform(**platform_info)
+        if dry_run:
+            slug = re.sub(r"[^a-z0-9]+", "-", platform_info["name"].lower()).strip("-")
+            platform = Platform.objects.filter(slug=slug).first()
+        else:
+            platform = PlatformService.get_or_create_platform(**platform_info)
 
         # Compute fingerprint
         fingerprint = self._compute_fingerprint(raw)
 
-        # Check duplicate per platform
-        if Job.objects.filter(platform=platform, fingerprint=fingerprint).exists():
+        # Check duplicate per platform (skip if platform doesn't exist yet in dry_run)
+        if platform is not None and Job.objects.filter(platform=platform, fingerprint=fingerprint).exists():
             return None
 
-        # Get or create company (with industry/size from extra)
+        # Get or create company (with industry/size from extra) — skip writes in dry_run
         extra = raw.extra if hasattr(raw, "extra") and isinstance(raw.extra, dict) else {}
-        company = PlatformService.get_or_create_company(
-            name=raw.company,
-            platform=platform,
-            logo_url=getattr(raw, "company_logo_url", ""),
-            profile_url=getattr(raw, "company_url", ""),
-            industry=extra.get("company_industry", ""),
-            size=extra.get("company_size", ""),
-        )
+        company = None
+        if not dry_run:
+            company = PlatformService.get_or_create_company(
+                name=raw.company,
+                platform=platform,
+                logo_url=getattr(raw, "company_logo_url", ""),
+                profile_url=getattr(raw, "company_url", ""),
+                industry=extra.get("company_industry", ""),
+                size=extra.get("company_size", ""),
+            )
 
         # Structured fields. `extracted` may be supplied pre-computed (e.g. by the
         # agent-extract pipeline → import_extracted) to skip the LLM; otherwise we
@@ -116,6 +130,10 @@ class JobService:
         # (pool needs ≥2 skills) — usually a non-IT posting that leaked in.
         if skip_non_tech and role_category == "other" and len(norm_skills) < 2:
             return None
+
+        # Passed dedup + non-tech checks → would import. Stop here in dry_run.
+        if dry_run:
+            return True
 
         with transaction.atomic():
             job = Job.objects.create(
