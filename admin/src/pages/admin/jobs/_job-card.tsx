@@ -1,7 +1,7 @@
 import { Briefcase, Check, ChevronRight, MapPin } from "lucide-react";
 import type { JobListItem } from "@/types/job.types";
 import {
-  CompanyLogo, JOB_TYPE_LABEL, PlatformChip, PlatformDot,
+  JOB_TYPE_LABEL, PlatformChip, PlatformDot, PlatformLogo,
   StatusBadge, WORK_MODES, WorkModeBadge,
   daysAgo, fmtSalary,
 } from "./_primitives";
@@ -49,7 +49,7 @@ export function JobCard({
     >
       {/* Row 1: logo + company + checkbox */}
       <div className="flex items-center gap-2.5">
-        <CompanyLogo name={job.company_name || "?"} />
+        <PlatformLogo name={job.platform_name || "?"} logo={job.platform_logo} />
         <div className="min-w-0 flex-1">
           <div
             className="truncate"
@@ -141,7 +141,7 @@ export function JobCard({
         className="flex items-center gap-2"
         style={{ font: "400 11px/16px var(--font-node-mono)", color: "var(--muted)" }}
       >
-        {job.platform_name && <PlatformChip name={job.platform_name} />}
+        {job.platform_name && <PlatformChip name={job.platform_name} logo={job.platform_logo} />}
         <span>· {daysAgo(job.date_posted)}</span>
         {job.applicant_count != null && (
           <span className="ml-auto">{job.applicant_count} applicants</span>
@@ -192,7 +192,7 @@ export function JobRow({
 
       <td className="px-4 py-3.5">
         <div className="flex items-center gap-2.5">
-          <CompanyLogo name={job.company_name || "?"} size="sm" />
+          <PlatformLogo name={job.platform_name || "?"} logo={job.platform_logo} size="sm" />
           <div className="min-w-0">
             <div
               className="truncate"
@@ -219,7 +219,7 @@ export function JobRow({
               font: "500 11.5px/16px var(--font-node-sans)",
             }}
           >
-            <PlatformDot name={job.platform_name} size="sm" />
+            <PlatformDot name={job.platform_name} logo={job.platform_logo} size="sm" />
             {job.platform_name}
           </span>
         ) : (

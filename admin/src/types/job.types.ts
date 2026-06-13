@@ -10,6 +10,7 @@ export interface JobPlatform {
   id: number;
   name: string;
   slug: string;
+  logo_url?: string;
 }
 
 export interface JobSkill {
@@ -23,6 +24,7 @@ export interface JobListItem {
   title: string;
   company_name: string;
   platform_name: string;
+  platform_logo?: string;
   location: string;
   seniority: number;
   job_type: string;

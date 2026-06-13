@@ -14,15 +14,19 @@ class PlatformService:
     """Create/get platforms and companies."""
 
     @staticmethod
-    def get_or_create_platform(name: str, base_url: str = "") -> Platform:
-        """Get or create a platform by name."""
+    def get_or_create_platform(name: str, base_url: str = "", logo_url: str = "") -> Platform:
+        """Get or create a platform by name. Backfills logo_url on existing rows
+        that don't have one yet."""
         slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
         platform, created = Platform.objects.get_or_create(
             slug=slug,
-            defaults={"name": name, "base_url": base_url},
+            defaults={"name": name, "base_url": base_url, "logo_url": logo_url},
         )
         if created:
             logger.info("Created platform: %s", name)
+        elif logo_url and not platform.logo_url:
+            platform.logo_url = logo_url
+            platform.save(update_fields=["logo_url"])
         return platform
 
     @staticmethod

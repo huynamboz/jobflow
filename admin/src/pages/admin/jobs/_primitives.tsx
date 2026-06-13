@@ -66,28 +66,80 @@ export function CompanyLogo({ name, size = "md" }: { name: string; size?: "sm" |
   );
 }
 
-// ── Platform dot (colored square with abbr) ────────────────────────
-export function PlatformDot({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
+// ── Platform logo (avatar slot — favicon if available, else colored abbr) ──
+export function PlatformLogo({ name, logo, size = "md" }: { name: string; logo?: string; size?: "sm" | "md" | "lg" }) {
+  const abbr = platformAbbr(name);
+  const bg = platformColor(name);
+  const cls =
+    size === "sm"
+      ? "size-8 rounded-lg text-xs"
+      : size === "lg"
+      ? "size-[44px] rounded-xl text-sm"
+      : "size-[38px] rounded-[10px] text-sm";
+  return (
+    <>
+      {logo && (
+        <img
+          src={logo}
+          alt=""
+          className={`${cls} shrink-0 object-contain bg-white border border-default-200 p-1 shadow-sm`}
+          // fall back to the colored-abbr square if the favicon fails to load
+          onError={(e) => {
+            const el = e.currentTarget;
+            const span = el.nextElementSibling as HTMLElement | null;
+            el.style.display = "none";
+            if (span) span.style.display = "";
+          }}
+        />
+      )}
+      <div
+        className={`${cls} shrink-0 grid place-items-center font-[800] text-white shadow-sm`}
+        style={{ background: bg, display: logo ? "none" : undefined }}
+      >
+        {abbr}
+      </div>
+    </>
+  );
+}
+
+// ── Platform dot (favicon if available, else colored square with abbr) ──
+export function PlatformDot({ name, logo, size = "md" }: { name: string; logo?: string; size?: "sm" | "md" }) {
   const abbr = platformAbbr(name);
   const bg = platformColor(name);
   const cls = size === "sm"
     ? "size-[18px] rounded-[5px] text-[8.5px]"
     : "size-[22px] rounded-[7px] text-[9.5px]";
   return (
-    <span
-      className={`${cls} shrink-0 inline-grid place-items-center font-[800] text-white`}
-      style={{ background: bg }}
-    >
-      {abbr}
-    </span>
+    <>
+      {logo && (
+        <img
+          src={logo}
+          alt=""
+          className={`${cls} shrink-0 object-contain bg-white`}
+          // fall back to the colored-abbr square if the favicon fails to load
+          onError={(e) => {
+            const el = e.currentTarget;
+            const span = el.nextElementSibling as HTMLElement | null;
+            el.style.display = "none";
+            if (span) span.style.display = "";
+          }}
+        />
+      )}
+      <span
+        className={`${cls} shrink-0 inline-grid place-items-center font-[800] text-white`}
+        style={{ background: bg, display: logo ? "none" : undefined }}
+      >
+        {abbr}
+      </span>
+    </>
   );
 }
 
 // ── Platform chip (dot + name, used inside cards) ──────────────────
-export function PlatformChip({ name }: { name: string }) {
+export function PlatformChip({ name, logo }: { name: string; logo?: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-default-100 pl-[3px] pr-2 py-[3px] text-[11.5px] font-semibold text-default-700">
-      <PlatformDot name={name} size="sm" />
+      <PlatformDot name={name} logo={logo} size="sm" />
       {name}
     </span>
   );

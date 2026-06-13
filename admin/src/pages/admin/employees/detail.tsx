@@ -151,7 +151,17 @@ function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; s
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
         {match.status !== "suggested" && <StatusChip status={match.status} />}
         {j.platform_name && (
-          <span style={{ padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: T.surface3, color: T.ink3 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px 2px 6px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: T.surface3, color: T.ink3 }}>
+            {j.platform_logo && (
+              <img
+                src={j.platform_logo}
+                alt=""
+                width={14}
+                height={14}
+                style={{ borderRadius: 3, objectFit: "contain" }}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            )}
             {j.platform_name}
           </span>
         )}

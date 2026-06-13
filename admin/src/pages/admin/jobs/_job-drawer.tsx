@@ -5,7 +5,7 @@ import { CheckCircle2, ExternalLink, MapPin, XCircle } from "lucide-react";
 import { jobService } from "@/services/job.service";
 import type { JobDetail } from "@/types/job.types";
 import {
-  CompanyLogo, JOB_TYPE_LABEL, PlatformChip, SENIORITY_LABEL,
+  JOB_TYPE_LABEL, PlatformChip, PlatformLogo, SENIORITY_LABEL,
   StatusBadge, WORK_MODES, WorkModeBadge, daysAgo, fmtSalary,
 } from "./_primitives";
 
@@ -60,7 +60,7 @@ export function DetailDrawer({
             <span className="text-default-400">Loading…</span>
           ) : job ? (
             <div className="flex items-center gap-3">
-              <CompanyLogo name={job.company?.name || "?"} size="lg" />
+              <PlatformLogo name={job.platform?.name || "?"} logo={job.platform?.logo_url} size="lg" />
               <div className="min-w-0 flex-1">
                 <div className="text-[18px] font-bold leading-snug tracking-[-0.015em] text-default-900">
                   {job.title}
