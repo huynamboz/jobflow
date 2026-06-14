@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>JobFlow — Architecture Diagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{--cream:#f4f1ea;--ink:#1c1c1e;--ink2:#3f4147;--mut:#7c7e86;--bd:#e6e2d6;--mono:'JetBrains Mono',monospace;}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--cream);line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1320px;margin:0 auto;padding:42px 28px 56px}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
+.head h1{font-size:clamp(26px,3.6vw,38px);font-weight:900;letter-spacing:-.03em;margin:0}
+.handle{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink2);white-space:nowrap;padding-top:8px}
+.sub{color:var(--ink2);font-size:14px;max-width:860px;margin:8px 0 20px}.sub b{color:var(--ink)}.sub code{font-family:var(--mono);font-size:12px;background:#ece8dd;padding:1px 6px;border-radius:5px}
+.board{background:#fbfaf6;border:1px solid var(--bd);border-radius:20px;padding:18px;box-shadow:0 12px 36px rgba(120,110,80,.06)}
+svg.diagram{width:100%;height:auto;display:block}
+.legend{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;margin-top:14px;font-size:12.5px;color:var(--ink2)}
+.legend i{width:24px;height:0;display:inline-block;margin-right:7px;vertical-align:4px}
+.legend i.solid{border-top:2.4px solid #6b6256}.legend i.thin{border-top:1.8px solid #a59a85}.legend i.dash{border-top:2px dashed #b3a98f}
+footer{margin-top:30px;text-align:center;color:var(--mut);font-size:13px;font-style:italic;border-top:1px solid var(--bd);padding-top:22px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>JobFlow — Architecture Diagram</h1>
+    <span class="handle">🛠️ huynamboz/jobflow</span>
+  </div>
+  <p class="sub">Pipeline chính chạy ngang: <b>Crawl → Extract → Import → Pool → Match</b>. Mũi tên xuống = ghi <b>store</b>;
+    mũi tên lên = <b>input / dịch vụ ngoài</b>. Model đông cứng — job mới rankable sau <code>rebuild_job_pool</code>; HR apply qua mail (026).</p>
+
+  <div class="board">
+    <svg class="diagram" viewBox="0 0 1300 560" aria-label="JobFlow pipeline diagram">
+      <defs>
+        <marker id="big" markerWidth="11" markerHeight="11" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#6b6256"/></marker>
+        <marker id="sm" markerWidth="10" markerHeight="10" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#a59a85"/></marker>
+        <marker id="dh" markerWidth="10" markerHeight="10" refX="6.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#b3a98f"/></marker>
+        <filter id="sh" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#7a715520"/></filter>
+        <style>
+          .spine{fill:none;stroke:#6b6256;stroke-width:2.6;marker-end:url(#big)}
+          .up{fill:none;stroke:#a59a85;stroke-width:1.8;marker-end:url(#sm)}
+          .dn{fill:none;stroke:#b3a98f;stroke-width:1.8;stroke-dasharray:5 5;marker-end:url(#dh)}
+          .orm{fill:none;stroke:#a59a85;stroke-width:1.8;marker-end:url(#sm)}
+          .cmd{font-family:JetBrains Mono;fill:#7c715a;font-size:10.5px;font-weight:600;text-anchor:middle}
+          .lb{fill:#7c7e86;font-size:10.5px;font-weight:600;text-anchor:middle}
+          .bt{fill:#26262a;font-weight:800;text-anchor:middle}.bs{fill:#74757d;font-size:10px;text-anchor:middle}
+          .bx rect{filter:url(#sh)}
+        </style>
+      </defs>
+
+      <!-- ═══ EDGES ═══ -->
+      <!-- spine -->
+      <path class="spine" d="M242,228 H300"/><text class="cmd" x="271" y="218">extract_jobs</text>
+      <path class="spine" d="M452,228 H510"/><text class="cmd" x="481" y="218">import_extracted</text>
+      <path class="spine" d="M662,228 H720"/><text class="cmd" x="691" y="218">rebuild_job_pool</text>
+      <path class="spine" d="M872,228 H930"/><text class="cmd" x="901" y="218">match_cv</text>
+      <!-- inputs (up arrows into spine) -->
+      <path class="up" d="M165,166 V190"/><text class="lb" x="165" y="158">crawl_daily</text>
+      <path class="up" d="M375,166 V190"/><text class="lb" x="375" y="158">LLM extract</text>
+      <path class="up" d="M1015,150 V190"/><text class="lb" x="1015" y="142">CV · /api · JWT</text>
+      <!-- right column GPU→checkpoints→Match -->
+      <path class="dn" d="M1215,150 V214"/><text class="lb" x="1262" y="190">train</text>
+      <path class="dn" d="M1138,228 H1118"/><text class="lb" x="1150" y="218" style="text-anchor:start;font-size:9.5px">frozen</text>
+      <!-- stores (down arrows from spine) -->
+      <path class="dn" d="M165,266 V330"/>
+      <path class="dn" d="M375,266 V330"/>
+      <path class="orm" d="M585,266 V330"/><text class="lb" x="600" y="302" style="text-anchor:start;font-size:9.5px">ORM</text>
+      <path class="dn" d="M795,266 V330"/><text class="lb" x="812" y="302" style="text-anchor:start;font-size:9.5px">upsert</text>
+      <path class="orm" d="M1015,266 V330"/>
+
+      <!-- ═══ NODES ═══ -->
+      <!-- inputs / external (top) -->
+      <g class="bx"><rect x="90" y="114" width="150" height="52" rx="12" fill="#fce9e7" stroke="#eeb9b3"/><text class="bt" x="165" y="136" font-size="12.5">🕷️ Crawlers</text><text class="bs" x="165" y="152">JobSpy·LinkedIn·…</text></g>
+      <g class="bx"><rect x="300" y="114" width="150" height="52" rx="12" fill="#f0ebfb" stroke="#d6c9f0"/><text class="bt" x="375" y="136" font-size="12.5">🤖 LLM provider</text><text class="bs" x="375" y="152">Claude Haiku</text></g>
+      <g class="bx"><rect x="888" y="96" width="254" height="56" rx="13" fill="#e9f1fb" stroke="#9cc3ec"/><text class="bt" x="1015" y="120" font-size="13">🖥️ HR · Admin SPA → Django API</text><text class="bs" x="1015" y="136">React·HeroUI · DRF·JWT · HR perms</text></g>
+      <g class="bx"><rect x="1150" y="114" width="130" height="52" rx="12" fill="#fbf4d9" stroke="#e0cd85"/><text class="bt" x="1215" y="136" font-size="12">⚡ GPU Neptune</text><text class="bs" x="1215" y="152">train offline</text></g>
+
+      <!-- SPINE -->
+      <g class="bx"><rect x="92" y="190" width="150" height="76" rx="14" fill="#e9f1fb" stroke="#9cc3ec"/><text x="167" y="220" text-anchor="middle" font-size="22">🕸️</text><text class="bt" x="167" y="244" font-size="13.5">Crawl</text></g>
+      <g class="bx"><rect x="302" y="190" width="150" height="76" rx="14" fill="#f0ebfb" stroke="#d6c9f0"/><text x="377" y="220" text-anchor="middle" font-size="22">🧩</text><text class="bt" x="377" y="244" font-size="13.5">Extract</text></g>
+      <g class="bx"><rect x="512" y="190" width="150" height="76" rx="14" fill="#fdeedd" stroke="#efc187"/><text x="587" y="220" text-anchor="middle" font-size="22">🗃️</text><text class="bt" x="587" y="244" font-size="13.5">Import + dedup</text></g>
+      <g class="bx"><rect x="722" y="190" width="150" height="76" rx="14" fill="#e7f5ee" stroke="#a7d8bf"/><text x="797" y="220" text-anchor="middle" font-size="22">⬡</text><text class="bt" x="797" y="244" font-size="13.5">GNN Pool</text></g>
+      <g class="bx"><rect x="932" y="190" width="180" height="76" rx="14" fill="#e3f5f0" stroke="#86ccab"/><text x="1022" y="216" text-anchor="middle" font-size="20">🎯</text><text class="bt" x="1022" y="238" font-size="13.5">Match</text><text class="bs" x="1022" y="254">retrieve → rerank → P</text></g>
+
+      <!-- right column checkpoints -->
+      <g class="bx"><rect x="1140" y="190" width="150" height="76" rx="14" fill="#f0ebfb" stroke="#d6c9f0"/><text class="bt" x="1215" y="222" font-size="12.5">🧊 checkpoints</text><text class="bs" x="1215" y="240">GNN reranker</text><text class="bs" x="1215" y="254">calibration · frozen</text></g>
+
+      <!-- STORES (bottom) -->
+      <g class="bx"><rect x="92" y="330" width="150" height="54" rx="12" fill="#fbf6e6" stroke="#e3d4a0"/><text class="bt" x="167" y="353" font-size="12">📁 data/crawl</text><text class="bs" x="167" y="369">JSON theo ngày</text></g>
+      <g class="bx"><rect x="302" y="330" width="150" height="54" rx="12" fill="#fbf6e6" stroke="#e3d4a0"/><text class="bt" x="377" y="353" font-size="12">📁 data/extracted</text><text class="bs" x="377" y="369">+ extracted block</text></g>
+      <g class="bx"><rect x="512" y="330" width="150" height="54" rx="12" fill="#fbf4d9" stroke="#e0cd85"/><text class="bt" x="587" y="353" font-size="12">🗄️ PostgreSQL</text><text class="bs" x="587" y="369">Job · JobSkill</text></g>
+      <g class="bx"><rect x="722" y="330" width="150" height="54" rx="12" fill="#e3f5f0" stroke="#93cfc3"/><text class="bt" x="797" y="353" font-size="12">📐 pgvector</text><text class="bs" x="797" y="369">job_pool_vec store</text></g>
+      <g class="bx"><rect x="930" y="330" width="184" height="54" rx="12" fill="#e7f5ee" stroke="#86ccab"/><text class="bt" x="1022" y="353" font-size="12">✅ EmployeeJobMatch</text><text class="bs" x="1022" y="369">top-100 · HR apply (mail)</text></g>
+    </svg>
+    <div class="legend">
+      <span><i class="solid"></i>pipeline (spine)</span>
+      <span><i class="thin"></i>input / gọi (HTTP · ORM)</span>
+      <span><i class="dash"></i>ghi/đọc store · frozen · train</span>
+    </div>
+  </div>
+  <footer>JobFlow · CV ↔ Job matching bằng GNN · pipeline ngang, store ở dưới, input/dịch vụ ngoài ở trên</footer>
+</div>
+</body>
+</html>

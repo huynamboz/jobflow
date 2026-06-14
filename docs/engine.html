@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>JobFlow — AI Matching Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{--cream:#f4f1ea;--ink:#1c1c1e;--ink2:#3f4147;--mut:#7c7e86;--bd:#e6e2d6;--mono:'JetBrains Mono',monospace;}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--cream);line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:42px 28px 56px}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
+.head h1{font-size:clamp(25px,3.4vw,36px);font-weight:900;letter-spacing:-.03em;margin:0}
+.handle{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink2);white-space:nowrap;padding-top:8px}
+.sub{color:var(--ink2);font-size:14px;max-width:880px;margin:8px 0 20px}.sub b{color:var(--ink)}.sub code{font-family:var(--mono);font-size:12px;background:#ece8dd;padding:1px 6px;border-radius:5px}
+.board{background:#fbfaf6;border:1px solid var(--bd);border-radius:20px;padding:18px;box-shadow:0 12px 36px rgba(120,110,80,.06)}
+svg.diagram{width:100%;height:auto;display:block}
+.legend{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;margin-top:14px;font-size:12.5px;color:var(--ink2)}
+.legend i{width:24px;height:0;display:inline-block;margin-right:7px;vertical-align:4px}
+.legend i.solid{border-top:2px solid #6b6256}.legend i.dash{border-top:1.6px dashed #b3a98f}
+footer{margin-top:30px;text-align:center;color:var(--mut);font-size:13px;font-style:italic;border-top:1px solid var(--bd);padding-top:22px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>JobFlow — AI Matching Engine</h1>
+    <span class="handle">🛠️ ml_service/inference</span>
+  </div>
+  <p class="sub">Chi tiết engine khi match 1 CV: <b>encode → ① retrieve (vector recall) → exact score shortlist → ② rerank → calibrate → output</b>.
+    Cột trái = <b>job pool</b> (in-RAM, load từ pgvector); cột phải = <b>frozen checkpoint</b> (weights đông cứng — không retrain khi serve).</p>
+
+  <div class="board">
+    <svg class="diagram" viewBox="0 0 1160 940" aria-label="AI matching engine diagram">
+      <defs>
+        <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 Z" fill="#6b6256"/></marker>
+        <marker id="ad" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto"><path d="M0,0 L6,3.5 L0,7 Z" fill="#b3a98f"/></marker>
+        <filter id="sh" x="-15%" y="-25%" width="130%" height="160%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#7a715520"/></filter>
+        <style>
+          .fl{fill:none;stroke:#6b6256;stroke-width:1.8;marker-end:url(#a)}
+          .fd{fill:none;stroke:#b3a98f;stroke-width:1.4;stroke-dasharray:5 5;marker-end:url(#ad)}
+          .ti{fill:#26262a;font-weight:800}.st{fill:#6b6256;font-size:10.5px;font-weight:700;letter-spacing:.5px}
+          .tx{fill:#3f4147;font-size:12px}.fx{font-family:JetBrains Mono;fill:#5a4f3e;font-size:11.5px}
+          .lb{fill:#7c715a;font-size:10.5px;font-weight:600}.li{fill:#5a5c63;font-size:11px}
+          .bx rect{filter:url(#sh)}
+        </style>
+      </defs>
+
+      <!-- ═══ spine arrows (gap ~40px) ═══ -->
+      <path class="fl" d="M580,90 V128"/>
+      <path class="fl" d="M580,214 V252"/>
+      <path class="fl" d="M580,364 V402"/><text class="lb" x="590" y="388">shortlist 1500</text>
+      <path class="fl" d="M580,518 V556"/><text class="lb" x="590" y="542">retrieve_n</text>
+      <path class="fl" d="M580,640 V678"/>
+      <path class="fl" d="M580,762 V800"/>
+      <!-- pool → stages -->
+      <path class="fd" d="M300,308 H310"/>
+      <path class="fd" d="M300,460 H310"/>
+      <!-- frozen → stages -->
+      <path class="fd" d="M868,180 H852"/>
+      <path class="fd" d="M868,452 H852"/>
+      <path class="fd" d="M868,598 H852"/>
+      <path class="fd" d="M868,718 H852"/>
+
+      <!-- ═══ LEFT · job pool ═══ -->
+      <g class="bx"><rect x="40" y="252" width="260" height="266" rx="14" fill="#e3f5f0" stroke="#93cfc3"/>
+        <text class="ti" x="58" y="280" font-size="13">📦 Job pool · in-RAM</text>
+        <text class="li" x="58" y="298" fill="#5a5c63" font-size="10.5">(load từ pgvector lúc startup)</text>
+        <text class="fx" x="58" y="326">gnn_emb        [N×256]</text>
+        <text class="fx" x="58" y="346">text_vec       [N×384]</text>
+        <text class="fx" x="58" y="366">skill matrix   (sparse)</text>
+        <text class="fx" x="58" y="386">role_category[] · sen[]</text>
+        <text class="fx" x="58" y="406">unit-norms (recall)</text>
+        <text class="li" x="58" y="436">N ≈ 8.9k job (≥2 skill)</text>
+        <text class="li" x="58" y="458">→ Stage 1 quét toàn bộ</text>
+        <text class="li" x="58" y="478">→ Stage 1.5 chấm shortlist</text>
+      </g>
+
+      <!-- ═══ RIGHT · frozen checkpoint ═══ -->
+      <g class="bx"><rect x="868" y="128" width="252" height="634" rx="14" fill="#f0ebfb" stroke="#d6c9f0"/>
+        <text class="ti" x="886" y="156" font-size="13">🧊 Frozen checkpoint</text>
+        <text class="li" x="886" y="174" font-size="10.5">checkpoints/latest</text>
+        <text class="fx" x="886" y="210">HeteroGraphSAGE w</text>
+        <text class="li" x="886" y="226" font-size="10.5">→ encode CV/job inductive</text>
+        <text class="fx" x="886" y="262">model.decoder</text>
+        <text class="li" x="886" y="278" font-size="10.5">→ GNN pair score (cross-enc)</text>
+        <text class="fx" x="886" y="332">reranker.pt</text>
+        <text class="li" x="886" y="348" font-size="10.5">→ Stage 2 MLP (23 feat)</text>
+        <text class="fx" x="886" y="404">calibration.json</text>
+        <text class="li" x="886" y="420" font-size="10.5">→ Platt P(match)</text>
+        <text class="fx" x="886" y="476">hybrid α/β/γ/δ</text>
+        <text class="li" x="886" y="492" font-size="10.5">.30 / .20 / .10 / .40 (metadata)</text>
+        <text class="fx" x="886" y="540">model_signature</text>
+        <text class="li" x="886" y="556" font-size="10.5">→ guard pool/calib khớp model</text>
+        <text class="li" x="886" y="604" font-size="11" fill="#7c5fb0">→ KHÔNG retrain khi serve</text>
+      </g>
+
+      <!-- ═══ SPINE (center) ═══ -->
+      <!-- 1 CV input -->
+      <g class="bx"><rect x="310" y="30" width="540" height="60" rx="13" fill="#e9f1fb" stroke="#9cc3ec"/>
+        <text class="ti" x="580" y="56" text-anchor="middle" font-size="14">🧑 CV nhân viên</text>
+        <text class="tx" x="580" y="76" text-anchor="middle">skills · seniority · role_category (cố định 025) · text</text></g>
+
+      <!-- 2 Encode -->
+      <g class="bx"><rect x="310" y="128" width="540" height="86" rx="13" fill="#fbfaf3" stroke="#dcd6c6"/>
+        <text class="st" x="330" y="150">ENCODE CV (per request)</text>
+        <line x1="580" y1="160" x2="580" y2="206" stroke="#e6e2d6"/>
+        <text class="ti" x="440" y="180" text-anchor="middle" font-size="12.5">🔤 MiniLM đa ngữ</text>
+        <text class="fx" x="440" y="198" text-anchor="middle">cv_text_vec [384]</text>
+        <text class="ti" x="722" y="180" text-anchor="middle" font-size="12.5">🧠 GNN inductive</text>
+        <text class="fx" x="722" y="198" text-anchor="middle">cv_gnn_emb [256]</text></g>
+
+      <!-- 3 Stage 1 retrieve -->
+      <g class="bx"><rect x="310" y="252" width="540" height="112" rx="13" fill="#e3f5f0" stroke="#86ccab"/>
+        <text class="st" x="330" y="276" fill="#0c6b62">① RETRIEVE · vector recall (027) — trên TOÀN pool, matmul O(N·D)</text>
+        <text class="fx" x="580" y="306" text-anchor="middle" font-size="12">recall = α·(0.6·gnn-cos + 0.4·text-cos) + β·skill + γ·sen + δ·domain</text>
+        <text class="tx" x="580" y="330" text-anchor="middle">proxy của composite (mọi term trừ decoder) — gate recall, không thay điểm</text>
+        <text class="fx" x="580" y="354" text-anchor="middle" font-size="12" fill="#0c6b62">argpartition → top-K = 1500 (shortlist)</text></g>
+
+      <!-- 4 exact score shortlist -->
+      <g class="bx"><rect x="310" y="402" width="540" height="116" rx="13" fill="#fdeedd" stroke="#efc187"/>
+        <text class="st" x="330" y="426" fill="#9a5512">EXACT SCORE · _score_pair_fast — CHỈ 1500 shortlist</text>
+        <text class="fx" x="580" y="452" text-anchor="middle" font-size="12">base = α·GNN + β·skill + γ·sen + δ·domain</text>
+        <text class="fx" x="580" y="472" text-anchor="middle" font-size="12">GNN = 0.6·σ(decoder(cv_emb, job_emb)) + 0.4·text-cos</text>
+        <text class="tx" x="580" y="494" text-anchor="middle">× penalties: role_match · must_have · edge_case</text>
+        <text class="tx" x="580" y="511" text-anchor="middle">→ sort theo composite, lấy retrieve_n</text></g>
+
+      <!-- 5 rerank -->
+      <g class="bx"><rect x="310" y="556" width="540" height="84" rx="13" fill="#f0ebfb" stroke="#d6c9f0"/>
+        <text class="st" x="330" y="580" fill="#5b3aa6">② RERANK · reranker MLP</text>
+        <text class="tx" x="580" y="602" text-anchor="middle">23 feature (gnn_score, stage1_score, dims…) → rerank_prob</text>
+        <text class="fx" x="580" y="624" text-anchor="middle" font-size="12">order = rerank_prob × penalty_product</text></g>
+
+      <!-- 6 calibrate -->
+      <g class="bx"><rect x="310" y="678" width="540" height="84" rx="13" fill="#e7f5ee" stroke="#a7d8bf"/>
+        <text class="st" x="330" y="702" fill="#1c6b48">CALIBRATE · Platt</text>
+        <text class="fx" x="580" y="724" text-anchor="middle" font-size="12">rank_score = (reranker | stage1) × penalty gates</text>
+        <text class="fx" x="580" y="746" text-anchor="middle" font-size="12" fill="#1c6b48">display = Platt(rank_score) = P(match) · eligible ≥ 0.50</text></g>
+
+      <!-- 7 output -->
+      <g class="bx"><rect x="310" y="800" width="540" height="78" rx="13" fill="#e9f1fb" stroke="#9cc3ec"/>
+        <text class="ti" x="580" y="826" text-anchor="middle" font-size="13">✅ JobMatchResult (top-k)</text>
+        <text class="tx" x="580" y="846" text-anchor="middle">score = P(match) · dim_scores {skill · exp · sen · domain} · match_level</text>
+        <text class="li" x="580" y="864" text-anchor="middle" fill="#5a5c63">→ EmployeeJobMatch (persist)</text></g>
+    </svg>
+    <div class="legend">
+      <span><i class="solid"></i>luồng xử lý (per request)</span>
+      <span><i class="dash"></i>đọc pool / frozen weights</span>
+    </div>
+  </div>
+  <footer>AI engine · 2 tầng retrieve→rerank · recall rẻ trên toàn pool → exact + decoder chỉ trên shortlist 1500 · điểm hiển thị = xác suất Platt</footer>
+</div>
+</body>
+</html>
