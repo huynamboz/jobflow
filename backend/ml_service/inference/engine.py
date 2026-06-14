@@ -95,6 +95,8 @@ class InferenceEngine:
         gamma: float = 0.15,
         delta: float = 0.0,  # feature 020: domain (role-match) weight
         threshold: float = 0.65,
+        retrieval_mode: str = "exact",  # feature 027: exact | vector | pgvector
+        retrieve_k: int = 1000,          # feature 027: shortlist size handed to exact scoring
     ) -> None:
         self._model = model
         self._data = data
@@ -107,6 +109,11 @@ class InferenceEngine:
         self._gamma = gamma
         self._delta = delta
         self._threshold = threshold
+        self._retrieval_mode = retrieval_mode
+        self._retrieve_k = int(retrieve_k)
+        # feature 027: unit-norm pool matrices for vectorized recall (set by _refresh_pool_norms)
+        self._job_text_unit: np.ndarray | None = None
+        self._job_emb_unit: np.ndarray | None = None
         self._checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else Path("checkpoints/latest")
         self._inductive_lock = threading.Lock()  # FIX 3: serialize inductive encodes
         # Feature 018: live job-pool snapshot (set by from_checkpoint / reload).
@@ -141,6 +148,13 @@ class InferenceEngine:
         if (self._checkpoint_dir / "calibration.json").exists():
             self._calibrator.load(self._checkpoint_dir)
             self._warn_if_calibration_stale()  # 025 guard (A14 family)
+
+        # feature 027: precompute unit-norm recall matrices + build the retriever
+        # seam (exact|vector|pgvector). Default 'exact' reproduces pre-027 results.
+        self._refresh_pool_norms()
+        from ml_service.inference.retrieval import get_retriever
+        self._retriever = get_retriever(self._retrieval_mode, self)
+        logger.info("Retrieval mode=%s retrieve_k=%d", self._retrieval_mode, self._retrieve_k)
 
         # 024: boot-time self-check — the per-request CV encoder has a broad
         # fallback to text-cosine (line ~977) that is correct for a single
@@ -429,13 +443,19 @@ class InferenceEngine:
         # FIX 2+3: Get GNN embedding once (thread-safe, no per-request self cache)
         cv_gnn_emb: torch.Tensor | None = self._get_cv_gnn_embedding(cv)
 
-        # --- Stage 1: Fast retrieve top N (no re-encoding) ---
+        # --- Stage 1: retrieve a candidate shortlist, then exact-score ONLY it ---
+        # feature 027: the retriever (exact|vector|pgvector) selects a shortlist by
+        # a cheap recall signal; the exact composite below runs over the shortlist,
+        # not the whole pool. `exact` mode scores all N here = pre-027 behaviour.
+        k = max(self._retrieve_k, retrieve_n)
+        shortlist = self._retriever.shortlist(cv, cv_text_vec, cv_gnn_emb, k)
+
         stage1_scores: list[tuple[int, float]] = []
         stage1_components: dict[int, dict] = {}  # 025: score-breakdown display
-        for i, job in enumerate(self._jobs):
-            score, comps = self._score_pair_fast(cv, job, i, cv_text_vec, cv_gnn_emb)
-            stage1_scores.append((i, score))
-            stage1_components[i] = comps
+        for job_idx, _recall_sim in shortlist:
+            score, comps = self._score_pair_fast(cv, self._jobs[job_idx], job_idx, cv_text_vec, cv_gnn_emb)
+            stage1_scores.append((job_idx, score))
+            stage1_components[job_idx] = comps
 
         stage1_scores.sort(key=lambda x: -x[1])
         candidates = stage1_scores[:retrieve_n]
@@ -695,6 +715,53 @@ class InferenceEngine:
             self._jobs = list(jobs)
             self._job_embeddings = embeddings
             self._job_text_vecs = text_vecs
+            self._refresh_pool_norms()  # feature 027: keep recall matrices in sync
+
+    def _refresh_pool_norms(self) -> None:
+        """feature 027: cache pool-derived matrices for vectorized recall.
+        Called after every pool install (init + set_job_pool / snapshot reload)."""
+        tv = np.asarray(self._job_text_vecs, dtype=np.float32)
+        self._job_text_unit = tv / (np.linalg.norm(tv, axis=1, keepdims=True) + 1e-8)
+        if self._job_embeddings is not None:
+            em = self._job_embeddings.detach().cpu().numpy().astype(np.float32)
+            self._job_emb_unit = em / (np.linalg.norm(em, axis=1, keepdims=True) + 1e-8)
+        else:
+            self._job_emb_unit = None
+        # job_id → pool index (feature 027: pgvector returns job_ids; map back to idx)
+        self._job_id_to_idx = {job.job_id: i for i, job in enumerate(self._jobs)}
+        # composite-proxy recall features (D2″) are built LAZILY on first shortlist
+        # (VectorRetriever guard) — set to None here so a pool install just marks
+        # them stale instead of rebuilding the N×S matrix 3× at startup.
+        self._recall_vocab = None
+
+    def _build_recall_features(self) -> None:
+        """Precompute the per-job arrays the composite-proxy recall needs:
+        a (N×S) skill-importance matrix (sparse CSR — dense is N×218×4 ≈ 87MB at
+        100k jobs), per-job total importance, role_category list, seniority array."""
+        vocab = {s: i for i, s in enumerate(sorted(self._normalizer.skill_catalog))}
+        n, s = len(self._jobs), len(vocab)
+        rows, cols, vals = [], [], []
+        tot = np.zeros(n, dtype=np.float32)
+        for j, job in enumerate(self._jobs):
+            t = 0.0
+            for sk, imp in zip(job.skills, job.skill_importances):
+                t += imp
+                ci = vocab.get(sk)
+                if ci is not None:
+                    rows.append(j); cols.append(ci); vals.append(float(imp))
+            tot[j] = t if t > 0 else 1.0
+        try:
+            from scipy.sparse import csr_matrix
+            mat = csr_matrix((vals, (rows, cols)), shape=(n, s), dtype=np.float32)
+        except ImportError:  # scipy absent → dense fallback
+            mat = np.zeros((n, s), dtype=np.float32)
+            for r, cc, v in zip(rows, cols, vals):
+                mat[r, cc] = v
+        self._recall_vocab = vocab
+        self._job_skill_mat = mat
+        self._job_skill_total = tot
+        self._job_role_cat = [job.role_category for job in self._jobs]
+        self._job_seniority_arr = np.array([int(job.seniority) for job in self._jobs], dtype=np.float32)
 
     def rebuild_job_pool(self, jobs: list[JobData]) -> RebuildReport:
         """Replace the job pool with `jobs`, encoding their GNN embeddings
@@ -722,6 +789,13 @@ class InferenceEngine:
             skill_skipped_edges=int(skipped),
             encode_seconds=round(time.time() - t0, 2),
         )
+
+    def encode_jobs(self, jobs: list[JobData]) -> tuple[torch.Tensor, np.ndarray]:
+        """feature 027 Stage C: inductively encode a job SUBSET (GNN emb + text
+        vecs) WITHOUT replacing the live pool — for incremental store upserts."""
+        text_vecs = self._embed.encode([j.text for j in jobs])
+        job_emb, _ = self._inductive_gnn_encode_jobs(jobs, text_emb=text_vecs)
+        return job_emb, text_vecs
 
     def snapshot_job_pool(self, directory: Path | str, *, skill_skipped_edges: int = 0) -> Path:
         """Persist the current job pool to a shareable on-disk snapshot."""

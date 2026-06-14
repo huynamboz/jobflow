@@ -103,8 +103,20 @@
 4. Graph 0 cặp nhãn xung đột; metrics per-CV; gate kinh nghiệm hoạt động; thứ tự cuối nhất quán với thiết kế.
 5. Docs 02-09 cập nhật đúng hiện trạng; checkpoint cũ còn backup.
 
+## Track phụ — Serving scale (feature 027, 2026-06-13)
+
+Tách khỏi track chất lượng (Đợt 0-3): không đổi model/nhãn/weights, chỉ làm
+**serving scale được** khi catalog phình (8k → 100k+).
+- **Stage A** (`RETRIEVAL_MODE=vector`): tách retrieve→rerank, recall vectorized
+  composite-proxy → **parity 20/20**, **~10x@100k**. Default vẫn `exact` (an toàn).
+- **pgvector = store chính** (load-at-startup + incremental upsert + hot-reload);
+  snapshot fallback. pgvector ANN *retriever* đã thử + **bỏ** (đo ra chậm hơn vector).
+- **Stage C**: rebuild incremental (chỉ encode delta).
+- Chi tiết: [06-inference-pipeline.md](06-inference-pipeline.md) §027 ·
+  next lever = batch decoder ([08](08-improvement-opportunities.md) P5).
+
 ## Quy ước vận hành
 
-- Mỗi đợt = 1 feature spec-kit (021 = Đợt 0+1+2; Đợt 3 tách 022+).
+- Mỗi đợt = 1 feature spec-kit (021 = Đợt 0+1+2; Đợt 3 tách 022+; 027 = serving scale).
 - Cập nhật checkbox file này khi xong từng mục (cùng commit với code).
 - Mọi lần chạy tốn kém (label scale, retrain) phải có pilot/check trước.

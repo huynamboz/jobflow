@@ -599,3 +599,80 @@ class CalibStampTests(TestCase):
             with self.assertLogs("ml_service.inference.engine", level="WARNING") as cm:
                 _E()._warn_if_calibration_stale()
             self.assertTrue(any("CALIBRATION STALE" in m for m in cm.output))
+
+
+# ===========================================================================
+# Feature 027 — scalable job-pool retrieval
+# ===========================================================================
+
+from ml_service.graph.schema import JobData, SeniorityLevel  # noqa: E402
+
+
+def _jd(job_id, role, skills, imps, sen=2, text="job"):
+    return JobData(job_id=job_id, seniority=SeniorityLevel(sen), skills=tuple(skills),
+                   skill_importances=tuple(imps), salary_min=0, salary_max=0,
+                   text=text, role_category=role)
+
+
+class PoolDiffTests(TestCase):
+    """feature 027 Stage C: content_hash + incremental diff."""
+
+    def test_content_hash_stable_and_sensitive(self):
+        from ml_service.inference import pool_diff
+        a = _jd(1, "backend", ["python", "django"], [5, 4])
+        b = _jd(1, "backend", ["python", "django"], [5, 4])
+        self.assertEqual(pool_diff.content_hash(a), pool_diff.content_hash(b))
+        # a skill-importance change must change the hash (would change the encoding)
+        c = _jd(1, "backend", ["python", "django"], [5, 3])
+        self.assertNotEqual(pool_diff.content_hash(a), pool_diff.content_hash(c))
+
+    def test_diff_new_changed_evict(self):
+        from ml_service.inference import pool_diff
+        jobs = [_jd(1, "backend", ["python"], [5]), _jd(2, "frontend", ["react"], [5])]
+        stored = {1: pool_diff.content_hash(jobs[0]), 3: "stale-hash-for-removed-job"}
+        # job 2 is new; job 1 unchanged; job 3 no longer in the catalog → evict
+        to_encode, to_evict, cur = pool_diff.diff(jobs, stored)
+        self.assertEqual({j.job_id for j in to_encode}, {2})
+        self.assertEqual(set(to_evict), {3})
+        self.assertEqual(set(cur), {1, 2})
+
+
+class RetrieverFactoryTests(TestCase):
+    """feature 027: get_retriever returns the right implementation per mode."""
+
+    def test_factory_modes(self):
+        from ml_service.inference.retrieval import get_retriever
+        from ml_service.inference.retrieval.exact import ExactRetriever
+        eng = object()
+        self.assertIsInstance(get_retriever("exact", eng), ExactRetriever)
+        # unknown mode falls back to exact (never breaks serving)
+        self.assertIsInstance(get_retriever("bogus", eng), ExactRetriever)
+
+
+class PgVectorStoreTests(TestCase):
+    """feature 027 Stage B: pgvector store roundtrip (skips if extension absent)."""
+
+    def setUp(self):
+        from ml_service.inference import pgvector_store
+        if not pgvector_store.available():
+            self.skipTest("pgvector extension/table not available in the test DB")
+
+    def test_upsert_fetch_version_query(self):
+        from ml_service.inference import pgvector_store as st
+        fp = "testfp"
+        gnn = [0.1] * 256
+        txt = [0.2] * 384
+        rows = [
+            (101, gnn, txt, "backend", fp, "h1"),
+            (102, [0.9] * 256, txt, "frontend", fp, "h2"),
+        ]
+        self.assertEqual(st.upsert_jobs(rows), 2)
+        self.assertEqual(st.count(fp), 2)
+        pool = st.fetch_pool(fp)
+        self.assertEqual(set(pool), {101, 102})
+        self.assertEqual(len(pool[101][0]), 256)
+        v1 = st.pool_version(fp)
+        # evict job 102 → count + version change
+        st.delete_not_in([101], fp)
+        self.assertEqual(st.count(fp), 1)
+        self.assertNotEqual(st.pool_version(fp), v1)

@@ -31,17 +31,15 @@ class Retriever(Protocol):
 | Mode | Recall source | Cost | Use when |
 |---|---|---|---|
 | `exact` | full composite `_score_pair_fast` over all N (today's loop) | O(N), Python | A/B baseline, rollback, parity reference |
-| `vector` | `argpartition` over `W_GNN·(cv_gnn·J_gnnᵀ)+W_TEXT·(cv_txt·J_txtᵀ)` | O(N·D), BLAS | default ≤ ~1M jobs |
-| `pgvector` | SQL `ORDER BY gnn_emb <=> cv_gnn_emb LIMIT k` (HNSW) | sublinear | 200k+ jobs |
+| `vector` | `argpartition` over the composite-proxy (α·gnn-cos + β·skill + γ·sen + δ·domain) | O(N·D), BLAS | **default**, ≤ ~1M jobs |
+
+> A third mode, `pgvector` (per-request ANN), was prototyped and **removed**: the ANN ranks by embedding only, so it needed a 2× larger shortlist (K≈3000 vs 1500) to match parity → it ran MORE of the expensive decoder re-scores than `vector` for no latency win. pgvector is kept as the pool **store** (load-at-startup + upsert), not a retriever. See research D2′/D3.
 
 ### `exact` (baseline) — MUST be bit-for-bit
 `ExactRetriever.shortlist` returns the top-`k` by the **full composite** — i.e. it reproduces today's `retrieve_n` selection exactly. This is the parity oracle: with `RETRIEVAL_MODE=exact` and `k=retrieve_n`, results equal pre-feature behaviour byte-for-byte.
 
-### `vector` (Stage A)
-Uses precomputed unit-norm matrices. `recall_sim` = blended cosine. Fallback: never (pure in-memory).
-
-### `pgvector` (Stage B)
-Queries `job_pool_vec WHERE model_fingerprint = <live fp> ORDER BY gnn_emb <=> cv ... LIMIT k`. On missing table / extension / fingerprint mismatch / empty result for a non-empty pool → **fall back** to `vector` (then `exact`) and log once. `text_vec` stored but recall ranks on `gnn_emb`.
+### `vector` (Stage A) — default
+Composite-proxy recall over precomputed pool matrices (unit-norm emb/text + sparse skill matrix + role/seniority arrays), blended with the serving α/β/γ/δ. Fallback: never (pure in-memory). Validated: 20/20 top-k parity at `RETRIEVE_K=1500`.
 
 ## Quality contract (gate for every implementation)
 

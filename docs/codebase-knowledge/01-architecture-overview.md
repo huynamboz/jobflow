@@ -11,10 +11,10 @@ Crawlers (LinkedIn/Indeed/Adzuna/Remotive)          HR upload CV nhân viên
    Job + JobSkill  ◄─ LLM JD extraction            Employee (+cv_file)
    (role_category, seniority, exp, salary)          │ LLM CV parse (skills, seniority...)
         │                                                  │
-        │   rebuild_job_pool (inductive encode, 018)       │
+        │   rebuild_job_pool (inductive encode, 018; incremental 027)  │
         ▼                                                  ▼
-   checkpoints/job_pool/ snapshot ──► InferenceEngine.match_cv ◄── match_cv_data (no-LLM)
-                                       │  Stage1 hybrid (α,β,γ,δ tuned) → Stage2 reranker
+   pgvector job_pool_vec STORE ──────► InferenceEngine.match_cv ◄── match_cv_data (no-LLM)
+   (027; snapshot file = fallback)      │  Stage1 retrieve (vector recall, 027) → Stage2 reranker
                                        ▼
                                   EmployeeJobMatch (top-100, dim_scores, prune)
                                        │
@@ -55,7 +55,7 @@ generate_pairs (role-aware selection) → PairQueue
 | `models/` | HeteroGraphSAGE (proj→SAGE×3→MLPDecoder), HeteroRGCN | [05](05-training-pipeline.md) |
 | `training/` | Trainer (BPR, hard-neg curriculum) | [05](05-training-pipeline.md) |
 | `reranker/` | MLP 23-feature + 4 aux heads, Platt calibration | [05](05-training-pipeline.md) |
-| `inference/` | engine (2-stage), checkpoint, job_pool_snapshot, role_classifier | [06](06-inference-pipeline.md) |
+| `inference/` | engine (2-stage), checkpoint, job_pool_snapshot, **retrieval/ (exact\|vector seam, 027)**, **pgvector_store + pool_diff (027)**, role_classifier | [06](06-inference-pipeline.md) |
 | `data/` | SkillNormalizer (145 skills), skill_graph (PMI/semantic), labeler (synthetic — unused prod) | [02](02-graph-features.md) |
 | `embedding/` | MiniLM-L6-v2 384-dim (factory, BGE thay được) | [02](02-graph-features.md) |
 

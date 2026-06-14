@@ -94,12 +94,11 @@ The three user stories ship in priority order; each is a mergeable increment gat
 4. Add `recall@shortlist` + calibrated-P-drift to `eval_matching`. Tune `RETRIEVE_K`/`W_*` to parity. Flip default to `vector`.
 **Exit**: on-domain@k ≥ baseline, P within tol, latency flat to 100k (synthetic-inflation bench).
 
-### Stage B (US2, P2) — pgvector ANN
-1. Migration: `CREATE EXTENSION vector`; `job_pool_vec` table + HNSW index; `model_fingerprint` guard.
-2. `rebuild_job_pool` upserts embeddings into `job_pool_vec` (alongside snapshot).
-3. `PgVectorRetriever`: SQL ANN → shortlist; fallback to `vector`/`exact` on missing/incompatible index.
-4. Tune HNSW `m`/`ef_search` to recall parity; bench at 200k+. Flip default to `pgvector` when ready.
-**Exit**: sublinear latency at 200k+, per-job upsert works, `eval_matching` parity.
+### Stage B (US2, P2) — pgvector  → **STORE kept, ANN retriever removed**
+Outcome (measured): the per-request ANN **retriever** was built, validated, then **removed** — it needed a 2× shortlist (embedding-only ranking) so it ran more of the expensive decoder re-scores than `vector` for no win (research D3). What shipped:
+1. Migration: `CREATE EXTENSION vector`; `job_pool_vec` table (`gnn_emb`/`text_vec`/`model_fingerprint`/`content_hash`); 0003 drops the ANN/role indexes.
+2. pgvector as the pool **store**: `rebuild_job_pool` upserts embeddings; serving **loads the pool from pgvector at startup** + hot-reloads on version change (matching_service).
+**Exit**: store-backed pool load + incremental upsert, validated on the warm server (load 8930 jobs, rematch correct). The real next scaling lever is **batching the decoder** (rerank), not ANN.
 
 ### Stage C (US3, P3) — incremental refresh
 1. `content_hash` per JobData; persist prior hashes (snapshot meta / `job_pool_vec`).

@@ -40,6 +40,24 @@ Chọn cặp label thiên skill-overlap (cross-domain chỉ rơi vào bucket RAN
 13. Penalty/gate factors (0.40/0.70/0.85/0.75...) — đã chấp nhận là business rules; giữ docs nhất quán.
 14. Skill catalog 145 skills — khá nhỏ so với catalog job thực; mở rộng alias khi thấy nhiều skill bị rớt (`skill_skipped_edges` trong RebuildReport).
 
+## P5 — Serving scale (sau feature 027 — bottleneck = rerank, không phải retrieval)
+
+027 đã tách retrieve→rerank + recall vectorized (`vector` mode, parity 20/20, ~10x@100k)
+và đưa pgvector làm store. Bottleneck còn lại = **decoder GNN per-candidate ở rerank**
+(cross-encoder-like, không dot-product → không ANN/vectorize được). Thứ tự đáng làm:
+
+15. **Batch decoder** (win lớn nhất, rẻ, không retrain): hiện `_gnn_score_fast` gọi
+    `model.decode` **từng candidate trong vòng lặp Python**. Gom K candidate (shortlist)
+    thành **1 forward pass batch** → nhanh 10–100x. Stage A đã co N→K=1500; bước này
+    score K đó theo lô.
+16. **Cascade co K**: thêm tầng giữa composite-proxy → top ~200 → chỉ decoder 200
+    (thay vì 1500). Giảm ~7x decoder calls.
+17. **Two-tower** (chuẩn-prod, cần retrain — ngoài 027): tách CV-tower/job-tower để
+    điểm GNN = **dot product** → retrieval = ANN trực tiếp, scoring O(1). Lúc đó
+    pgvector ANN mới có nghĩa. Đây là cách production làm retrieval ở scale lớn.
+18. pgvector **retriever** (ANN per-request) đã thử + **bỏ** ở 027 — chỉ đáng khi N
+    hàng triệu + embedding không nhét RAM. Đừng làm lại trước khi có (15)/(17).
+
 ## Trình tự đề xuất (1 feature spec-kit)
 
 ```

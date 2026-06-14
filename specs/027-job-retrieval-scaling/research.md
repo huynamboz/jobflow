@@ -42,11 +42,35 @@ idx      = np.argpartition(-recall, K)[:K]                           # top-K, un
 
 **Open parameter**: tolerance for calibrated P drift — proposed **±0.005 absolute** on the 20-CV displayed probabilities (ties at the 0.995 saturation cap excluded). Final value confirmed during implementation against observed noise.
 
+### D2′ — MEASURED FINDING (2026-06-13): pure-embedding recall is insufficient
+
+First Stage-A implementation used a pure-embedding recall (W_GNN·gnn-cos + W_TEXT·text-cos). Measured on the 20-CV eval set (pool N=7139, tuned weights α=0.30/β=0.20/γ=0.10/**δ=0.40**):
+
+| RETRIEVE_K | % pool | mean top-10 overlap vs exact | id-order identical |
+|---|---|---|---|
+| 1000 | 14% | 5.2/10 | 1/20 |
+| 3000 | 42% | 8.3/10 | 4/20 |
+| 6000 | 84% | 9.9/10 | 18/20 |
+
+on-domain@5 stayed 1.00 in all cases (role preserved), but the **specific** ranked jobs diverged badly until K≈84% of the pool — which erases the speedup. Root cause: the composite is **not embedding-dominated** — `δ=0.40` domain-fit (rule-based role match, not in any embedding) is the single largest term, skill (β=0.20) is lookup-based, and displayed scores **saturate ~0.99** so the top-k is a large near-tie ordered by exactly the non-embedding terms. Embedding cosine captures only ~α (0.30) of the signal → a poor recall proxy.
+
+**Revised decision (D2″)**: the vectorized recall MUST be a **proxy of the full composite**, not just embeddings. All dominant terms are cheaply vectorizable except the GNN decoder:
+- `text_sim`: matmul (have it).
+- `domain_fit`: precompute per-job `role_category`; at request map `cv_role → domain score per role_category` (table gather) → per-pool vector. Cheap, exact.
+- `skill overlap`: precompute a job×canonical-skill sparse matrix; request CV skill vector → matmul = shared-skill signal. Cheap proxy.
+- `seniority`: `1 - 0.4·|cv.sen − job.sen|` vectorized over the pool's seniority array.
+- `gnn`: embedding cosine as a cheap stand-in for the (non-vectorizable) decoder term.
+Blend with the SERVING weights (α/β/γ/δ) so recall ranks ≈ as the composite does; exact scoring (decoder + penalties) still runs on the shortlist. This should restore recall@shortlist ≈ 1.0 at a small `RETRIEVE_K`. Penalties stay shortlist-only (they multiply, rarely promote a far candidate).
+
+Status: the `exact`/`vector` seam, settings, and wiring are implemented and validated (`exact` = byte-parity; on-domain 20/20 both modes). **Default remains `exact`** — `vector` will not be made default until the composite-proxy recall above passes the recall@shortlist gate at a small K.
+
 ---
 
-## D3 — Stage B: pgvector ANN
+## D3 — Stage B: pgvector ANN  → **outcome: retriever REMOVED, store KEPT**
 
-**Decision**: Add the `vector` extension and a `job_pool_vec` table holding per-job `gnn_emb vector(D)` + `text_vec vector(384)` + `model_fingerprint` + `content_hash` + `updated_at`. Build an **HNSW** index on `gnn_emb` with cosine ops. Retrieval:
+> **MEASURED (2026-06-13):** the per-request pgvector ANN retriever was built and validated (parity at K=3000) but **removed**. Root cause = the system's bottleneck is the **rerank** (the GNN `decoder` per candidate is cross-encoder-like, not a dot product), not retrieval. ANN ranks by embedding only → it needed a **2× larger shortlist** (K≈3000 vs the in-memory `vector`'s 1500) to reach parity → **more** expensive decoder calls, no latency win (the O(N) recall it optimizes is already cheap via BLAS). ANN only pays off when N is in the millions and embeddings don't fit RAM — outside this system's trajectory. **What was KEPT:** the `job_pool_vec` table as the pool **store** (load-at-startup + incremental upsert), minus the HNSW/role ANN indexes (migration 0003). The original ANN-retriever design below is retained for the record.
+
+**Decision (original, retriever — superseded)**: Add the `vector` extension and a `job_pool_vec` table holding per-job `gnn_emb vector(D)` + `text_vec vector(384)` + `model_fingerprint` + `content_hash` + `updated_at`. Build an **HNSW** index on `gnn_emb` with cosine ops. Retrieval:
 
 ```sql
 SELECT job_id FROM job_pool_vec

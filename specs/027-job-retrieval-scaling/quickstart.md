@@ -75,3 +75,15 @@ export HNSW_EF_SEARCH=64        # raise until recall parity
 | `RETRIEVE_K` | `1000` | A |
 | `W_GNN` / `W_TEXT` | GNN-dominant | A |
 | `HNSW_M` / `HNSW_EF_SEARCH` | `16` / tuned | B |
+
+## Stage B infra note (pgvector)
+
+The dev Postgres is built from `backend/docker/postgres-pgvector.Dockerfile`
+(postgres:16-alpine + pgvector, same alpine base as the original image so the
+existing data volume mounts without a libc/collation mismatch). docker-compose
+`db.build` points at it.
+
+⚠️ Footgun: a live `apk add` / source build of pgvector does NOT survive a
+container recreate. After changing the DB image or recreating the container,
+run `docker compose build db && docker compose up -d db` so the extension is
+baked in. Verify: `docker exec jobflow-db psql -U postgres -d jobflow -c "\dx vector"`.

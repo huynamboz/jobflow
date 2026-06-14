@@ -1,6 +1,11 @@
 services:
   db:
-    image: postgres:16-alpine
+    # feature 027 Stage B: postgres:16-alpine + pgvector (same alpine base → the
+    # existing pgdata volume mounts without a libc/collation mismatch).
+    build:
+      context: .
+      dockerfile: docker/postgres-pgvector.Dockerfile
+    image: jobflow-postgres-pgvector:16
     container_name: jobflow-db
     environment:
       POSTGRES_DB: jobflow

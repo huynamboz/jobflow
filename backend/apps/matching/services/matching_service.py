@@ -16,13 +16,20 @@ logger = logging.getLogger(__name__)
 _engine = None
 _parser = None
 _lock = threading.Lock()
+_pgvector_version = None  # feature 027: last pgvector pool version loaded into the engine
 
 
 def _get_engine():
     """Lazy-load InferenceEngine singleton."""
     global _engine
     if _engine is not None:
-        # Feature 018: pick up a newer live job-pool snapshot without a restart.
+        # feature 027: hot-reload from the pgvector store (the source of truth)
+        # when an incremental rebuild upserted deltas — no restart needed.
+        try:
+            _maybe_reload_from_pgvector(_engine)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("pgvector hot-reload skipped: %s", exc)
+        # Feature 018: snapshot fallback hot-reload (used when pgvector is absent).
         try:
             _engine.maybe_reload_job_pool()
         except Exception as exc:  # noqa: BLE001
@@ -45,8 +52,16 @@ def _get_engine():
             settings.ML_CHECKPOINT_DIR,
             normalizer=normalizer,
             embedding_provider=provider,
+            retrieval_mode=getattr(settings, "RETRIEVAL_MODE", "exact"),  # feature 027
+            retrieve_k=getattr(settings, "RETRIEVE_K", 1000),
         )
         logger.info("ML engine ready: %d CVs, %d jobs", _engine.num_cvs, _engine.num_jobs)
+
+        # feature 027 (chuẩn prod): pgvector is the pool's source of truth. Load
+        # the serving pool from the store (catalog JobData + precomputed embeddings)
+        # rather than the on-disk snapshot. Falls back to the snapshot/checkpoint
+        # pool already loaded by from_checkpoint if the store is empty/unavailable.
+        pool_source = "pgvector" if _load_pool_from_pgvector(_engine) else "snapshot/checkpoint"
 
         # Override checkpoint job skills with DB canonical skills (more accurate)
         try:
@@ -54,7 +69,65 @@ def _get_engine():
         except Exception as e:
             logger.warning("Job skill refresh skipped: %s", e)
 
+        # feature 027: visible one-line summary (logger.info is suppressed by runserver)
+        print(f"[ML] retrieval={getattr(settings,'RETRIEVAL_MODE','exact')} "
+              f"retrieve_k={getattr(settings,'RETRIEVE_K',1000)} pool_source={pool_source} "
+              f"jobs={_engine.num_jobs}", flush=True)
+
         return _engine
+
+
+def _maybe_reload_from_pgvector(engine) -> None:
+    """Reload the pool from pgvector if its version changed since we last loaded
+    (an incremental rebuild upserted deltas). Cheap version poll; full reload only
+    on change."""
+    global _pgvector_version
+    from ml_service.inference import pgvector_store
+    if not pgvector_store.available():
+        return
+    ver = pgvector_store.pool_version(engine.model_signature)
+    if ver != _pgvector_version and ver != "0:0":
+        logger.info("pgvector pool changed (%s → %s) — reloading", _pgvector_version, ver)
+        _load_pool_from_pgvector(engine)
+
+
+def _load_pool_from_pgvector(engine) -> bool:
+    """Load the serving pool from the pgvector store: catalog JobData aligned with
+    the precomputed embeddings by job_id. A job in the catalog but not yet in the
+    store (encoded after the last rebuild) is simply not rankable until the next
+    rebuild upserts it. Returns True if the pool was loaded from the store."""
+    global _pgvector_version
+    try:
+        import numpy as np
+        import torch
+
+        from ml_service.inference import pgvector_store
+        if not pgvector_store.available():
+            return False
+        stored = pgvector_store.fetch_pool(engine.model_signature)
+        if not stored:
+            return False
+        jobs = build_jobdata_from_db()
+        aj, gnn, txt = [], [], []
+        for j in jobs:
+            e = stored.get(j.job_id)
+            if e is None or e[1] is None:
+                continue
+            aj.append(j); gnn.append(e[0]); txt.append(e[1])
+        if not aj:
+            return False
+        engine.set_job_pool(
+            aj,
+            torch.tensor(np.asarray(gnn, dtype=np.float32)),
+            np.asarray(txt, dtype=np.float32),
+        )
+        _pgvector_version = pgvector_store.pool_version(engine.model_signature)
+        logger.info("pgvector pool: %d rankable (catalog %d, stored %d) ver=%s",
+                    len(aj), len(jobs), len(stored), _pgvector_version)
+        return True
+    except Exception as exc:  # noqa: BLE001 — never break startup on a store issue
+        logger.warning("pgvector pool load failed (%s) — keeping snapshot/checkpoint pool", exc)
+        return False
 
 
 def _refresh_job_skills_from_db(engine) -> None:

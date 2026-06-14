@@ -43,6 +43,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--k", type=int, default=5, help="top-K per CV (default 5).")
+        parser.add_argument("--report-recall", action="store_true",
+                            help="feature 027: recall@shortlist vs the exact retriever (the Stage-A gate).")
 
     def handle(self, *args, **opts):
         from apps.matching.services.matching_service import match_cv_data
@@ -52,9 +54,11 @@ class Command(BaseCommand):
         self.stdout.write("-" * 110)
 
         top1_hits, ondomain_rates = 0, []
+        cur_ids: dict[str, list] = {}
         for role, sen, exp, skills, text in EVAL_CVS:
             res = match_cv_data(skills=skills, seniority=sen, experience_years=exp, text=text, top_k=k)
             jobs = res.get("jobs", [])
+            cur_ids[role] = [j.get("job_id") for j in jobs]
             parts, flags = [], []
             for j in jobs:
                 dm = (j.get("dim_scores") or {}).get("domain_fit", None)
@@ -73,3 +77,35 @@ class Command(BaseCommand):
             f"SUMMARY: top1_on_domain = {top1_hits}/{n} ({100 * top1_hits / n:.0f}%) · "
             f"mean on_domain@{k} = {mean_rate:.2f}"
         ))
+
+        if opts["report_recall"]:
+            self._report_recall(k, cur_ids)
+
+    def _report_recall(self, k, cur_ids):
+        """feature 027 Stage-A gate: how well the active retriever reproduces the
+        exact retriever's top-k (recall@shortlist). Swaps the engine's retriever
+        to 'exact' for the reference, then restores it."""
+        from apps.matching.services.matching_service import _get_engine, match_cv_data
+        from ml_service.inference.retrieval import get_retriever
+
+        eng = _get_engine()
+        active_mode = getattr(eng, "_retrieval_mode", "exact")
+        if active_mode == "exact":
+            self.stdout.write("--report-recall: active mode is 'exact' (it IS the reference) — nothing to compare.")
+            return
+        saved = eng._retriever
+        try:
+            eng._retriever = get_retriever("exact", eng)
+            overlaps, identical = [], 0
+            for role, sen, exp, skills, text in EVAL_CVS:
+                res = match_cv_data(skills=skills, seniority=sen, experience_years=exp, text=text, top_k=k)
+                ex_ids = [j.get("job_id") for j in res.get("jobs", [])]
+                cur = cur_ids.get(role, [])
+                overlaps.append(len(set(ex_ids) & set(cur)))
+                identical += (ex_ids == cur)
+        finally:
+            eng._retriever = saved
+        mean_ov = sum(overlaps) / len(overlaps) if overlaps else 0
+        self.stdout.write(self.style.SUCCESS(
+            f"RECALL@{k} ({active_mode} vs exact): mean overlap {mean_ov:.2f}/{k} · "
+            f"identical top-{k} {identical}/{len(EVAL_CVS)} · min {min(overlaps) if overlaps else 0}"))

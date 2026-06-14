@@ -130,3 +130,63 @@ Precompute CV/job GNN embeddings + job text vecs lúc init · encode CV 1 lần/
 - Đỉnh bão hoà ~0.995 (reranker saturation) → ties hiển thị ở 4dp — chấp nhận.
 - Eval persona suites giờ nằm trong repo: `backend/evals/` (holdout/30cv/realcv)
   — /tmp từng bị macOS dọn mất.
+
+## Cập nhật 027 (2026-06-13): retrieval scale được + pgvector làm store
+
+**Vấn đề:** Stage-1 cũ chấm `_score_pair_fast` cho **toàn bộ pool bằng vòng lặp
+Python** (mỗi job 1 lần gọi `model.decode`) → O(N), 8.8s/match ở 50k job, tăng
+tuyến tính. Bottleneck thật = **rerank** (decoder GNN per-candidate, kiểu
+cross-encoder, KHÔNG phải dot product → không vectorize/ANN được), không phải
+retrieval.
+
+### Tách retrieve→rerank qua 1 seam (`ml_service/inference/retrieval/`)
+- `Retriever.shortlist(cv, cv_text_vec, cv_gnn_emb, k) -> [(job_idx, recall_sim)]`
+  — chọn shortlist bằng tín hiệu **recall rẻ**; engine chỉ exact-score shortlist
+  (composite + reranker + calibration KHÔNG đổi). `RETRIEVAL_MODE` chọn impl:
+  - **`exact`** (`exact.py`) — vòng lặp cũ y nguyên = **A/B baseline + rollback**, byte-for-byte.
+  - **`vector`** (`vector.py`, Stage A) — recall vectorized, **default-able**.
+- `match_cv`: `k=max(RETRIEVE_K, retrieve_n)`; `shortlist` → exact-score CHỈ shortlist.
+
+### Stage A — vectorized **composite-proxy** recall (cái thắng chính)
+- Phát hiện đo được (research D2′): recall **thuần-embedding HỎNG** (overlap top-10
+  chỉ 5/10) — vì composite bị **δ=0.40 domain** (rule-based, không nằm trong
+  embedding) + skill + ties bão hoà 0.99 chi phối; embedding chỉ ~30% tín hiệu.
+- Fix: recall = **proxy của FULL composite** vectorized: `α·(0.6·emb_cos+0.4·text_cos)
+  + β·skill + γ·sen + δ·domain` với weights serving. Tất cả vectorize được trừ
+  decoder (gnn dùng emb-cosine làm proxy). Precompute: unit-norm emb/text,
+  **ma trận skill SPARSE (CSR)**, mảng role_category + seniority (build LAZY trong
+  `shortlist`, invalidate mỗi pool install).
+- Kết quả: **parity HOÀN HẢO 20/20 top-10** ở `RETRIEVE_K=1500`; **5.5x@50k →
+  ~10x@100k** (vector gần phẳng vì matmul BLAS rẻ tới ~1M job). on-domain + điểm
+  hiển thị KHÔNG đổi (an toàn 025).
+
+### pgvector = STORE chính (chuẩn-prod), KHÔNG phải retriever
+- Bảng `job_pool_vec` (job_id PK, gnn_emb vector(256), text_vec vector(384),
+  model_fingerprint, content_hash) — `ml_service/inference/pgvector_store.py` (raw SQL,
+  không pgvector-python). Build: `docker/postgres-pgvector.Dockerfile` (alpine +
+  pgvector, cùng base → volume không lệch collation).
+- Serving **load pool TỪ pgvector lúc startup** (catalog JobData + embeddings precomputed,
+  align theo job_id) thay vì chỉ snapshot file → store dùng-chung, multi-node, upsert.
+  `matching_service._load_pool_from_pgvector`; snapshot = fallback.
+- **Hot-reload:** `_maybe_reload_from_pgvector` poll `pool_version` (count + max updated_at)
+  → reload khi incremental rebuild upsert delta (không cần restart).
+- **Stage B (per-request ANN retriever) ĐÃ XOÁ:** đo ra cần shortlist 2× (K≈3000,
+  ANN rank chỉ theo embedding) → chạy NHIỀU decoder re-score hơn `vector`, không
+  nhanh hơn. ANN chỉ đáng khi N hàng triệu + không nhét RAM. Migration 0003 drop
+  HNSW/role index (store chỉ cần key access).
+
+### Stage C — incremental rebuild
+- `rebuild_job_pool` mặc định **incremental**: `pool_diff` so `content_hash`
+  (skills+importances+seniority+text) → chỉ encode job mới/đổi, evict job rời pool,
+  upsert delta. `--full` ép re-encode + refresh snapshot. `morning_refresh` dùng
+  incremental, `--full` thứ Hai (safety net).
+- `engine.encode_jobs(subset)` — encode 1 nhúm KHÔNG thay live pool.
+
+### Config + next lever
+- `RETRIEVAL_MODE` (exact|vector, default exact) · `RETRIEVE_K=1500` ·
+  `RECALL_W_GNN/W_TEXT`. Gate mỗi đổi: `eval_matching --report-recall`
+  (on-domain@k ≥ baseline + recall@shortlist ≈ 1.0).
+- **Next lever thật = batch decoder** ở rerank (gom K candidate thành 1 forward
+  pass thay vòng lặp Python) — không phải ANN. Stage A đã co N→K; bước sau là
+  score K đó theo lô. Two-tower (decoder thành dot product) là hướng chuẩn-prod
+  nhưng cần retrain (ngoài scope 027).

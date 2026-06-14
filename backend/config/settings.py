@@ -186,6 +186,17 @@ ML_SKILL_ALIAS_PATH = os.environ.get(
     str(BASE_DIR / "ml_service" / "data" / "skill-alias.json"),
 )
 
+# Feature 027 — scalable job-pool retrieval. RETRIEVAL_MODE selects the stage-1
+# retriever; default 'exact' = pre-027 behaviour (also the A/B baseline/rollback).
+# Flip to 'vector' (in-memory composite-proxy recall) after eval_matching passes
+# the gate (on-domain@k ≥ baseline, calibrated-P within tol, recall@shortlist ≈ 1.0).
+# (pgvector is the pool STORE, not a retriever — see ml_service/inference/retrieval.)
+RETRIEVAL_MODE = os.environ.get("RETRIEVAL_MODE", "exact")  # exact | vector
+RETRIEVE_K = int(os.environ.get("RETRIEVE_K", "1000"))      # shortlist size for exact scoring
+# recall blend weights (vector mode) — gate recall only, not the final score
+RECALL_W_GNN = float(os.environ.get("RECALL_W_GNN", "0.6"))
+RECALL_W_TEXT = float(os.environ.get("RECALL_W_TEXT", "0.4"))
+
 # ---------------------------------------------------------------------------
 # Candidate MVP (feature 012): Celery + Email
 # ---------------------------------------------------------------------------

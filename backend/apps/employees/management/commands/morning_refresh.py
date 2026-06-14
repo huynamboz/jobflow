@@ -37,21 +37,14 @@ class Command(BaseCommand):
         if opts["no_rebuild"]:
             self.stdout.write("[1/3] Job-pool rebuild skipped (--no-rebuild).")
         else:
-            from apps.matching.services.matching_service import _get_engine, build_jobdata_from_db
-            from ml_service.inference import job_pool_snapshot
+            # feature 027: use the rebuild_job_pool command — incremental upsert into
+            # the pgvector store (encode only deltas), with a weekly --full on Monday
+            # to refresh everything + the snapshot fallback (safety net vs hash drift).
+            from django.core.management import call_command
 
-            jobs = build_jobdata_from_db()
-            if jobs:
-                report = _get_engine().rebuild_job_pool(jobs)
-                _get_engine().snapshot_job_pool(
-                    job_pool_snapshot.DEFAULT_DIR, skill_skipped_edges=report.skill_skipped_edges
-                )
-                self.stdout.write(self.style.SUCCESS(
-                    f"[1/3] Job pool rebuilt: {report.num_jobs} jobs, "
-                    f"{report.skill_skipped_edges} skill-skipped, {report.encode_seconds}s → snapshot saved."
-                ))
-            else:
-                self.stdout.write("[1/3] No jobs with skills — pool unchanged.")
+            full = started.weekday() == 0  # Monday
+            self.stdout.write(f"[1/3] Rebuilding job pool ({'FULL' if full else 'incremental'})…")
+            call_command("rebuild_job_pool", full=full)
 
         # --- 1. Re-match -------------------------------------------------
         qs = Employee.objects.filter(is_parse_failed=False).exclude(skills=[])
