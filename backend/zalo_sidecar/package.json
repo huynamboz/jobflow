@@ -1,0 +1,18 @@
+{
+  "name": "jobflow-zalo-sidecar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Node sidecar that holds a personal Zalo session (zca-js) and exposes a small HTTP API the Django backend calls to send digest messages.",
+  "scripts": {
+    "login": "node login-qr.mjs",
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "zca-js": "^2.0.0"
+  }
+}

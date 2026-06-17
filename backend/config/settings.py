@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "apps.employees",
     "apps.notifications",
     "apps.mail",
+    "apps.integrations",
 ]
 
 # ---------------------------------------------------------------------------
@@ -214,3 +215,7 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@jobflow.loca
 
 # Frontend base URL (used in email links — unsubscribe + job CTA)
 FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:3000")
+
+# Zalo integration — personal-account sidecar (zca-js). See backend/zalo_sidecar/.
+ZALO_SIDECAR_URL = os.environ.get("ZALO_SIDECAR_URL", "http://localhost:3001")
+ZALO_SIDECAR_TOKEN = os.environ.get("ZALO_SIDECAR_TOKEN", "")

@@ -5,6 +5,7 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
   IconLogout,
+  IconPlugConnected,
   IconSettings,
 } from "@tabler/icons-react";
 
@@ -250,6 +251,23 @@ export function AdminSidebar({
 
         {/* Footer */}
         <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 2 }}>
+          <NavLink
+            title={mini ? "Integrations" : undefined}
+            to="/admin/integrations"
+            onClick={() => onClose?.()}
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              justifyContent: mini ? "center" : undefined,
+              padding: mini ? "10px 0" : "8px 10px", borderRadius: 12,
+              color: T.ink2, fontWeight: 500, fontSize: 13.5, textDecoration: "none",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = T.surface2; e.currentTarget.style.color = T.ink; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.ink2; }}
+          >
+            <IconPlugConnected size={mini ? 18 : 16} style={{ flexShrink: 0 }} />
+            {!mini && "Integrations"}
+          </NavLink>
+
           <NavLink
             title={mini ? "Settings" : undefined}
             to="/admin/settings"

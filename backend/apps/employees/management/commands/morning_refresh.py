@@ -68,11 +68,30 @@ class Command(BaseCommand):
         else:
             sent, skipped = self._send_digests()
             self.stdout.write(self.style.SUCCESS(f"[3/3] Digest sent={sent} skipped={skipped}."))
+            # Push the same morning bulletin to every connected integration
+            # channel (Slack/Telegram/…). Best-effort — never break the tick.
+            self._push_integrations(created_total)
 
         elapsed = (timezone.now() - started).total_seconds()
         self.stdout.write(self.style.SUCCESS(
             f"== Done in {elapsed:.1f}s · {created_total} new matches =="
         ))
+
+    def _push_integrations(self, new_matches: int) -> None:
+        """Broadcast the morning bulletin to connected integration channels."""
+        from apps.integrations.models import Integration
+        from apps.integrations.services.digest import deliver_digest
+
+        if not Integration.objects.exists():
+            return
+        results = deliver_digest(top_n=5, new_matches=new_matches)
+        ok = sum(1 for v in results.values() if v == "sent")
+        self.stdout.write(self.style.SUCCESS(
+            f"[3/3] Integrations pushed: {ok}/{len(results)} channel(s)."
+        ))
+        for plat, outcome in results.items():
+            if outcome != "sent":
+                self.stdout.write(self.style.WARNING(f"  {plat}: {outcome}"))
 
     def _send_digests(self) -> tuple[int, int]:
         from django.contrib.auth import get_user_model
