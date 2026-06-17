@@ -1,0 +1,171 @@
+{
+  "page": {
+    "title": "Labeling Tool",
+    "subtitle": "Label CV–Job pairs for ML training",
+    "refresh": "Refresh",
+    "export": "Export",
+    "loadingQueue": "Loading queue...",
+    "loadingNextCV": "Loading next CV...",
+    "allLabeledTitle": "All pairs labeled!",
+    "allLabeledHint": "No pending pairs. Run <0>populate_pair_queue</0> to add more."
+  },
+  "cvPanel": {
+    "cvNumber": "CV #{{id}}",
+    "loadingPdf": "Loading…",
+    "pdf": "PDF",
+    "expYears": "{{count}}y exp",
+    "skills": "Skills",
+    "summary": "Summary",
+    "pdfTitle": "CV #{{id}} — PDF",
+    "pdfIframeTitle": "CV #{{id}} PDF",
+    "morePlus": "+{{count}}"
+  },
+  "dimScore": {
+    "bad": "Bad",
+    "ok": "OK",
+    "good": "Good"
+  },
+  "overall": {
+    "label": "Overall",
+    "notSuitable": "Not Suitable",
+    "suitable": "Suitable",
+    "strongFit": "Strong Fit",
+    "suggested": "Suggested: {{label}}"
+  },
+  "jobCard": {
+    "jobNumber": "Job #{{id}}",
+    "overlap": "overlap {{percent}}%",
+    "jobSkills": "Job Skills",
+    "common": "{{count}} common",
+    "dimensions": "Dimensions",
+    "skillFit": "Skill fit",
+    "seniorityFit": "Seniority fit",
+    "experienceFit": "Experience fit",
+    "domainFit": "Domain fit",
+    "notePlaceholder": "Note (optional)",
+    "skip": "Skip",
+    "submit": "Submit"
+  },
+  "progress": {
+    "labeled": "{{labeled}} / {{total}} labeled",
+    "skipped": "Skipped: {{count}}",
+    "remaining": "Remaining: {{count}}"
+  },
+  "batch": {
+    "title": "Labeling",
+    "titleEmphasis": "LLM",
+    "subtitle": "Auto-label CV-Job pairs using LLM for training data.",
+    "workers": "Workers",
+    "startBatch": "Start batch",
+    "running": "Running…",
+    "startFailed": "Failed to start batch",
+    "stat": {
+      "pending": "Pending",
+      "labeled": "Labeled",
+      "totalPairs": "Total pairs",
+      "labels": "Labels",
+      "unitPairs": "pairs",
+      "unitInQueue": "in queue",
+      "unitCreated": "created"
+    },
+    "labelDistribution": "Label distribution",
+    "noLabelsYet": "No labels yet",
+    "dist": {
+      "notSuitable": "Not suitable (0)",
+      "suitable": "Suitable (1)",
+      "strongFit": "Strong fit (2)"
+    },
+    "noBatchesTitle": "No batches yet",
+    "noBatchesHint": "Start a batch to auto-label pending pairs.",
+    "card": {
+      "batchNumber": "Batch #{{id}}",
+      "workers": "{{count}} workers",
+      "labeledOf": "{{done}} / {{total}} labeled",
+      "done": "Done",
+      "errors": "Errors",
+      "pending": "Pending",
+      "stop": "Stop"
+    }
+  },
+  "detail": {
+    "allBatches": "All batches",
+    "batchNumber": "Batch #{{id}}",
+    "workers": "{{count}} workers",
+    "labeling": "Labeling…",
+    "workersLabel": "Workers",
+    "resume": "Resume",
+    "resuming": "Resuming…",
+    "stop": "Stop",
+    "stopping": "Stopping…",
+    "refresh": "Refresh",
+    "cancelFailed": "Failed to cancel.",
+    "resumeFailed": "Failed to resume.",
+    "stat": {
+      "progress": "Progress",
+      "labeled": "Labeled",
+      "errors": "Errors",
+      "pending": "Pending",
+      "clean": "clean",
+      "failed": "failed",
+      "unitPairs": "pairs"
+    },
+    "labelDistribution": "Label distribution",
+    "labelsInBatch": "{{count}} labels in this batch",
+    "recentLabels": "Recent labels",
+    "recentSummary": "last {{count}} · click to inspect",
+    "noLabelsYet": "no labels yet",
+    "noLabelsYetDist": "No labels yet",
+    "dist": {
+      "notSuitable": "Not suitable (0)",
+      "suitable": "Suitable (1)",
+      "strongFit": "Strong fit (2)"
+    },
+    "overallLabel": {
+      "notSuitable": "Not suitable",
+      "suitable": "Suitable",
+      "strongFit": "Strong fit"
+    },
+    "dim": {
+      "skillFit": "Skill fit",
+      "seniority": "Seniority",
+      "experience": "Experience",
+      "domain": "Domain"
+    },
+    "dimDesc": {
+      "skillFit": ["<30% skills matched", "30–70% matched", ">70% matched"],
+      "seniority": ["≥2 levels apart", "1 level apart", "Exact / overqualified"],
+      "experience": ["<50% of required", "50–90% of required", "Meets or exceeds"],
+      "domain": ["Different domain", "Related domain", "Same domain"]
+    },
+    "drawer": {
+      "pairNumber": "Pair #{{id}}",
+      "cv": "CV",
+      "cvExp": "{{count}}y exp",
+      "skills": "Skills",
+      "summary": "Summary",
+      "job": "Job",
+      "seniority": "Seniority:",
+      "exp": "Exp:",
+      "requiredSkills": "Required skills",
+      "description": "Description",
+      "scoreBreakdown": "Score breakdown",
+      "roleOther": "other",
+      "dash": "—"
+    },
+    "table": {
+      "pair": "Pair",
+      "cvRole": "CV role",
+      "jobTitle": "Job title",
+      "jobRole": "Job role",
+      "skill": "Skill",
+      "seniority": "Seniority",
+      "exp": "Exp",
+      "domain": "Domain",
+      "overall": "Overall",
+      "type": "Type",
+      "time": "Time",
+      "empty": "No labels yet.",
+      "dash": "—"
+    }
+  }
+}

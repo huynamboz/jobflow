@@ -1,0 +1,151 @@
+{
+  "page": {
+    "title": "Integrations",
+    "subtitle": "Connect a platform to receive the morning staffing digest each day."
+  },
+  "card": {
+    "connected": "Connected",
+    "error": "Error",
+    "manage": "Manage",
+    "connect": "Connect"
+  },
+  "platforms": {
+    "slack": {
+      "blurb": "Post the morning digest to a Slack channel.",
+      "guide": "Create an Incoming Webhook in your Slack workspace and paste the URL below. The digest is delivered to that channel each morning.",
+      "fields": {
+        "webhookUrl": {
+          "label": "Incoming webhook URL",
+          "help": "Slack → Apps → Incoming Webhooks → Add to channel."
+        },
+        "channel": {
+          "label": "Channel (optional)"
+        }
+      }
+    },
+    "telegram": {
+      "blurb": "Send a daily message via a Telegram bot.",
+      "guide": "Talk to @BotFather to create a bot and grab its token, then add the bot to your group/channel and provide the chat ID.",
+      "fields": {
+        "botToken": {
+          "label": "Bot token"
+        },
+        "chatId": {
+          "label": "Chat ID",
+          "help": "Numeric ID of the user, group, or channel to message."
+        }
+      }
+    },
+    "discord": {
+      "blurb": "Drop the digest into a Discord channel.",
+      "guide": "In your Discord server: Channel settings → Integrations → Webhooks → New Webhook, then copy the webhook URL.",
+      "fields": {
+        "webhookUrl": {
+          "label": "Webhook URL"
+        }
+      }
+    },
+    "whatsapp": {
+      "blurb": "Deliver the digest over WhatsApp Business.",
+      "guide": "Use a WhatsApp Business Cloud API number. Provide your phone number ID and a permanent access token.",
+      "fields": {
+        "phoneNumberId": {
+          "label": "Phone number ID"
+        },
+        "accessToken": {
+          "label": "Access token"
+        },
+        "recipient": {
+          "label": "Recipient number",
+          "help": "Number that receives the morning digest (E.164 format)."
+        }
+      }
+    },
+    "zalo": {
+      "blurb": "Notify a Zalo user/group via the zca-js sidecar.",
+      "guide": "Zalo gửi qua tài khoản cá nhân (zca-js sidecar). Bấm “Đăng nhập QR” bên dưới rồi quét mã bằng app Zalo của tài khoản gửi — không cần chạy lệnh nào. Sau đó nhập threadId người/nhóm nhận. (Cần sidecar backend/zalo_sidecar đang chạy: npm install → npm start.)",
+      "fields": {
+        "recipient": {
+          "label": "Recipient threadId",
+          "help": "ID của user (sender có thể nhắn) hoặc nhóm — xem zalo_sidecar/README.md."
+        },
+        "threadType": {
+          "label": "Thread type",
+          "placeholder": "user hoặc group (mặc định: user)",
+          "help": "Để 'user' nếu gửi cho một người, 'group' nếu gửi vào nhóm."
+        }
+      }
+    },
+    "gmail": {
+      "blurb": "Email the digest from a Gmail account.",
+      "guide": "Enable 2-Step Verification on the Google account and create an App Password (16 characters). Use it instead of your normal password.",
+      "fields": {
+        "email": {
+          "label": "Gmail address"
+        },
+        "appPassword": {
+          "label": "App password",
+          "help": "16-char Google App Password — never your real password."
+        }
+      }
+    },
+    "email": {
+      "blurb": "Send via any custom SMTP server.",
+      "guide": "Connect any SMTP provider (SendGrid, Mailgun, your own server) by entering the host, port, and credentials.",
+      "fields": {
+        "host": {
+          "label": "SMTP host"
+        },
+        "port": {
+          "label": "Port"
+        },
+        "username": {
+          "label": "Username"
+        },
+        "password": {
+          "label": "Password"
+        },
+        "fromAddress": {
+          "label": "From address"
+        }
+      }
+    }
+  },
+  "logoAlt": "{{name}} logo",
+  "zaloLogin": {
+    "sessionTitle": "Zalo session (sender account)",
+    "loggedIn": "Logged in",
+    "waiting": "Waiting…",
+    "loginQr": "QR login",
+    "qrAlt": "Zalo QR",
+    "scanHint": "Open Zalo on the sender account's phone → scan the code.",
+    "scanned": "Scanned — completing login…",
+    "scannedNamed": "Scanned ({{name}}) — completing login…",
+    "expired": "The QR code has expired — tap “QR login” to generate a new one.",
+    "declined": "Login was declined on the phone — try again.",
+    "loggedInToast": "Zalo logged in",
+    "startErrorTitle": "Could not start Zalo login",
+    "startErrorDesc": "Is the sidecar running?"
+  },
+  "modal": {
+    "connectTitle": "Connect {{name}}",
+    "subtitle": "Morning digest delivery",
+    "savedPlaceholder": "•••••••• (saved — leave blank to keep it)",
+    "disconnect": "Disconnect",
+    "test": "Test",
+    "update": "Update",
+    "connect": "Connect"
+  },
+  "toast": {
+    "connectedTitle": "{{name}} connected",
+    "updatedTitle": "{{name}} updated",
+    "savedDesc": "The morning digest will be delivered to this channel.",
+    "saveFailedTitle": "Could not save",
+    "saveFailedDesc": "Please try again.",
+    "testSentTitle": "Test message sent",
+    "testSentDesc": "Check your {{name}} channel.",
+    "testFailedTitle": "Test failed",
+    "testFailedDesc": "Delivery failed.",
+    "disconnectedTitle": "{{name}} disconnected"
+  }
+}

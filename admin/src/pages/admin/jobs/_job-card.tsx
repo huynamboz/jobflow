@@ -1,7 +1,8 @@
 import { Briefcase, Check, ChevronRight, MapPin } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { JobListItem } from "@/types/job.types";
 import {
-  JOB_TYPE_LABEL, PlatformLogo,
+  JOB_TYPE_LABEL_KEY, PlatformLogo,
   StatusBadge, WORK_MODES, WorkModeBadge,
   daysAgo, fmtSalary,
 } from "./_primitives";
@@ -23,6 +24,7 @@ export function JobCard({
   onToggle: () => void;
   onOpen: () => void;
 }) {
+  const { t } = useTranslation("jobs");
   const isWorkMode = WORK_MODES.has(job.job_type);
   const statusKind = job.is_active ? "active" : "inactive";
 
@@ -70,7 +72,7 @@ export function JobCard({
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
           className="shrink-0 cursor-pointer border-0 bg-transparent p-1"
-          title={selected ? "Deselect" : "Select"}
+          title={selected ? t("card.deselect") : t("card.select")}
         >
           <div
             className="grid size-5 place-items-center"
@@ -113,7 +115,7 @@ export function JobCard({
         {job.job_type && (
           <span className="inline-flex items-center gap-1">
             <Briefcase className="size-3 shrink-0" />
-            {JOB_TYPE_LABEL[job.job_type] ?? job.job_type}
+            {JOB_TYPE_LABEL_KEY[job.job_type] ? t(JOB_TYPE_LABEL_KEY[job.job_type]) : job.job_type}
           </span>
         )}
       </div>
@@ -131,7 +133,7 @@ export function JobCard({
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {fmtSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_period)}
+          {fmtSalary(t, job.salary_min, job.salary_max, job.salary_currency, job.salary_period)}
         </div>
         <StatusBadge kind={statusKind} />
       </div>
@@ -141,9 +143,9 @@ export function JobCard({
         className="flex items-center gap-2"
         style={{ font: "400 11px/16px var(--font-node-mono)", color: "var(--muted)" }}
       >
-        <span>{daysAgo(job.date_posted)}</span>
+        <span>{daysAgo(t, job.date_posted)}</span>
         {job.applicant_count != null && (
-          <span className="ml-auto">{job.applicant_count} applicants</span>
+          <span className="ml-auto">{t("card.applicants", { count: job.applicant_count })}</span>
         )}
       </div>
     </div>
@@ -160,6 +162,7 @@ export function JobRow({
   onOpen: () => void;
   isFirst?: boolean;
 }) {
+  const { t } = useTranslation("jobs");
   const isWorkMode = WORK_MODES.has(job.job_type);
   const statusKind = job.is_active ? "active" : "inactive";
 
@@ -218,11 +221,11 @@ export function JobRow({
       </td>
 
       <td className="px-4 py-3.5" style={{ font: "400 12px/16px var(--font-node-mono)", color: "var(--muted)" }}>
-        {daysAgo(job.date_posted)}
+        {daysAgo(t, job.date_posted)}
       </td>
 
       <td className="px-4 py-3.5" style={{ font: "400 12px/16px var(--font-node-mono)", color: "var(--ink)" }}>
-        {fmtSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_period)}
+        {fmtSalary(t, job.salary_min, job.salary_max, job.salary_currency, job.salary_period)}
       </td>
 
       <td className="px-4 py-3.5">

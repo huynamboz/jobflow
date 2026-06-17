@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { FileText, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { apiClient } from "@/lib/api-client";
 import type { LabelingCV } from "@/types/labeling.types";
@@ -18,6 +19,7 @@ const SENIORITY_COLOR: Record<string, string> = {
 };
 
 export function CVPanel({ cv }: CVPanelProps) {
+  const { t } = useTranslation("labeling");
   const seniorityClass = SENIORITY_COLOR[cv.seniority] ?? "bg-default-100 text-default-600";
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -55,7 +57,7 @@ export function CVPanel({ cv }: CVPanelProps) {
           <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${seniorityClass}`}>
             {cv.seniority}
           </span>
-          <span className="text-xs text-default-500">CV #{cv.cv_id}</span>
+          <span className="text-xs text-default-500">{t("cvPanel.cvNumber", { id: cv.cv_id })}</span>
           {cv.pdf_path && (
             <button
               type="button"
@@ -64,12 +66,12 @@ export function CVPanel({ cv }: CVPanelProps) {
               className="ml-auto flex items-center gap-1 rounded-lg border border-default-200 bg-white px-2 py-1 text-xs text-default-600 hover:bg-default-50 disabled:opacity-50 transition-colors"
             >
               <FileText className="size-3.5" />
-              {pdfLoading ? "Loading…" : "PDF"}
+              {pdfLoading ? t("cvPanel.loadingPdf") : t("cvPanel.pdf")}
             </button>
           )}
         </div>
         <div className="flex gap-4 text-sm text-default-600 mt-2">
-          <span>{cv.experience_years}y exp</span>
+          <span>{t("cvPanel.expYears", { count: cv.experience_years })}</span>
           <span>·</span>
           <span>{cv.education}</span>
           <span>·</span>
@@ -79,7 +81,7 @@ export function CVPanel({ cv }: CVPanelProps) {
 
       {/* Skills */}
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-default-400">Skills</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-default-400">{t("cvPanel.skills")}</p>
         <div className="flex flex-wrap gap-1.5">
           {cv.skills.slice(0, 20).map((s) => (
             <span key={s} className="rounded-lg border border-default-200 bg-default-50 px-2 py-0.5 text-xs text-default-600">
@@ -87,7 +89,7 @@ export function CVPanel({ cv }: CVPanelProps) {
             </span>
           ))}
           {cv.skills.length > 20 && (
-            <span className="text-xs text-default-400">+{cv.skills.length - 20}</span>
+            <span className="text-xs text-default-400">{t("cvPanel.morePlus", { count: cv.skills.length - 20 })}</span>
           )}
         </div>
       </div>
@@ -95,7 +97,7 @@ export function CVPanel({ cv }: CVPanelProps) {
       {/* Summary */}
       {cv.text_summary && (
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-default-400">Summary</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-default-400">{t("cvPanel.summary")}</p>
           <p className="text-xs leading-relaxed text-default-500 line-clamp-6">{cv.text_summary}</p>
         </div>
       )}
@@ -112,7 +114,7 @@ export function CVPanel({ cv }: CVPanelProps) {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-default-200">
-            <span className="text-sm font-medium text-default-700">CV #{cv.cv_id} — PDF</span>
+            <span className="text-sm font-medium text-default-700">{t("cvPanel.pdfTitle", { id: cv.cv_id })}</span>
             <button
               type="button"
               onClick={handleClosePdf}
@@ -124,7 +126,7 @@ export function CVPanel({ cv }: CVPanelProps) {
           <iframe
             src={pdfUrl}
             className="flex-1 w-full"
-            title={`CV #${cv.cv_id} PDF`}
+            title={t("cvPanel.pdfIframeTitle", { id: cv.cv_id })}
           />
         </div>
       </div>

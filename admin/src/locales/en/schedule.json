@@ -1,0 +1,75 @@
+{
+  "pages": {
+    "extract": {
+      "title": "Extract schedule",
+      "description": "Daily date-backfill (also runs the bundled verify pass) · auto-fire + manual runs · live log + history."
+    },
+    "morningRefresh": {
+      "title": "Morning refresh",
+      "description": "Daily tick — re-match all employees against fresh jobs (no LLM, no duplicates), then send the HR digest. Toggle on, set the UTC hour, watch the live log + history."
+    },
+    "verify": {
+      "title": "Verify schedule",
+      "description": "Daily lifecycle re-checking · auto-fire daemon + manual runs · live log + history."
+    }
+  },
+  "timeAgo": {
+    "seconds": "{{count}}s ago",
+    "minutes": "{{count}}m ago",
+    "hours": "{{count}}h ago",
+    "days": "{{count}}d ago"
+  },
+  "pending": {
+    "verifyTitle": "Jobs needing verify",
+    "verifyHint": "active|stale ∩ backoff cleared",
+    "extractTitle": "Jobs needing date parse",
+    "extractHint": "same set ∩ date_posted IS NULL"
+  },
+  "errors": {
+    "load": "Failed to load",
+    "save": "Save failed",
+    "start": "Start failed",
+    "stop": "Stop failed"
+  },
+  "config": {
+    "title": "Schedule config",
+    "subtitle": "Daemon picks up new values on its next tick (≤60s).",
+    "enabled": "Enabled",
+    "enabledHint": "— daemon may auto-fire at the configured hours",
+    "batchSize": "Batch size",
+    "hoursLabel": "Hours (UTC, comma-sep)",
+    "noAuthCheck": "Use --no-auth-check (guest mode)",
+    "headless": "Headless",
+    "headlessHint": "— uncheck to see the Chromium window",
+    "saveConfig": "Save config",
+    "lastFired": "last fired {{time}}"
+  },
+  "run": {
+    "title": "Active run",
+    "subtitle": "One-off invocation, or watch the daemon's currently-running batch.",
+    "status": "Status",
+    "running": "● running",
+    "idle": "idle",
+    "pid": "PID",
+    "startedAt": "started {{time}} · log: {{logName}}",
+    "runNow": "Run now",
+    "stop": "Stop",
+    "starting": "Starting…",
+    "stopping": "Stopping…"
+  },
+  "log": {
+    "title": "Live log",
+    "polling": "polling every 2s",
+    "idle": "idle — last run captured below",
+    "loading": "Loading…",
+    "noOutput": "(no output yet)"
+  },
+  "history": {
+    "title": "Recent runs ({{count}})",
+    "when": "When",
+    "wall": "Wall",
+    "examined": "Examined",
+    "outcomes": "Outcomes",
+    "empty": "No runs yet"
+  }
+}

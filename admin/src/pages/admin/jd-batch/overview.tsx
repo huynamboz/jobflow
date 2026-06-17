@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@heroui/button";
 import { IconFileText, IconLoader2, IconPlus } from "@tabler/icons-react";
@@ -10,6 +11,7 @@ import { POLL_INTERVAL, fmtDate } from "./_tokens";
 import { Badge, type BadgeStatus, KeyframeStyle, ProgressBar, StatCard } from "./_primitives";
 
 function BatchCard({ batch, onClick }: { batch: JDBatch; onClick: () => void }) {
+  const { t } = useTranslation("llm");
   const processed = batch.done_count + batch.error_count;
   const pct = batch.total > 0 ? (batch.done_count / batch.total) * 100 : 0;
 
@@ -23,7 +25,7 @@ function BatchCard({ batch, onClick }: { batch: JDBatch; onClick: () => void }) 
         <span className="font-mono text-[11px] text-jb-ink4">{fmtDate(batch.created_at)}</span>
       </div>
 
-      <div className="font-bold text-[15px] tracking-[-0.01em]">Batch #{batch.id}</div>
+      <div className="font-bold text-[15px] tracking-[-0.01em]">{t("batch.overview.card.batch", { id: batch.id })}</div>
       <div className="font-mono text-[12px] text-jb-ink3 mt-0.5">
         {batch.file_path.split("/").pop()}
       </div>
@@ -34,7 +36,7 @@ function BatchCard({ batch, onClick }: { batch: JDBatch; onClick: () => void }) 
           running={batch.status === "running"} done={batch.status === "done"}
         />
         <div className="flex justify-between text-xs mt-2">
-          <span className="text-jb-ink3">{batch.done_count} / {batch.total} records</span>
+          <span className="text-jb-ink3">{t("batch.overview.card.records", { done: batch.done_count, total: batch.total })}</span>
           <span className="font-semibold">{pct.toFixed(0)}%</span>
         </div>
       </div>
@@ -43,11 +45,11 @@ function BatchCard({ batch, onClick }: { batch: JDBatch; onClick: () => void }) 
 
       <div className="grid grid-cols-2 gap-2.5 text-[11.5px]">
         <div>
-          <div className="uppercase tracking-[0.05em] font-semibold text-[10px] text-jb-ink4">Fields</div>
-          <div className="mt-0.5 text-jb-ink2">{batch.fields_config.length} combined</div>
+          <div className="uppercase tracking-[0.05em] font-semibold text-[10px] text-jb-ink4">{t("batch.overview.card.fields")}</div>
+          <div className="mt-0.5 text-jb-ink2">{t("batch.overview.card.fieldsCombined", { count: batch.fields_config.length })}</div>
         </div>
         <div>
-          <div className="uppercase tracking-[0.05em] font-semibold text-[10px] text-jb-ink4">Errors</div>
+          <div className="uppercase tracking-[0.05em] font-semibold text-[10px] text-jb-ink4">{t("batch.overview.card.errors")}</div>
           <div className={cn("mt-0.5 font-semibold", batch.error_count > 0 ? "text-jb-danger" : "text-jb-ink2")}>
             {batch.error_count}
           </div>
@@ -58,6 +60,7 @@ function BatchCard({ batch, onClick }: { batch: JDBatch; onClick: () => void }) 
 }
 
 export default function JDBatchOverview() {
+  const { t } = useTranslation("llm");
   const navigate = useNavigate();
   const [batches, setBatches] = useState<JDBatch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,25 +91,25 @@ export default function JDBatchOverview() {
       <div className="flex flex-col sm:flex-row sm:items-end gap-3">
         <div>
           <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] m-0 text-jb-ink">
-            JD Batch <span className="italic text-jb-accent font-normal">Extraction</span>
+            {t("batch.overview.titlePrefix")} <span className="italic text-jb-accent font-normal">{t("batch.overview.titleAccent")}</span>
           </h1>
           <p className="mt-1 text-jb-ink3 text-sm m-0">
-            Normalize scraped job postings into structured JSON using an LLM.
+            {t("batch.overview.description")}
           </p>
         </div>
         <div className="sm:ml-auto">
           <Button color="primary" startContent={<IconPlus size={14} />} onPress={() => navigate("new")}>
-            New batch
+            {t("batch.overview.newBatch")}
           </Button>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Active now"        value={runningCount}               unit="running"  accent={runningCount > 0} />
-        <StatCard label="Total batches"     value={batches.length}             unit="all-time" />
-        <StatCard label="Records extracted" value={totalDone.toLocaleString()} unit={`/ ${totalRecords.toLocaleString()}`} />
-        <StatCard label="Last batch"        value={batches[0] ? `#${batches[0].id}` : "—"} />
+        <StatCard label={t("batch.overview.statActiveNow")}        value={runningCount}               unit={t("batch.overview.statActiveNowUnit")}  accent={runningCount > 0} />
+        <StatCard label={t("batch.overview.statTotalBatches")}     value={batches.length}             unit={t("batch.overview.statTotalBatchesUnit")} />
+        <StatCard label={t("batch.overview.statRecordsExtracted")} value={totalDone.toLocaleString()} unit={`/ ${totalRecords.toLocaleString()}`} />
+        <StatCard label={t("batch.overview.statLastBatch")}        value={batches[0] ? `#${batches[0].id}` : "—"} />
       </div>
 
       {/* Batch grid */}
@@ -118,8 +121,8 @@ export default function JDBatchOverview() {
         <div className="grid place-items-center h-60 text-jb-ink3">
           <div className="text-center">
             <IconFileText size={32} className="mx-auto mb-3 text-jb-ink4" />
-            <div className="font-semibold mb-1">No batches yet</div>
-            <div className="text-[13px]">Upload a JSONL file to start extraction.</div>
+            <div className="font-semibold mb-1">{t("batch.overview.emptyTitle")}</div>
+            <div className="text-[13px]">{t("batch.overview.emptyHint")}</div>
           </div>
         </div>
       ) : (

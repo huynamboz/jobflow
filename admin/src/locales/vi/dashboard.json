@@ -1,0 +1,176 @@
+{
+  "page": {
+    "title": "Bảng điều khiển",
+    "subtitle": "Những việc nhóm bạn cần xử lý hôm nay."
+  },
+  "staffing": {
+    "loadError": "Không tải được bảng điều khiển tuyển dụng.",
+    "kpi": {
+      "employees": "Nhân viên",
+      "employeesHint": "đã có CV",
+      "inProgress": "Đang xử lý",
+      "inProgressHint": "đang theo đuổi + đã ứng tuyển",
+      "acceptedThisWeek": "Được nhận tuần này",
+      "acceptedThisWeekHint": "{{count}} bị từ chối",
+      "newJobs24h": "Việc mới (24h)",
+      "newJobs24hHint": "{{count}} trong 7 ngày"
+    },
+    "toHandleToday": "Cần xử lý hôm nay",
+    "items": "{{count}} mục",
+    "allClear": "Tất cả ổn — hiện không có việc gì cần bạn lưu ý.",
+    "newJobsForEmployees": "Nhân viên có việc mới",
+    "newJobsSub": "có việc phù hợp mới — xem lại và quyết định ứng tuyển",
+    "newCount": "{{count}} mới",
+    "staleApplied": "Đã ứng tuyển từ lâu, chưa có cập nhật",
+    "daysWaiting": "chờ {{count}}n",
+    "pipelineFunnel": "Phễu quy trình",
+    "funnel": {
+      "suggested": "Gợi ý",
+      "pursuing": "Đang theo đuổi",
+      "applied": "Đã ứng tuyển",
+      "won": "Được nhận",
+      "lost": "Bị từ chối"
+    },
+    "alertsTitle": "Cảnh báo & rủi ro",
+    "alerts": {
+      "parseFailed": "Phân tích CV thất bại",
+      "highScoreUnapplied": "Điểm cao, chưa ứng tuyển",
+      "expiringPursuing": "Việc đang theo đuổi sắp hết hạn",
+      "none": "Không có"
+    },
+    "recentActivity": "Hoạt động gần đây",
+    "recent": {
+      "wonLost": "Được nhận / từ chối",
+      "newJobs": "Việc mới thu thập",
+      "newEmployees": "Nhân viên mới",
+      "accepted": "Được nhận",
+      "rejected": "Bị từ chối"
+    }
+  },
+  "mail": {
+    "title": "Phản hồi email",
+    "relTime": {
+      "justNow": "vừa xong",
+      "minutesAgo": "{{count}} phút trước",
+      "hoursAgo": "{{count}} giờ trước",
+      "daysAgo": "{{count}} ngày trước"
+    }
+  },
+  "kpiStrip": {
+    "jobs": "Việc làm",
+    "jobsMeta": "{{active}} hoạt động · {{expired}} hết hạn",
+    "cvs": "CV",
+    "cvsMeta": "+{{count}} trong 7 ngày",
+    "verifier": "Trình xác minh",
+    "extractor": "Trình trích xuất",
+    "auth": "Xác thực",
+    "authValid": "Hợp lệ",
+    "authMissing": "Thiếu",
+    "authPresent": "đã có li_at",
+    "authRun": "chạy linkedin_auth.py",
+    "model": "Mô hình",
+    "modelAuc": "auc {{value}}",
+    "modelNoMetrics": "chưa có chỉ số",
+    "freshness": {
+      "fresh": "mới · ≤24h",
+      "stale": "cũ · ≤72h",
+      "veryStale": "cũ · >72h",
+      "never": "chưa chạy"
+    },
+    "timeAgo": {
+      "never": "chưa bao giờ"
+    }
+  },
+  "section": {
+    "loading": "Đang tải…",
+    "failedToLoad": "Tải thất bại",
+    "retry": "Thử lại",
+    "noData": "Chưa có dữ liệu"
+  },
+  "catalog": {
+    "title": "Cơ cấu danh mục",
+    "description": "Phân bổ theo nền tảng, vòng đời, vai trò và cấp bậc",
+    "byPlatform": "Theo nền tảng",
+    "byLifecycle": "Theo vòng đời",
+    "byRoleCategory": "Theo nhóm vai trò",
+    "byRoleCategoryCount": "Theo nhóm vai trò ({{count}})",
+    "bySeniority": "Theo cấp bậc",
+    "aria": {
+      "byPlatform": "Việc làm theo nền tảng",
+      "byLifecycle": "Việc làm theo vòng đời",
+      "byRoleCategory": "Việc làm theo nhóm vai trò",
+      "bySeniority": "Việc làm theo cấp bậc"
+    }
+  },
+  "freshness": {
+    "title": "Độ mới & hoạt động",
+    "description": "Lượng việc thu thập và kết quả xác minh theo thời gian",
+    "jobsAddedPerDay": "Số việc thêm mỗi ngày, 30 ngày gần nhất",
+    "verifierOutcomesPerDay": "Kết quả xác minh mỗi ngày, 14 ngày gần nhất",
+    "series": {
+      "active": "Hoạt động",
+      "expired": "Hết hạn",
+      "unknown": "Không rõ",
+      "error": "Lỗi",
+      "sessionExpired": "Phiên hết hạn"
+    },
+    "aria": {
+      "jobsAddedPerDay": "Số việc thêm mỗi ngày",
+      "verifierOutcomesPerDay": "Kết quả xác minh mỗi ngày"
+    }
+  },
+  "labeling": {
+    "title": "Tiến độ gán nhãn",
+    "description": "Hàng đợi cặp dữ liệu và phân bổ lựa chọn",
+    "total": "Tổng",
+    "labeled": "Đã gán nhãn",
+    "skipped": "Bỏ qua",
+    "pending": "Đang chờ",
+    "byReason": "Theo lý do",
+    "bySplit": "Theo phân chia"
+  },
+  "model": {
+    "title": "Mô hình",
+    "description": "Checkpoint GNN đang hoạt động",
+    "emptyMessage": "Chưa kích hoạt mô hình (cần ML_CHECKPOINT_DIR + meta.json)",
+    "checkpoint": "Checkpoint",
+    "trained": "huấn luyện {{date}}",
+    "aucRoc": "AUC-ROC",
+    "ndcg5": "NDCG@5",
+    "mrr": "MRR",
+    "p5": "P@5",
+    "calibration": "hiệu chuẩn · a={{a}} · b={{b}}"
+  },
+  "ops": {
+    "title": "Vận hành xác minh & trích xuất",
+    "description": "Độ phủ và các lần chạy gần đây",
+    "coverageDatePosted": "Việc LinkedIn có date_posted",
+    "coverageVerified30d": "Đã xác minh trong 30 ngày qua",
+    "recentRuns": "Các lần chạy gần đây ({{count}})",
+    "noRuns": "Chưa có lần chạy nào",
+    "table": {
+      "when": "Khi nào",
+      "command": "Lệnh",
+      "examined": "Đã kiểm tra",
+      "wall": "Thời gian",
+      "outcomes": "Kết quả"
+    },
+    "ago": "{{time}} trước",
+    "verify": "xác minh",
+    "extract": "trích xuất",
+    "dry": "thử"
+  },
+  "authBanner": {
+    "title": "Trạng thái xác thực LinkedIn không hợp lệ",
+    "bodyPrefix": "File đã lưu",
+    "bodyMissing": "bị thiếu hoặc không có",
+    "bodyRun": ". Hãy chạy",
+    "bodyFromVenv": "từ venv của backend. Xem",
+    "dismiss": "Bỏ qua"
+  },
+  "chart": {
+    "noData": "Không có dữ liệu",
+    "noDataAria": "{{label}}: không có dữ liệu",
+    "jobs": "việc làm"
+  }
+}

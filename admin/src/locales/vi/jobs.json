@@ -1,0 +1,137 @@
+{
+  "list": {
+    "titlePrefix": "Tất cả",
+    "titleEmphasis": "việc làm",
+    "summary": "{{count}} tin tuyển dụng · {{platforms}} · {{active}} đang hoạt động, {{inactive}} ngừng hoạt động",
+    "platforms_one": "{{count}} nền tảng",
+    "platforms_other": "{{count}} nền tảng",
+    "rescrape": "Thu thập lại",
+    "exporting": "Đang xuất…",
+    "export": "Xuất",
+    "newBatch": "Tạo lô mới từ việc làm",
+    "searchPlaceholder": "Tìm theo chức danh, công ty, kỹ năng…",
+    "loading": "Đang tải…",
+    "empty": "Không có việc làm nào khớp với bộ lọc.",
+    "pageInfo": "Trang {{page}} / {{totalPages}} · {{total}} tổng cộng"
+  },
+  "filter": {
+    "all": "Tất cả · {{count}}",
+    "active": "Đang hoạt động · {{count}}",
+    "inactive": "Ngừng hoạt động · {{count}}",
+    "any": "Tất cả",
+    "remote": "Từ xa",
+    "hybrid": "Kết hợp",
+    "onSite": "Tại văn phòng",
+    "allLevels": "Tất cả cấp bậc"
+  },
+  "selection": {
+    "selected": "đã chọn",
+    "clear": "Bỏ chọn",
+    "tag": "Gắn thẻ…",
+    "export": "Xuất {{count}}",
+    "extract": "Trích xuất {{count}} việc làm"
+  },
+  "table": {
+    "job": "Việc làm",
+    "location": "Địa điểm",
+    "posted": "Đăng ngày",
+    "salary": "Lương",
+    "status": "Trạng thái"
+  },
+  "card": {
+    "deselect": "Bỏ chọn",
+    "select": "Chọn",
+    "applicants_one": "{{count}} ứng viên",
+    "applicants_other": "{{count}} ứng viên"
+  },
+  "drawer": {
+    "loading": "Đang tải…",
+    "jobDetail": "Chi tiết việc làm",
+    "notFound": "Không tìm thấy việc làm.",
+    "salary": "Lương",
+    "type": "Loại hình",
+    "level": "Cấp bậc",
+    "posted": "Đăng ngày",
+    "skills": "Kỹ năng ({{count}})",
+    "source": "Nguồn",
+    "viewOriginal": "Xem bản gốc",
+    "description": "Mô tả",
+    "responsibilities": "Trách nhiệm",
+    "requirements": "Yêu cầu",
+    "active": "Đang hoạt động",
+    "activeNote": " — việc làm này hiện đang hiển thị với ứng viên.",
+    "inactive": "Ngừng hoạt động",
+    "inactiveNote": " — việc làm này không hiển thị với ứng viên."
+  },
+  "seniority": {
+    "intern": "Thực tập",
+    "junior": "Junior",
+    "mid": "Mid",
+    "senior": "Senior",
+    "lead": "Lead",
+    "manager": "Quản lý",
+    "level": "Cấp {{level}}"
+  },
+  "jobType": {
+    "fullTime": "Toàn thời gian",
+    "partTime": "Bán thời gian",
+    "remote": "Từ xa",
+    "hybrid": "Kết hợp",
+    "onSite": "Tại văn phòng"
+  },
+  "workMode": {
+    "remote": "Từ xa",
+    "hybrid": "Kết hợp",
+    "onSite": "Tại văn phòng"
+  },
+  "statusBadge": {
+    "active": "đang hoạt động",
+    "running": "đang chạy",
+    "inactive": "ngừng hoạt động"
+  },
+  "salaryPeriod": {
+    "hourly": "/giờ",
+    "daily": "/ngày",
+    "weekly": "/tuần",
+    "monthly": "/tháng",
+    "annual": "/năm"
+  },
+  "salary": {
+    "atLeast": "≥ {{value}}",
+    "atMost": "≤ {{value}}"
+  },
+  "relativeTime": {
+    "today": "hôm nay",
+    "dayAgo": "1 ngày trước",
+    "daysAgo": "{{count}} ngày trước"
+  },
+  "tracking": {
+    "titlePrefix": "Theo dõi",
+    "titleEmphasis": "việc làm",
+    "subtitle": "Đã nộp → được nhận → đang thực hiện → hoàn tất. Dẫn dắt từng dự án qua vòng đời của nó.",
+    "tabs": {
+      "all": "Tất cả",
+      "applied": "Đã nộp",
+      "won": "Được nhận",
+      "inProgress": "Đang thực hiện",
+      "completed": "Hoàn tất",
+      "lost": "Bị từ chối"
+    },
+    "status": {
+      "applied": "Đã nộp",
+      "won": "Được nhận",
+      "inProgress": "Đang thực hiện",
+      "completed": "Hoàn tất",
+      "lost": "Bị từ chối"
+    },
+    "changeStatus": "Đổi trạng thái",
+    "openPosting": "Mở tin tuyển dụng",
+    "loadError": "Tải danh sách theo dõi việc làm thất bại",
+    "marked": "Đã đánh dấu {{label}}",
+    "updateFailed": "Cập nhật thất bại",
+    "emptyTitle": "Chưa có việc làm nào ở đây",
+    "emptyHint": "Nộp đơn từ trình duyệt việc làm của nhân viên để bắt đầu theo dõi.",
+    "dash": "—",
+    "viewMore": "Xem thêm ({{count}} còn lại)"
+  }
+}

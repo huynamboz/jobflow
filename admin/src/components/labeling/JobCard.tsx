@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp, SkipForward, Check } from "lucide-react";
 import { clsx } from "clsx";
+import { useTranslation } from "react-i18next";
 
 import type { PairQueueItem, DimScores, DimScore, OverallScore } from "@/types/labeling.types";
 import { computeSuggestedOverall } from "@/services/labeling.service";
@@ -25,6 +26,7 @@ interface JobCardProps {
 }
 
 export function JobCard({ pair, isActive, onToggle, onSubmit, onSkip }: JobCardProps) {
+  const { t } = useTranslation("labeling");
   const [dims, setDims] = useState<DimScores>(NULL_DIMS);
   const [dimsSet, setDimsSet] = useState({ skill_fit: false, seniority_fit: false, experience_fit: false, domain_fit: false });
   const [overall, setOverall] = useState<OverallScore | null>(null);
@@ -83,7 +85,7 @@ export function JobCard({ pair, isActive, onToggle, onSubmit, onSkip }: JobCardP
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-default-900 truncate">{job.title || `Job #${job.job_id}`}</span>
+            <span className="font-medium text-default-900 truncate">{job.title || t("jobCard.jobNumber", { id: job.job_id })}</span>
             <span className={clsx(
               "shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-medium capitalize",
               REASON_BADGE[pair.selection_reason],
@@ -95,7 +97,7 @@ export function JobCard({ pair, isActive, onToggle, onSubmit, onSkip }: JobCardP
             <span>{job.seniority}</span>
             {salaryText && <><span>·</span><span>{salaryText}</span></>}
             {pair.skill_overlap_score > 0 && (
-              <><span>·</span><span>overlap {Math.round(pair.skill_overlap_score * 100)}%</span></>
+              <><span>·</span><span>{t("jobCard.overlap", { percent: Math.round(pair.skill_overlap_score * 100) })}</span></>
             )}
           </div>
         </div>
@@ -110,10 +112,10 @@ export function JobCard({ pair, isActive, onToggle, onSubmit, onSkip }: JobCardP
           {/* Job skills */}
           <div>
             <div className="mb-2 flex items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-default-400">Job Skills</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-default-400">{t("jobCard.jobSkills")}</p>
               {pair.common_skills.length > 0 && (
                 <span className="text-xs text-emerald-600">
-                  {pair.common_skills.length} common
+                  {t("jobCard.common", { count: pair.common_skills.length })}
                 </span>
               )}
             </div>
@@ -146,11 +148,11 @@ export function JobCard({ pair, isActive, onToggle, onSubmit, onSkip }: JobCardP
 
           {/* Dimension scores */}
           <div className="space-y-2.5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-default-400">Dimensions</p>
-            <DimScoreInput label="Skill fit"      value={dimsSet.skill_fit      ? dims.skill_fit      : null} onChange={setDim("skill_fit")} />
-            <DimScoreInput label="Seniority fit"  value={dimsSet.seniority_fit  ? dims.seniority_fit  : null} onChange={setDim("seniority_fit")} />
-            <DimScoreInput label="Experience fit" value={dimsSet.experience_fit ? dims.experience_fit : null} onChange={setDim("experience_fit")} />
-            <DimScoreInput label="Domain fit"     value={dimsSet.domain_fit     ? dims.domain_fit     : null} onChange={setDim("domain_fit")} />
+            <p className="text-xs font-semibold uppercase tracking-wide text-default-400">{t("jobCard.dimensions")}</p>
+            <DimScoreInput label={t("jobCard.skillFit")}      value={dimsSet.skill_fit      ? dims.skill_fit      : null} onChange={setDim("skill_fit")} />
+            <DimScoreInput label={t("jobCard.seniorityFit")}  value={dimsSet.seniority_fit  ? dims.seniority_fit  : null} onChange={setDim("seniority_fit")} />
+            <DimScoreInput label={t("jobCard.experienceFit")} value={dimsSet.experience_fit ? dims.experience_fit : null} onChange={setDim("experience_fit")} />
+            <DimScoreInput label={t("jobCard.domainFit")}     value={dimsSet.domain_fit     ? dims.domain_fit     : null} onChange={setDim("domain_fit")} />
           </div>
 
           {/* Overall */}
@@ -160,7 +162,7 @@ export function JobCard({ pair, isActive, onToggle, onSubmit, onSkip }: JobCardP
           <div>
             <textarea
               rows={2}
-              placeholder="Note (optional)"
+              placeholder={t("jobCard.notePlaceholder")}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="w-full rounded-xl border border-default-200 bg-default-50 px-3 py-2 text-sm text-default-700 placeholder:text-default-400 resize-none focus:outline-none focus:border-blue-300 focus:bg-white transition-colors"
@@ -176,7 +178,7 @@ export function JobCard({ pair, isActive, onToggle, onSubmit, onSkip }: JobCardP
               className="flex items-center gap-1.5 rounded-xl border border-default-200 bg-white px-4 py-2 text-sm text-default-600 hover:bg-default-50 disabled:opacity-50 transition-colors"
             >
               <SkipForward className="size-4" />
-              Skip
+              {t("jobCard.skip")}
             </button>
             <button
               type="button"
@@ -190,7 +192,7 @@ export function JobCard({ pair, isActive, onToggle, onSubmit, onSkip }: JobCardP
               )}
             >
               <Check className="size-4" />
-              Submit
+              {t("jobCard.submit")}
             </button>
           </div>
         </div>

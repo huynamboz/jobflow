@@ -1,0 +1,176 @@
+{
+  "page": {
+    "title": "Dashboard",
+    "subtitle": "What your team needs to handle today."
+  },
+  "staffing": {
+    "loadError": "Failed to load the staffing dashboard.",
+    "kpi": {
+      "employees": "Employees",
+      "employeesHint": "with a CV on file",
+      "inProgress": "In progress",
+      "inProgressHint": "pursuing + applied",
+      "acceptedThisWeek": "Accepted this week",
+      "acceptedThisWeekHint": "{{count}} rejected",
+      "newJobs24h": "New jobs (24h)",
+      "newJobs24hHint": "{{count}} in 7 days"
+    },
+    "toHandleToday": "To handle today",
+    "items": "{{count}} items",
+    "allClear": "All clear — nothing needs your attention right now.",
+    "newJobsForEmployees": "Employees with new jobs",
+    "newJobsSub": "new matching jobs — review and decide to apply",
+    "newCount": "{{count}} new",
+    "staleApplied": "Applied a while ago, no update",
+    "daysWaiting": "{{count}}d waiting",
+    "pipelineFunnel": "Pipeline funnel",
+    "funnel": {
+      "suggested": "Suggested",
+      "pursuing": "Pursuing",
+      "applied": "Applied",
+      "won": "Accepted",
+      "lost": "Rejected"
+    },
+    "alertsTitle": "Alerts & risks",
+    "alerts": {
+      "parseFailed": "CV parse failed",
+      "highScoreUnapplied": "High score, not applied",
+      "expiringPursuing": "Pursued jobs expiring",
+      "none": "None"
+    },
+    "recentActivity": "Recent activity",
+    "recent": {
+      "wonLost": "Accepted / rejected",
+      "newJobs": "Newly crawled jobs",
+      "newEmployees": "New employees",
+      "accepted": "Accepted",
+      "rejected": "Rejected"
+    }
+  },
+  "mail": {
+    "title": "Mail replies",
+    "relTime": {
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    }
+  },
+  "kpiStrip": {
+    "jobs": "Jobs",
+    "jobsMeta": "{{active}} active · {{expired}} expired",
+    "cvs": "CVs",
+    "cvsMeta": "+{{count}} last 7d",
+    "verifier": "Verifier",
+    "extractor": "Extractor",
+    "auth": "Auth",
+    "authValid": "Valid",
+    "authMissing": "Missing",
+    "authPresent": "li_at present",
+    "authRun": "run linkedin_auth.py",
+    "model": "Model",
+    "modelAuc": "auc {{value}}",
+    "modelNoMetrics": "no metrics",
+    "freshness": {
+      "fresh": "fresh · ≤24h",
+      "stale": "stale · ≤72h",
+      "veryStale": "stale · >72h",
+      "never": "never run"
+    },
+    "timeAgo": {
+      "never": "never"
+    }
+  },
+  "section": {
+    "loading": "Loading…",
+    "failedToLoad": "Failed to load",
+    "retry": "Retry",
+    "noData": "No data yet"
+  },
+  "catalog": {
+    "title": "Catalog composition",
+    "description": "Platform, lifecycle, role and seniority breakdown",
+    "byPlatform": "By platform",
+    "byLifecycle": "By lifecycle",
+    "byRoleCategory": "By role category",
+    "byRoleCategoryCount": "By role category ({{count}})",
+    "bySeniority": "By seniority",
+    "aria": {
+      "byPlatform": "Jobs by platform",
+      "byLifecycle": "Jobs by lifecycle",
+      "byRoleCategory": "Jobs by role category",
+      "bySeniority": "Jobs by seniority"
+    }
+  },
+  "freshness": {
+    "title": "Freshness & activity",
+    "description": "Catalog inflow and verifier outcomes over time",
+    "jobsAddedPerDay": "Jobs added per day, last 30 days",
+    "verifierOutcomesPerDay": "Verifier outcomes per day, last 14 days",
+    "series": {
+      "active": "Active",
+      "expired": "Expired",
+      "unknown": "Unknown",
+      "error": "Error",
+      "sessionExpired": "Session expired"
+    },
+    "aria": {
+      "jobsAddedPerDay": "Jobs added per day",
+      "verifierOutcomesPerDay": "Verifier outcomes per day"
+    }
+  },
+  "labeling": {
+    "title": "Labeling progress",
+    "description": "Pair queue and selection breakdown",
+    "total": "Total",
+    "labeled": "Labeled",
+    "skipped": "Skipped",
+    "pending": "Pending",
+    "byReason": "By reason",
+    "bySplit": "By split"
+  },
+  "model": {
+    "title": "Model",
+    "description": "Active GNN checkpoint",
+    "emptyMessage": "No model active (set ML_CHECKPOINT_DIR + meta.json)",
+    "checkpoint": "Checkpoint",
+    "trained": "trained {{date}}",
+    "aucRoc": "AUC-ROC",
+    "ndcg5": "NDCG@5",
+    "mrr": "MRR",
+    "p5": "P@5",
+    "calibration": "calibration · a={{a}} · b={{b}}"
+  },
+  "ops": {
+    "title": "Verifier & extractor ops",
+    "description": "Coverage and recent runs",
+    "coverageDatePosted": "LinkedIn jobs with date_posted",
+    "coverageVerified30d": "Verified in last 30 days",
+    "recentRuns": "Recent runs ({{count}})",
+    "noRuns": "No runs yet",
+    "table": {
+      "when": "When",
+      "command": "Command",
+      "examined": "Examined",
+      "wall": "Wall",
+      "outcomes": "Outcomes"
+    },
+    "ago": "{{time}} ago",
+    "verify": "verify",
+    "extract": "extract",
+    "dry": "dry"
+  },
+  "authBanner": {
+    "title": "LinkedIn auth state invalid",
+    "bodyPrefix": "Saved",
+    "bodyMissing": "is missing or lacks",
+    "bodyRun": ". Run",
+    "bodyFromVenv": "from the backend venv. See",
+    "dismiss": "Dismiss"
+  },
+  "chart": {
+    "noData": "No data",
+    "noDataAria": "{{label}}: no data",
+    "jobs": "jobs"
+  }
+}

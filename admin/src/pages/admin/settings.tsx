@@ -4,11 +4,13 @@ import { Switch } from "@heroui/switch";
 import { Button } from "@heroui/button";
 import { Divider } from "@heroui/divider";
 import { Bell, User, Shield } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { useAuthStore } from "@/stores/auth.store";
 import { apiClient } from "@/lib/api-client";
 
 export default function SettingsPage() {
+  const { t } = useTranslation("settings");
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
 
@@ -49,26 +51,26 @@ export default function SettingsPage() {
           margin: "0 0 24px",
         }}
       >
-        Settings
+        {t("title")}
       </h1>
 
       <Card className="mb-4">
         <CardHeader className="flex gap-3">
           <User size={20} />
-          <span className="font-semibold">Account information</span>
+          <span className="font-semibold">{t("account.title")}</span>
         </CardHeader>
         <Divider />
         <CardBody className="gap-3">
           <div className="flex justify-between">
-            <span className="text-default-500">Username</span>
+            <span className="text-default-500">{t("account.username")}</span>
             <span className="font-medium">{user?.username}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-default-500">Email</span>
+            <span className="text-default-500">{t("account.email")}</span>
             <span className="font-medium">{user?.email}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-default-500">Role</span>
+            <span className="text-default-500">{t("account.role")}</span>
             <span className="font-medium capitalize">{user?.role}</span>
           </div>
         </CardBody>
@@ -77,16 +79,17 @@ export default function SettingsPage() {
       <Card className="mb-4">
         <CardHeader className="flex gap-3">
           <Bell size={20} />
-          <span className="font-semibold">Notifications</span>
+          <span className="font-semibold">{t("notifications.title")}</span>
         </CardHeader>
         <Divider />
         <CardBody className="gap-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Daily email digest</p>
+              <p className="font-medium">
+                {t("notifications.dailyDigest.label")}
+              </p>
               <p className="text-small text-default-400">
-                Receive a daily summary email of high-scoring employee–job matches
-                every morning at 8:00
+                {t("notifications.dailyDigest.description")}
               </p>
             </div>
             <Switch
@@ -100,12 +103,12 @@ export default function SettingsPage() {
       <Card>
         <CardHeader className="flex gap-3">
           <Shield size={20} />
-          <span className="font-semibold">Security</span>
+          <span className="font-semibold">{t("security.title")}</span>
         </CardHeader>
         <Divider />
         <CardBody>
           <p className="text-small text-default-400">
-            To change your password, use the password-change function via the API.
+            {t("security.passwordHint")}
           </p>
         </CardBody>
       </Card>
@@ -113,7 +116,7 @@ export default function SettingsPage() {
       <div className="flex justify-end mt-4 gap-2">
         {saved && (
           <span className="text-success self-center text-small">
-            Saved successfully
+            {t("savedSuccessfully")}
           </span>
         )}
         <Button
@@ -121,7 +124,7 @@ export default function SettingsPage() {
           isLoading={saving}
           onPress={handleSave}
         >
-          Save changes
+          {t("saveChanges")}
         </Button>
       </div>
     </div>

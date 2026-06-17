@@ -18,6 +18,8 @@ import {
   IconUserPlus,
   IconUsers,
 } from "@tabler/icons-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { Card } from "@/components/ui/card";
 import { employeeService } from "@/services/employee.service";
@@ -40,10 +42,10 @@ const MAX_FILES = 50;
 
 type BadgeState = { label: string; bg: string; color: string; pulse?: boolean };
 
-function badgeFor(emp: Employee): BadgeState | null {
+function badgeFor(emp: Employee, t: TFunction): BadgeState | null {
   const parsing = !emp.parsed_at && !emp.is_parse_failed;
-  if (parsing) return { label: "Parsing…", bg: "#c8e5e5", color: "#0e5353", pulse: true };
-  if (emp.is_parse_failed) return { label: "Parse failed", bg: T.danger50, color: T.danger };
+  if (parsing) return { label: t("card.parsing"), bg: "#c8e5e5", color: "#0e5353", pulse: true };
+  if (emp.is_parse_failed) return { label: t("card.parseFailed"), bg: T.danger50, color: T.danger };
   return null;
 }
 
@@ -59,7 +61,8 @@ function fmtDate(iso: string) {
 }
 
 function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) {
-  const b = badgeFor(emp);
+  const { t } = useTranslation("employees");
+  const b = badgeFor(emp, t);
   const parsing = !emp.parsed_at && !emp.is_parse_failed;
   const skills = emp.skills ?? [];
 
@@ -84,16 +87,16 @@ function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) 
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp.full_name}</div>
           <div style={{ fontSize: 12, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {emp.position || (parsing ? "reading CV…" : "—")}{emp.email ? ` · ${emp.email}` : ""}
+            {emp.position || (parsing ? t("card.readingCv") : "—")}{emp.email ? ` · ${emp.email}` : ""}
           </div>
         </div>
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 5, minHeight: 24 }}>
         {parsing && skills.length === 0 ? (
-          <span style={{ fontSize: 12, color: T.ink4, fontStyle: "italic" }}>Extracting skills…</span>
+          <span style={{ fontSize: 12, color: T.ink4, fontStyle: "italic" }}>{t("card.extractingSkills")}</span>
         ) : skills.length === 0 ? (
-          <span style={{ fontSize: 12, color: T.ink4 }}>No skills parsed</span>
+          <span style={{ fontSize: 12, color: T.ink4 }}>{t("card.noSkills")}</span>
         ) : (
           <>
             {skills.slice(0, 5).map((s) => (
@@ -108,16 +111,16 @@ function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) 
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, fontSize: 11.5, alignItems: "center" }}>
         <div>
-          <div style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 10, color: T.ink4 }}>Seniority</div>
+          <div style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 10, color: T.ink4 }}>{t("card.seniority")}</div>
           <div style={{ marginTop: 2, color: T.ink2, fontWeight: 600 }}>{SENIORITY_LABELS[emp.seniority] ?? emp.seniority}</div>
         </div>
         <div>
-          <div style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 10, color: T.ink4 }}>Experience</div>
-          <div style={{ marginTop: 2, color: T.ink2, fontWeight: 600 }}>{emp.experience_years != null ? `${emp.experience_years}y` : "—"}</div>
+          <div style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 10, color: T.ink4 }}>{t("card.experience")}</div>
+          <div style={{ marginTop: 2, color: T.ink2, fontWeight: 600 }}>{emp.experience_years != null ? t("card.experienceYears", { count: emp.experience_years }) : "—"}</div>
         </div>
         {emp.match_count ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: T.accent, color: "#fff" }}>
-            <IconSparkles size={13} /> {emp.match_count} new
+            <IconSparkles size={13} /> {t("card.newMatches", { count: emp.match_count })}
           </span>
         ) : (
           <span style={{ fontSize: 11.5, color: T.ink4 }}>—</span>
@@ -128,6 +131,7 @@ function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) 
 }
 
 export default function EmployeesPage() {
+  const { t } = useTranslation("employees");
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [total, setTotal] = useState(0);
@@ -143,7 +147,7 @@ export default function EmployeesPage() {
       setEmployees(res.results);
       setTotal(res.count ?? res.results.length);
     } catch {
-      addToast({ title: "Failed to load employees", color: "danger" });
+      addToast({ title: t("list.loadFailed"), color: "danger" });
     } finally {
       setLoading(false);
     }
@@ -163,9 +167,9 @@ export default function EmployeesPage() {
   const parsing = employees.filter((e) => !e.parsed_at && !e.is_parse_failed).length;
 
   const stats = [
-    { label: "Total", value: total, unit: "employees" },
-    { label: "With new jobs", value: withNewJobs, unit: "to review" },
-    { label: "Parsing", value: parsing, unit: "in progress", accent: parsing > 0 },
+    { label: t("stats.total"), value: total, unit: t("stats.totalUnit") },
+    { label: t("stats.withNewJobs"), value: withNewJobs, unit: t("stats.withNewJobsUnit") },
+    { label: t("stats.parsing"), value: parsing, unit: t("stats.parsingUnit"), accent: parsing > 0 },
   ];
 
   return (
@@ -180,15 +184,15 @@ export default function EmployeesPage() {
       <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, color: T.ink }}>
-            <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>Employees</span>
+            <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>{t("list.title")}</span>
           </h1>
           <p style={{ margin: "4px 0 0", color: T.ink3, fontSize: 14 }}>
-            Upload CVs, review AI-parsed profiles and matched jobs.
+            {t("list.subtitle")}
           </p>
         </div>
         <div style={{ marginLeft: "auto" }}>
           <Button color="primary" startContent={<IconUserPlus size={14} />} onPress={() => setUploadOpen(true)}>
-            Add employees
+            {t("list.addEmployees")}
           </Button>
         </div>
       </div>
@@ -210,7 +214,7 @@ export default function EmployeesPage() {
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         <Input
-          placeholder="Search name, email, position…"
+          placeholder={t("list.searchPlaceholder")}
           startContent={<IconSearch size={16} className="text-default-400" />}
           value={search}
           onValueChange={setSearch}
@@ -229,10 +233,10 @@ export default function EmployeesPage() {
           <div style={{ textAlign: "center" }}>
             <IconUsers size={32} style={{ margin: "0 auto 12px", color: T.ink4 }} />
             <div style={{ fontWeight: 600, marginBottom: 4 }}>
-              {search ? "No matching employees" : "No employees yet"}
+              {search ? t("list.emptySearchTitle") : t("list.emptyTitle")}
             </div>
             <div style={{ fontSize: 13 }}>
-              {search ? "Try clearing the search." : "Click “Add employees” to upload CVs — they're parsed automatically."}
+              {search ? t("list.emptySearchHint") : t("list.emptyHint")}
             </div>
           </div>
         </div>
@@ -262,6 +266,7 @@ function BulkUploadModal({
   onClose: () => void;
   onUploaded: () => void;
 }) {
+  const { t } = useTranslation("employees");
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -277,15 +282,15 @@ function BulkUploadModal({
     try {
       const res = await employeeService.bulkUpload(files);
       addToast({
-        title: `Added ${res.data.length} employee${res.data.length > 1 ? "s" : ""}`,
-        description: "CVs are being parsed in the background — profiles update automatically.",
+        title: t("upload.addedToast", { count: res.data.length }),
+        description: t("upload.addedToastDesc"),
         color: "success",
       });
       setFiles([]);
       onUploaded();
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Upload failed";
-      addToast({ title: "Upload failed", description: message, color: "danger" });
+      const message = e instanceof Error ? e.message : t("upload.uploadFailed");
+      addToast({ title: t("upload.uploadFailed"), description: message, color: "danger" });
     } finally {
       setUploading(false);
     }
@@ -294,11 +299,10 @@ function BulkUploadModal({
   return (
     <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()} size="lg">
       <ModalContent>
-        <ModalHeader style={{ fontWeight: 700, fontSize: 17 }}>Add employees</ModalHeader>
+        <ModalHeader style={{ fontWeight: 700, fontSize: 17 }}>{t("upload.title")}</ModalHeader>
         <ModalBody>
           <p style={{ fontSize: 13, color: T.ink3, margin: "0 0 8px" }}>
-            Pick PDF/DOCX CVs (max {MAX_FILES}). Each becomes an employee; the CV
-            is parsed by AI in the background — you don't need to wait here.
+            {t("upload.description", { max: MAX_FILES })}
           </p>
           <input
             ref={inputRef}
@@ -320,9 +324,9 @@ function BulkUploadModal({
           >
             <IconCloudUpload size={26} style={{ color: files.length ? T.accent : T.ink4 }} />
             <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink2 }}>
-              {files.length ? `${files.length} file${files.length > 1 ? "s" : ""} selected` : "Choose CV files"}
+              {files.length ? t("upload.filesSelected", { count: files.length }) : t("upload.chooseFiles")}
             </span>
-            <span style={{ fontSize: 12, color: T.ink4 }}>PDF or DOCX</span>
+            <span style={{ fontSize: 12, color: T.ink4 }}>{t("upload.fileFormats")}</span>
           </button>
           {files.length > 0 && (
             <ul style={{ fontSize: 12, color: T.ink3, maxHeight: 140, overflow: "auto", margin: "10px 0 0", paddingLeft: 4 }}>
@@ -333,9 +337,9 @@ function BulkUploadModal({
           )}
         </ModalBody>
         <ModalFooter>
-          <Button variant="light" onPress={onClose} isDisabled={uploading}>Cancel</Button>
+          <Button variant="light" onPress={onClose} isDisabled={uploading}>{t("common:actions.cancel")}</Button>
           <Button color="primary" onPress={submit} isDisabled={!files.length || uploading} isLoading={uploading}>
-            Upload {files.length || ""}
+            {t("upload.uploadButton")} {files.length || ""}
           </Button>
         </ModalFooter>
       </ModalContent>

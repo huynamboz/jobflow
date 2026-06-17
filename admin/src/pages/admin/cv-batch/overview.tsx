@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import { Button } from "@heroui/button";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from "@heroui/modal";
 import { IconBrain, IconLoader2, IconPlus } from "@tabler/icons-react";
 
 import { cvAdminService } from "@/services/cv-admin.service";
 import type { CVBatch } from "@/types/cv-admin.types";
+
+const STATUS_LABEL_KEY: Record<string, string> = {
+  pending: "batch.statusPending",
+  running: "batch.statusRunning",
+  processing: "batch.statusProcessing",
+  done: "batch.statusDone",
+  error: "batch.statusError",
+  cancelled: "batch.statusCancelled",
+};
 
 const T = {
   accent:   "#167a7a", accent50: "#e8f4f4",
@@ -35,6 +45,7 @@ function fmtDate(iso: string) {
 }
 
 function BatchCard({ batch, onClick }: { batch: CVBatch; onClick: () => void }) {
+  const { t } = useTranslation("cvs");
   const processed = batch.done_count + batch.error_count;
   const pct = batch.total > 0 ? (processed / batch.total) * 100 : 0;
   const bs = BADGE[batch.status] ?? BADGE.pending;
@@ -53,16 +64,16 @@ function BatchCard({ batch, onClick }: { batch: CVBatch; onClick: () => void }) 
           background: bs.bg, color: bs.color,
         }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0, animation: pulse ? "jb-pulse 1.4s ease-in-out infinite" : undefined }} />
-          {batch.status}
+          {STATUS_LABEL_KEY[batch.status] ? t(STATUS_LABEL_KEY[batch.status]) : batch.status}
         </span>
         <span style={{ fontFamily: "monospace", fontSize: 11, color: T.ink4 }}>{fmtDate(batch.created_at)}</span>
       </div>
 
-      <div style={{ fontWeight: 700, fontSize: 15 }}>CV Batch #{batch.id}</div>
+      <div style={{ fontWeight: 700, fontSize: 15 }}>{t("batch.cardTitle", { id: batch.id })}</div>
       <div style={{ fontSize: 12, color: T.ink3, marginTop: 2 }}>
         {batch.filter_source_categories.length > 0
           ? batch.filter_source_categories.join(", ")
-          : "All CVs"}
+          : t("batch.allCvs")}
       </div>
 
       <div style={{ marginTop: 14 }}>
@@ -77,7 +88,7 @@ function BatchCard({ batch, onClick }: { batch: CVBatch; onClick: () => void }) 
           </span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginTop: 6 }}>
-          <span style={{ color: T.ink3 }}>{batch.done_count} / {batch.total} CVs</span>
+          <span style={{ color: T.ink3 }}>{t("batch.cvsProgress", { done: batch.done_count, total: batch.total })}</span>
           <span style={{ fontWeight: 600 }}>{pct.toFixed(0)}%</span>
         </div>
       </div>
@@ -85,12 +96,12 @@ function BatchCard({ batch, onClick }: { batch: CVBatch; onClick: () => void }) 
       <div style={{ height: 1, background: T.line, margin: "12px 0" }} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11.5 }}>
         <div>
-          <div style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 10, color: T.ink4 }}>Errors</div>
+          <div style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 10, color: T.ink4 }}>{t("batch.errors")}</div>
           <div style={{ marginTop: 2, color: batch.error_count > 0 ? T.danger : T.ink2, fontWeight: 600 }}>{batch.error_count}</div>
         </div>
         <div>
-          <div style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 10, color: T.ink4 }}>Categories</div>
-          <div style={{ marginTop: 2, color: T.ink2 }}>{batch.filter_source_categories.length || "all"}</div>
+          <div style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 10, color: T.ink4 }}>{t("batch.categories")}</div>
+          <div style={{ marginTop: 2, color: T.ink2 }}>{batch.filter_source_categories.length || t("batch.all")}</div>
         </div>
       </div>
     </div>
@@ -100,6 +111,7 @@ function BatchCard({ batch, onClick }: { batch: CVBatch; onClick: () => void }) 
 function NewBatchModal({ isOpen, onClose, onCreated }: {
   isOpen: boolean; onClose: () => void; onCreated: (id: number) => void;
 }) {
+  const { t } = useTranslation("cvs");
   const [selected, setSelected] = useState<string[]>(["AI", "Devops", "Software Engineer", "Tester", "UX_UI"]);
   const [loading, setLoading] = useState(false);
 
@@ -123,16 +135,24 @@ function NewBatchModal({ isOpen, onClose, onCreated }: {
     <Modal isOpen={isOpen} onClose={onClose} size="md">
       <ModalContent>
         <ModalHeader style={{ fontWeight: 700, fontSize: 17 }}>
-          New CV Extraction Batch
+          {t("batch.newBatchModalTitle")}
         </ModalHeader>
 
         <ModalBody>
           <p style={{ fontSize: 13, color: T.ink3, margin: "0 0 16px" }}>
-            The LLM re-extracts <strong style={{ color: T.ink }}>role_category</strong>, <strong style={{ color: T.ink }}>seniority</strong>, and <strong style={{ color: T.ink }}>skills</strong> from each CV's raw text and updates the record directly.
+            <Trans
+              t={t}
+              i18nKey="batch.modalDescription"
+              components={{
+                1: <strong style={{ color: T.ink }} />,
+                3: <strong style={{ color: T.ink }} />,
+                5: <strong style={{ color: T.ink }} />,
+              }}
+            />
           </p>
 
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: T.ink3, marginBottom: 8 }}>
-            Source categories
+            {t("batch.sourceCategories")}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
             {SOURCE_CATEGORIES.map((cat) => {
@@ -151,17 +171,22 @@ function NewBatchModal({ isOpen, onClose, onCreated }: {
           </div>
 
           <p style={{ fontSize: 12, color: T.ink3, margin: 0 }}>
-            <strong style={{ color: T.ink }}>{selected.length}</strong> categories selected — uploaded CVs are always included.
+            <Trans
+              t={t}
+              i18nKey="batch.categoriesSelected"
+              count={selected.length}
+              components={{ 1: <strong style={{ color: T.ink }} /> }}
+            />
           </p>
         </ModalBody>
 
         <ModalFooter>
-          <Button variant="flat" onPress={onClose}>Cancel</Button>
+          <Button variant="flat" onPress={onClose}>{t("batch.cancel")}</Button>
           <Button
             color="primary" isLoading={loading} isDisabled={selected.length === 0}
             onPress={handleStart}
           >
-            Start extraction
+            {t("batch.startExtraction")}
           </Button>
         </ModalFooter>
       </ModalContent>
@@ -170,6 +195,7 @@ function NewBatchModal({ isOpen, onClose, onCreated }: {
 }
 
 export default function CVBatchOverview() {
+  const { t } = useTranslation("cvs");
   const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [batches, setBatches] = useState<CVBatch[]>([]);
@@ -211,25 +237,25 @@ export default function CVBatchOverview() {
       <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, color: T.ink }}>
-            CV Batch <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>Extraction</span>
+            {t("batch.headingTitle")} <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>{t("batch.headingEmphasis")}</span>
           </h1>
           <p style={{ margin: "4px 0 0", color: T.ink3, fontSize: 14 }}>
-            Re-extract role_category, seniority, and skills from CV raw text using LLM.
+            {t("batch.headingSubtitle")}
           </p>
         </div>
         <div style={{ marginLeft: "auto" }}>
           <Button color="primary" startContent={<IconPlus size={14} />} onPress={onOpen}>
-            New batch
+            {t("batch.newBatch")}
           </Button>
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
         {[
-          { label: "Active now",   value: running,                       unit: "running",   accent: running > 0 },
-          { label: "Total batches", value: batches.length,               unit: "all-time" },
-          { label: "CVs extracted", value: totalDone.toLocaleString(),   unit: `/ ${totalCVs.toLocaleString()}` },
-          { label: "Last batch",   value: batches[0] ? `#${batches[0].id}` : "—" },
+          { label: t("batch.statActiveNow"),    value: running,                     unit: t("batch.statActiveUnit"),       accent: running > 0 },
+          { label: t("batch.statTotalBatches"), value: batches.length,              unit: t("batch.statTotalBatchesUnit") },
+          { label: t("batch.statCvsExtracted"), value: totalDone.toLocaleString(),  unit: `/ ${totalCVs.toLocaleString()}` },
+          { label: t("batch.statLastBatch"),    value: batches[0] ? `#${batches[0].id}` : "—" },
         ].map(({ label, value, unit, accent }) => (
           <div key={label} style={{
             background: accent ? T.accent : T.surface, border: `1px solid ${accent ? T.accent : T.line}`,
@@ -252,8 +278,8 @@ export default function CVBatchOverview() {
         <div style={{ display: "grid", placeItems: "center", height: 240, color: T.ink3 }}>
           <div style={{ textAlign: "center" }}>
             <IconBrain size={32} style={{ margin: "0 auto 12px", color: T.ink4 }} />
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>No batches yet</div>
-            <div style={{ fontSize: 13 }}>Start a batch to re-extract CV data with LLM.</div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>{t("batch.noBatchesTitle")}</div>
+            <div style={{ fontSize: 13 }}>{t("batch.noBatchesHint")}</div>
           </div>
         </div>
       ) : (

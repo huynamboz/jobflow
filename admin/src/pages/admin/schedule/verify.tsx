@@ -1,11 +1,15 @@
+import { useTranslation } from "react-i18next";
+
 import SchedulePage from "./_schedule-page";
 
 export default function VerifySchedulePage() {
+  const { t } = useTranslation("schedule");
+
   return (
     <SchedulePage
       command="verify_job_status"
-      title="Verify schedule"
-      description="Daily lifecycle re-checking · auto-fire daemon + manual runs · live log + history."
+      title={t("pages.verify.title")}
+      description={t("pages.verify.description")}
     />
   );
 }

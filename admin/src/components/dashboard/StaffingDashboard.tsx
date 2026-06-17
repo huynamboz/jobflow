@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Chip } from "@heroui/chip";
 import { Spinner } from "@heroui/spinner";
@@ -121,6 +122,7 @@ function ActionRow({
 /* ---------- main ---------- */
 
 export default function StaffingDashboard({ refreshKey }: { refreshKey?: number }) {
+  const { t } = useTranslation("dashboard");
   const navigate = useNavigate();
   const [data, setData] = useState<TDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,17 +150,17 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
     );
   }
   if (error || !data) {
-    return <Card className="py-6 text-sm text-danger">Failed to load the staffing dashboard.</Card>;
+    return <Card className="py-6 text-sm text-danger">{t("staffing.loadError")}</Card>;
   }
 
   const { kpi, action_queue, funnel, alerts, recent } = data;
   const goEmp = (id: number) => navigate(`/admin/employees/${id}`);
   const funnelRows = [
-    { key: "suggested", label: "Suggested", color: "bg-default-400" },
-    { key: "pursuing", label: "Pursuing", color: "bg-primary-400" },
-    { key: "applied", label: "Applied", color: "bg-secondary-400" },
-    { key: "won", label: "Accepted", color: "bg-success-500" },
-    { key: "lost", label: "Rejected", color: "bg-default-300" },
+    { key: "suggested", label: t("staffing.funnel.suggested"), color: "bg-default-400" },
+    { key: "pursuing", label: t("staffing.funnel.pursuing"), color: "bg-primary-400" },
+    { key: "applied", label: t("staffing.funnel.applied"), color: "bg-secondary-400" },
+    { key: "won", label: t("staffing.funnel.won"), color: "bg-success-500" },
+    { key: "lost", label: t("staffing.funnel.lost"), color: "bg-default-300" },
   ] as const;
   const funnelMax = Math.max(1, ...funnelRows.map((f) => funnel[f.key]));
 
@@ -171,10 +173,10 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
     <div className="space-y-5">
       {/* ---- KPI row ---- */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Employees" value={kpi.total_employees} hint="with a CV on file" icon={<IconUsers size={20} />} />
-        <StatCard label="In progress" value={kpi.in_progress} hint="pursuing + applied" tone="primary" icon={<IconClockHour4 size={20} />} />
-        <StatCard label="Accepted this week" value={kpi.won_this_week} hint={`${kpi.lost_this_week} rejected`} tone="success" icon={<IconTrophy size={20} />} />
-        <StatCard label="New jobs (24h)" value={kpi.new_jobs_24h} hint={`${kpi.new_jobs_7d} in 7 days`} icon={<IconBriefcase size={20} />} />
+        <StatCard label={t("staffing.kpi.employees")} value={kpi.total_employees} hint={t("staffing.kpi.employeesHint")} icon={<IconUsers size={20} />} />
+        <StatCard label={t("staffing.kpi.inProgress")} value={kpi.in_progress} hint={t("staffing.kpi.inProgressHint")} tone="primary" icon={<IconClockHour4 size={20} />} />
+        <StatCard label={t("staffing.kpi.acceptedThisWeek")} value={kpi.won_this_week} hint={t("staffing.kpi.acceptedThisWeekHint", { count: kpi.lost_this_week })} tone="success" icon={<IconTrophy size={20} />} />
+        <StatCard label={t("staffing.kpi.newJobs24h")} value={kpi.new_jobs_24h} hint={t("staffing.kpi.newJobs24hHint", { count: kpi.new_jobs_7d })} icon={<IconBriefcase size={20} />} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -182,23 +184,23 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
         <Card padding={20} className="space-y-5 lg:col-span-2">
           <div className="flex items-center gap-2">
             <IconSparkles size={18} className="text-primary-600" />
-            <h2 className="text-base font-bold text-foreground">To handle today</h2>
-            {totalActions > 0 && <Chip size="sm" color="primary" variant="flat">{totalActions} items</Chip>}
+            <h2 className="text-base font-bold text-foreground">{t("staffing.toHandleToday")}</h2>
+            {totalActions > 0 && <Chip size="sm" color="primary" variant="flat">{t("staffing.items", { count: totalActions })}</Chip>}
           </div>
 
           {totalActions === 0 && (
-            <p className="px-2 py-3 text-sm text-default-400">All clear — nothing needs your attention right now.</p>
+            <p className="px-2 py-3 text-sm text-default-400">{t("staffing.allClear")}</p>
           )}
 
           {action_queue.top_new_matches.length > 0 && (
             <div>
               <SectionTitle icon={<IconSparkles size={15} />} count={action_queue.top_new_matches.length}>
-                Employees with new jobs
+                {t("staffing.newJobsForEmployees")}
               </SectionTitle>
               <div className="space-y-0.5">
                 {action_queue.top_new_matches.map((e) => (
-                  <ActionRow key={e.id} name={e.full_name} sub="new matching jobs — review and decide to apply" onClick={() => goEmp(e.id)}
-                    chip={<Chip size="sm" color="primary" variant="flat">{e.new_count} new</Chip>} />
+                  <ActionRow key={e.id} name={e.full_name} sub={t("staffing.newJobsSub")} onClick={() => goEmp(e.id)}
+                    chip={<Chip size="sm" color="primary" variant="flat">{t("staffing.newCount", { count: e.new_count })}</Chip>} />
                 ))}
               </div>
             </div>
@@ -207,12 +209,12 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
           {action_queue.stale_applied.length > 0 && (
             <div>
               <SectionTitle icon={<IconClockHour4 size={15} />} count={action_queue.stale_applied.length}>
-                Applied a while ago, no update
+                {t("staffing.staleApplied")}
               </SectionTitle>
               <div className="space-y-0.5">
                 {action_queue.stale_applied.map((m) => (
                   <ActionRow key={m.match_id} name={m.employee_name} sub={m.job_title} onClick={() => goEmp(m.employee_id)}
-                    chip={<Chip size="sm" variant="flat">{m.days_since_applied}d waiting</Chip>} />
+                    chip={<Chip size="sm" variant="flat">{t("staffing.daysWaiting", { count: m.days_since_applied })}</Chip>} />
                 ))}
               </div>
             </div>
@@ -223,7 +225,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
         <Card padding={20} className="space-y-3">
           <div className="flex items-center gap-2">
             <IconClockHour4 size={16} className="text-default-500" />
-            <h3 className="text-sm font-semibold text-foreground">Pipeline funnel</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("staffing.pipelineFunnel")}</h3>
           </div>
           <div className="space-y-3 pt-1">
             {funnelRows.map((f) => (
@@ -246,19 +248,19 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
         <div className="space-y-4 rounded-2xl border border-warning-200 bg-warning-50/40 p-5">
           <div className="flex items-center gap-2">
             <IconAlertTriangle size={16} className="text-warning-600" />
-            <h3 className="text-sm font-semibold text-warning-700">Alerts &amp; risks</h3>
+            <h3 className="text-sm font-semibold text-warning-700">{t("staffing.alertsTitle")}</h3>
             <Chip size="sm" color="warning" variant="flat">{totalAlerts}</Chip>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            <AlertColumn icon={<IconFileAlert size={14} />} title="CV parse failed" empty={alerts.parse_failed.length === 0}
+            <AlertColumn icon={<IconFileAlert size={14} />} title={t("staffing.alerts.parseFailed")} empty={alerts.parse_failed.length === 0}
               items={alerts.parse_failed.map((e) => ({ key: e.id, name: e.full_name, onClick: () => goEmp(e.id) }))} />
-            <AlertColumn icon={<IconSparkles size={14} />} title="High score, not applied" empty={alerts.high_score_unapplied.length === 0}
+            <AlertColumn icon={<IconSparkles size={14} />} title={t("staffing.alerts.highScoreUnapplied")} empty={alerts.high_score_unapplied.length === 0}
               items={alerts.high_score_unapplied.map((m) => ({
                 key: m.match_id, name: m.employee_name, sub: m.job_title,
                 chip: <Chip size="sm" color="success" variant="flat">{Math.round((m.score ?? 0) * 100)}</Chip>,
                 onClick: () => goEmp(m.employee_id),
               }))} />
-            <AlertColumn icon={<IconHourglassHigh size={14} />} title="Pursued jobs expiring" empty={alerts.expiring_pursuing.length === 0}
+            <AlertColumn icon={<IconHourglassHigh size={14} />} title={t("staffing.alerts.expiringPursuing")} empty={alerts.expiring_pursuing.length === 0}
               items={alerts.expiring_pursuing.map((m) => ({
                 key: m.match_id, name: m.employee_name, sub: m.job_title,
                 chip: <Chip size="sm" color="danger" variant="flat">{m.lifecycle}</Chip>,
@@ -270,22 +272,22 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
 
       {/* ---- Recent activity ---- */}
       <Card padding={20} className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Recent activity</h3>
+        <h3 className="text-sm font-semibold text-foreground">{t("staffing.recentActivity")}</h3>
         <div className="grid gap-5 text-sm md:grid-cols-3">
           <div>
-            <p className="mb-2 text-xs font-medium text-default-500">Accepted / rejected</p>
+            <p className="mb-2 text-xs font-medium text-default-500">{t("staffing.recent.wonLost")}</p>
             {recent.won_lost.length === 0 && <p className="text-default-400">—</p>}
             <ul className="space-y-1.5">
               {recent.won_lost.map((m) => (
                 <li key={m.match_id} className="flex items-center justify-between gap-2">
                   <span className="truncate text-default-700">{m.employee_name} · {m.job_title}</span>
-                  <Chip size="sm" color={m.status === "won" ? "success" : "default"} variant="flat">{m.status === "won" ? "Accepted" : "Rejected"}</Chip>
+                  <Chip size="sm" color={m.status === "won" ? "success" : "default"} variant="flat">{m.status === "won" ? t("staffing.recent.accepted") : t("staffing.recent.rejected")}</Chip>
                 </li>
               ))}
             </ul>
           </div>
           <div>
-            <p className="mb-2 text-xs font-medium text-default-500">Newly crawled jobs</p>
+            <p className="mb-2 text-xs font-medium text-default-500">{t("staffing.recent.newJobs")}</p>
             {recent.new_jobs.length === 0 && <p className="text-default-400">—</p>}
             <ul className="space-y-1.5">
               {recent.new_jobs.map((j) => (
@@ -296,7 +298,7 @@ export default function StaffingDashboard({ refreshKey }: { refreshKey?: number 
             </ul>
           </div>
           <div>
-            <p className="mb-2 text-xs font-medium text-default-500">New employees</p>
+            <p className="mb-2 text-xs font-medium text-default-500">{t("staffing.recent.newEmployees")}</p>
             {recent.new_employees.length === 0 && <p className="text-default-400">—</p>}
             <ul className="space-y-1.5">
               {recent.new_employees.map((e) => (
@@ -325,13 +327,14 @@ function AlertColumn({
   empty: boolean;
   items: { key: number; name: string; sub?: string; chip?: React.ReactNode; onClick: () => void }[];
 }) {
+  const { t } = useTranslation("dashboard");
   return (
     <div>
       <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-default-600">
         <span className="text-warning-600">{icon}</span>
         {title}
       </div>
-      {empty && <p className="text-sm text-default-400">None</p>}
+      {empty && <p className="text-sm text-default-400">{t("staffing.alerts.none")}</p>}
       <ul className="space-y-0.5">
         {items.map((it) => (
           <li key={it.key}>

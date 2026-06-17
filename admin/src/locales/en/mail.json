@@ -1,0 +1,132 @@
+{
+  "page": {
+    "title": "Mail",
+    "subtitle": "Application emails, recruiter replies, and linked Gmail accounts.",
+    "lastSync": "Last sync",
+    "syncNow": "Sync now",
+    "syncing": "Syncing…"
+  },
+  "tabs": {
+    "sent": "Sent",
+    "replies": "Replies",
+    "bounces": "Bounces",
+    "accounts": "Linked accounts"
+  },
+  "table": {
+    "employee": "Employee",
+    "gmail": "Gmail",
+    "status": "Status",
+    "linked": "Linked",
+    "job": "Job",
+    "to": "To",
+    "from": "From",
+    "subject": "Subject",
+    "time": "Time"
+  },
+  "chip": {
+    "active": "active",
+    "error": "error",
+    "bounced": "bounced",
+    "failed": "failed"
+  },
+  "empty": {
+    "noAccountsTitle": "No linked accounts",
+    "noAccountsHint": "Link an employee's Gmail from their info page to send applications from their own address.",
+    "noSentTitle": "No sent emails yet",
+    "noSentHint": "Application emails you send from the system will appear here.",
+    "noBouncesTitle": "No bounces — all delivered",
+    "noBouncesHint": "Delivery failures to recruiters would show up here.",
+    "noRepliesTitle": "No replies yet",
+    "noRepliesHint": "Recruiter replies to applications land here after a sync."
+  },
+  "pagination": {
+    "total": "{{count}} total",
+    "pageOf": "page {{page}} / {{pages}}"
+  },
+  "toast": {
+    "newMail_one": "{{count}} new mail",
+    "newMail_other": "{{count}} new mail",
+    "upToDate": "Up to date",
+    "syncFailed": "Sync failed",
+    "loadFailed": "Failed to load mail"
+  },
+  "relTime": {
+    "never": "never",
+    "justNow": "just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "detail": {
+    "noSubject": "(no subject)",
+    "reply": "Reply",
+    "sent": "Sent",
+    "repliesCount_one": "{{count}} reply",
+    "repliesCount_other": "{{count}} replies",
+    "conversation": "Conversation",
+    "messagesCount_one": "{{count}} message",
+    "messagesCount_other": "{{count}} messages",
+    "replyFrom": "Reply from {{addr}}",
+    "sentTo": "Sent to {{addr}}",
+    "noBody": "(no body)",
+    "candidate": "Candidate",
+    "yearsExp": "{{count}}y exp",
+    "linkedGmail": "Linked Gmail",
+    "noGmailLinked": "No Gmail linked",
+    "viewEmployee": "View employee",
+    "job": "Job",
+    "viewMatch": "View match",
+    "openJobPosting": "Open job posting"
+  },
+  "compose": {
+    "title": "Write application email",
+    "subtitle": "Compose, then open it in Gmail to send.",
+    "seniority": "Seniority {{level}}",
+    "viewPosting": "View posting →",
+    "toLabel": "To",
+    "toPlaceholder": "recruiter@company.com",
+    "subjectLabel": "Subject",
+    "message": "Message",
+    "generateEmail": "Generate email",
+    "generating": "Generating…",
+    "editorPlaceholder": "Write your application email…",
+    "sendFromHint": "Send from {{addr}} · CV attached",
+    "linkToSendHint": "Link this employee's email to send from the system",
+    "openInGmail": "Open in Gmail",
+    "send": "Send",
+    "applicationSubject": "Application — {{title}}",
+    "applicationSubjectWithName": "Application — {{title}} ({{name}})",
+    "applicationSubjectFallback": "Application"
+  },
+  "composeToast": {
+    "loadFailed": "Failed to load details",
+    "recipientRequired": "Recipient required",
+    "sentApplied": "Sent & applied",
+    "sentWithCv": "CV attached. Tracked in Job Tracking.",
+    "sentNoCv": "Sent (no CV on file). Tracked.",
+    "sendFailed": "Send failed",
+    "generateFailed": "Couldn't generate email",
+    "generateFailedHint": "Is an LLM provider active?",
+    "openedGmailApplied": "Opened Gmail — marked applied",
+    "openedGmailAppliedHint": "Tracked in Job Tracking.",
+    "openedGmailNotApplied": "Opened Gmail (couldn't mark applied)"
+  },
+  "linkModal": {
+    "title": "Email not linked",
+    "bodyPrefix": "Employee ",
+    "thisEmployee": "this one",
+    "bodySuffix": " has not linked a Gmail account, so the system cannot send applications on their behalf (with CV attached) or track replies.",
+    "hint": "Link a Gmail (app password) on the employee's info page, then come back here to send.",
+    "back": "Back",
+    "linkEmail": "Link email"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "new": "{{count}} new",
+    "markAllRead": "Mark all read",
+    "close": "Close",
+    "allCaughtUp": "You're all caught up",
+    "emptyHint": "Recruiter replies will show up here.",
+    "viewAllMail": "View all mail"
+  }
+}

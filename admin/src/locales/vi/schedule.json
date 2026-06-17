@@ -1,0 +1,75 @@
+{
+  "pages": {
+    "extract": {
+      "title": "Lịch trích xuất",
+      "description": "Bổ sung ngày hằng ngày (cũng chạy lượt xác minh kèm theo) · tự kích hoạt + chạy thủ công · log trực tiếp + lịch sử."
+    },
+    "morningRefresh": {
+      "title": "Làm mới buổi sáng",
+      "description": "Nhịp hằng ngày — khớp lại tất cả nhân viên với việc làm mới (không LLM, không trùng lặp), rồi gửi bản tổng hợp cho HR. Bật lên, đặt giờ UTC, theo dõi log trực tiếp + lịch sử."
+    },
+    "verify": {
+      "title": "Lịch xác minh",
+      "description": "Kiểm tra lại vòng đời hằng ngày · daemon tự kích hoạt + chạy thủ công · log trực tiếp + lịch sử."
+    }
+  },
+  "timeAgo": {
+    "seconds": "{{count}}s trước",
+    "minutes": "{{count}}m trước",
+    "hours": "{{count}}h trước",
+    "days": "{{count}}d trước"
+  },
+  "pending": {
+    "verifyTitle": "Việc cần xác minh",
+    "verifyHint": "active|stale ∩ backoff đã xoá",
+    "extractTitle": "Việc cần phân tích ngày",
+    "extractHint": "cùng tập ∩ date_posted IS NULL"
+  },
+  "errors": {
+    "load": "Tải thất bại",
+    "save": "Lưu thất bại",
+    "start": "Khởi chạy thất bại",
+    "stop": "Dừng thất bại"
+  },
+  "config": {
+    "title": "Cấu hình lịch",
+    "subtitle": "Daemon nhận giá trị mới ở nhịp kế tiếp (≤60s).",
+    "enabled": "Đã bật",
+    "enabledHint": "— daemon có thể tự kích hoạt vào các giờ đã cấu hình",
+    "batchSize": "Cỡ lô",
+    "hoursLabel": "Giờ (UTC, cách nhau bằng dấu phẩy)",
+    "noAuthCheck": "Dùng --no-auth-check (chế độ khách)",
+    "headless": "Headless",
+    "headlessHint": "— bỏ chọn để thấy cửa sổ Chromium",
+    "saveConfig": "Lưu cấu hình",
+    "lastFired": "kích hoạt lần cuối {{time}}"
+  },
+  "run": {
+    "title": "Lượt chạy hiện tại",
+    "subtitle": "Gọi một lần, hoặc theo dõi lô đang chạy của daemon.",
+    "status": "Trạng thái",
+    "running": "● đang chạy",
+    "idle": "rảnh",
+    "pid": "PID",
+    "startedAt": "bắt đầu {{time}} · log: {{logName}}",
+    "runNow": "Chạy ngay",
+    "stop": "Dừng",
+    "starting": "Đang khởi chạy…",
+    "stopping": "Đang dừng…"
+  },
+  "log": {
+    "title": "Log trực tiếp",
+    "polling": "thăm dò mỗi 2s",
+    "idle": "rảnh — lượt chạy gần nhất hiển thị bên dưới",
+    "loading": "Đang tải…",
+    "noOutput": "(chưa có kết quả)"
+  },
+  "history": {
+    "title": "Lượt chạy gần đây ({{count}})",
+    "when": "Thời điểm",
+    "wall": "Thời lượng",
+    "examined": "Đã xét",
+    "outcomes": "Kết quả",
+    "empty": "Chưa có lượt chạy nào"
+  }
+}

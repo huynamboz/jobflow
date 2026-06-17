@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   Briefcase, CheckCircle2, Clock, Cpu, FileText, KeyRound, ShieldAlert,
 } from "lucide-react";
@@ -9,11 +11,11 @@ import { useDashboardSection } from "./useDashboardSection";
 
 interface Props { refreshKey: number }
 
-const FRESHNESS_LABEL: Record<Freshness, string> = {
-  fresh:      "fresh · ≤24h",
-  stale:      "stale · ≤72h",
-  very_stale: "stale · >72h",
-  never:      "never run",
+const FRESHNESS_KEY: Record<Freshness, string> = {
+  fresh:      "kpiStrip.freshness.fresh",
+  stale:      "kpiStrip.freshness.stale",
+  very_stale: "kpiStrip.freshness.veryStale",
+  never:      "kpiStrip.freshness.never",
 };
 
 const FRESHNESS_DOT: Record<Freshness, string> = {
@@ -23,8 +25,8 @@ const FRESHNESS_DOT: Record<Freshness, string> = {
   never:      "var(--c5)",
 };
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return "never";
+function timeAgo(iso: string | null, t?: TFunction): string {
+  if (!iso) return t ? t("kpiStrip.timeAgo.never") : "never";
   const d = new Date(iso);
   const sec = (Date.now() - d.getTime()) / 1000;
   if (sec < 60) return `${Math.round(sec)}s`;
@@ -156,6 +158,7 @@ function TileSkeleton() {
 }
 
 export default function KpiStrip({ refreshKey }: Props) {
+  const { t } = useTranslation("dashboard");
   const { data, loading } = useDashboardSection<KpiSnapshot>(
     () => dashboardService.getKpi(),
     refreshKey,
@@ -178,52 +181,52 @@ export default function KpiStrip({ refreshKey }: Props) {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       <Tile
         icon={Briefcase}
-        title="Jobs"
+        title={t("kpiStrip.jobs")}
         value={fmtNumber(jobs_total)}
-        meta={`${fmtNumber(jobs_by_lifecycle.active)} active · ${fmtNumber(jobs_by_lifecycle.expired)} expired`}
+        meta={t("kpiStrip.jobsMeta", { active: fmtNumber(jobs_by_lifecycle.active), expired: fmtNumber(jobs_by_lifecycle.expired) })}
         iconBg="rgba(53,130,255,0.10)"
         iconColor="var(--blue)"
       />
       <Tile
         icon={FileText}
-        title="CVs"
+        title={t("kpiStrip.cvs")}
         value={fmtNumber(cv_total)}
-        meta={`+${fmtNumber(cv_uploads_last_7d)} last 7d`}
+        meta={t("kpiStrip.cvsMeta", { count: cv_uploads_last_7d })}
         iconBg="rgba(73,186,97,0.10)"
         iconColor="var(--green)"
       />
       <Tile
         icon={CheckCircle2}
-        title="Verifier"
-        value={timeAgo(verifier_last_run.started_at)}
-        meta={FRESHNESS_LABEL[verifier_last_run.freshness]}
+        title={t("kpiStrip.verifier")}
+        value={timeAgo(verifier_last_run.started_at, t)}
+        meta={t(FRESHNESS_KEY[verifier_last_run.freshness])}
         dotColor={FRESHNESS_DOT[verifier_last_run.freshness]}
         iconBg="rgba(73,186,97,0.10)"
         iconColor="var(--green)"
       />
       <Tile
         icon={Clock}
-        title="Extractor"
-        value={timeAgo(extractor_last_run.started_at)}
-        meta={FRESHNESS_LABEL[extractor_last_run.freshness]}
+        title={t("kpiStrip.extractor")}
+        value={timeAgo(extractor_last_run.started_at, t)}
+        meta={t(FRESHNESS_KEY[extractor_last_run.freshness])}
         dotColor={FRESHNESS_DOT[extractor_last_run.freshness]}
         iconBg="rgba(227,99,35,0.10)"
         iconColor="var(--orange)"
       />
       <Tile
         icon={auth_state.has_li_at ? KeyRound : ShieldAlert}
-        title="Auth"
-        value={auth_state.has_li_at ? "Valid" : "Missing"}
-        meta={auth_state.has_li_at ? "li_at present" : "run linkedin_auth.py"}
+        title={t("kpiStrip.auth")}
+        value={auth_state.has_li_at ? t("kpiStrip.authValid") : t("kpiStrip.authMissing")}
+        meta={auth_state.has_li_at ? t("kpiStrip.authPresent") : t("kpiStrip.authRun")}
         dotColor={auth_state.has_li_at ? "var(--green)" : "var(--red)"}
         iconBg={auth_state.has_li_at ? "rgba(73,186,97,0.10)" : "rgba(254,89,56,0.10)"}
         iconColor={auth_state.has_li_at ? "var(--green)" : "var(--red)"}
       />
       <Tile
         icon={Cpu}
-        title="Model"
+        title={t("kpiStrip.model")}
         value={model.checkpoint_name ?? "—"}
-        meta={model.metrics.test_auc_roc != null ? `auc ${model.metrics.test_auc_roc.toFixed(3)}` : "no metrics"}
+        meta={model.metrics.test_auc_roc != null ? t("kpiStrip.modelAuc", { value: model.metrics.test_auc_roc.toFixed(3) }) : t("kpiStrip.modelNoMetrics")}
         iconBg="rgba(135,85,233,0.10)"
         iconColor="var(--purple)"
       />

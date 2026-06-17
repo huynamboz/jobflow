@@ -1,0 +1,132 @@
+{
+  "page": {
+    "title": "Thư",
+    "subtitle": "Email ứng tuyển, thư trả lời từ nhà tuyển dụng và tài khoản Gmail đã liên kết.",
+    "lastSync": "Đồng bộ gần nhất",
+    "syncNow": "Đồng bộ ngay",
+    "syncing": "Đang đồng bộ…"
+  },
+  "tabs": {
+    "sent": "Đã gửi",
+    "replies": "Phản hồi",
+    "bounces": "Gửi lỗi",
+    "accounts": "Tài khoản liên kết"
+  },
+  "table": {
+    "employee": "Nhân viên",
+    "gmail": "Gmail",
+    "status": "Trạng thái",
+    "linked": "Liên kết",
+    "job": "Công việc",
+    "to": "Đến",
+    "from": "Từ",
+    "subject": "Tiêu đề",
+    "time": "Thời gian"
+  },
+  "chip": {
+    "active": "hoạt động",
+    "error": "lỗi",
+    "bounced": "gửi lỗi",
+    "failed": "thất bại"
+  },
+  "empty": {
+    "noAccountsTitle": "Chưa có tài khoản liên kết",
+    "noAccountsHint": "Liên kết Gmail của nhân viên ở trang thông tin để gửi đơn ứng tuyển từ chính địa chỉ của họ.",
+    "noSentTitle": "Chưa có email nào được gửi",
+    "noSentHint": "Email ứng tuyển bạn gửi từ hệ thống sẽ xuất hiện ở đây.",
+    "noBouncesTitle": "Không có thư lỗi — tất cả đã gửi",
+    "noBouncesHint": "Các thư gửi lỗi tới nhà tuyển dụng sẽ hiển thị ở đây.",
+    "noRepliesTitle": "Chưa có phản hồi nào",
+    "noRepliesHint": "Thư trả lời của nhà tuyển dụng sẽ về đây sau khi đồng bộ."
+  },
+  "pagination": {
+    "total": "{{count}} mục",
+    "pageOf": "trang {{page}} / {{pages}}"
+  },
+  "toast": {
+    "newMail_one": "{{count}} thư mới",
+    "newMail_other": "{{count}} thư mới",
+    "upToDate": "Đã cập nhật",
+    "syncFailed": "Đồng bộ thất bại",
+    "loadFailed": "Không tải được thư"
+  },
+  "relTime": {
+    "never": "chưa bao giờ",
+    "justNow": "vừa xong",
+    "minutesAgo": "{{count}} phút trước",
+    "hoursAgo": "{{count}} giờ trước",
+    "daysAgo": "{{count}} ngày trước"
+  },
+  "detail": {
+    "noSubject": "(không có tiêu đề)",
+    "reply": "Phản hồi",
+    "sent": "Đã gửi",
+    "repliesCount_one": "{{count}} phản hồi",
+    "repliesCount_other": "{{count}} phản hồi",
+    "conversation": "Hội thoại",
+    "messagesCount_one": "{{count}} tin nhắn",
+    "messagesCount_other": "{{count}} tin nhắn",
+    "replyFrom": "Phản hồi từ {{addr}}",
+    "sentTo": "Gửi tới {{addr}}",
+    "noBody": "(không có nội dung)",
+    "candidate": "Ứng viên",
+    "yearsExp": "{{count}} năm KN",
+    "linkedGmail": "Gmail đã liên kết",
+    "noGmailLinked": "Chưa liên kết Gmail",
+    "viewEmployee": "Xem nhân viên",
+    "job": "Công việc",
+    "viewMatch": "Xem kết quả khớp",
+    "openJobPosting": "Mở tin tuyển dụng"
+  },
+  "compose": {
+    "title": "Viết email ứng tuyển",
+    "subtitle": "Soạn thư, sau đó mở trong Gmail để gửi.",
+    "seniority": "Cấp bậc {{level}}",
+    "viewPosting": "Xem tin tuyển →",
+    "toLabel": "Đến",
+    "toPlaceholder": "recruiter@company.com",
+    "subjectLabel": "Tiêu đề",
+    "message": "Nội dung",
+    "generateEmail": "Tạo email",
+    "generating": "Đang tạo…",
+    "editorPlaceholder": "Viết email ứng tuyển của bạn…",
+    "sendFromHint": "Gửi từ {{addr}} · Đính kèm CV",
+    "linkToSendHint": "Liên kết email của nhân viên này để gửi từ hệ thống",
+    "openInGmail": "Mở trong Gmail",
+    "send": "Gửi",
+    "applicationSubject": "Ứng tuyển — {{title}}",
+    "applicationSubjectWithName": "Ứng tuyển — {{title}} ({{name}})",
+    "applicationSubjectFallback": "Ứng tuyển"
+  },
+  "composeToast": {
+    "loadFailed": "Không tải được thông tin",
+    "recipientRequired": "Cần có người nhận",
+    "sentApplied": "Đã gửi & ứng tuyển",
+    "sentWithCv": "Đã đính kèm CV. Đã theo dõi trong Theo dõi công việc.",
+    "sentNoCv": "Đã gửi (không có CV). Đã theo dõi.",
+    "sendFailed": "Gửi thất bại",
+    "generateFailed": "Không tạo được email",
+    "generateFailedHint": "Đã có nhà cung cấp LLM nào hoạt động chưa?",
+    "openedGmailApplied": "Đã mở Gmail — đánh dấu đã ứng tuyển",
+    "openedGmailAppliedHint": "Đã theo dõi trong Theo dõi công việc.",
+    "openedGmailNotApplied": "Đã mở Gmail (không đánh dấu được ứng tuyển)"
+  },
+  "linkModal": {
+    "title": "Chưa liên kết email",
+    "bodyPrefix": "Nhân viên ",
+    "thisEmployee": "này",
+    "bodySuffix": " chưa liên kết tài khoản Gmail, nên hệ thống chưa thể gửi đơn ứng tuyển thay họ (đính kèm CV) và theo dõi thư trả lời.",
+    "hint": "Liên kết Gmail (app password) ở trang thông tin nhân viên, sau đó quay lại đây để gửi.",
+    "back": "Trở lại",
+    "linkEmail": "Liên kết email"
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "new": "{{count}} mới",
+    "markAllRead": "Đánh dấu đã đọc tất cả",
+    "close": "Đóng",
+    "allCaughtUp": "Bạn đã xem hết",
+    "emptyHint": "Thư trả lời của nhà tuyển dụng sẽ hiển thị ở đây.",
+    "viewAllMail": "Xem tất cả thư"
+  }
+}

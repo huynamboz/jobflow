@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerBody } from "@heroui/drawer";
 import { CheckCircle2, ExternalLink, MapPin, XCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { jobService } from "@/services/job.service";
 import type { JobDetail } from "@/types/job.types";
 import {
-  JOB_TYPE_LABEL, PlatformChip, PlatformLogo, SENIORITY_LABEL,
+  JOB_TYPE_LABEL_KEY, PlatformChip, PlatformLogo, SENIORITY_LABEL_KEY,
   StatusBadge, WORK_MODES, WorkModeBadge, daysAgo, fmtSalary,
 } from "./_primitives";
 
@@ -35,6 +36,7 @@ export function DetailDrawer({
   isOpen: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("jobs");
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -57,7 +59,7 @@ export function DetailDrawer({
         {/* Header */}
         <DrawerHeader className="border-b border-default-100 px-6 py-4">
           {loading ? (
-            <span className="text-default-400">Loading…</span>
+            <span className="text-default-400">{t("drawer.loading")}</span>
           ) : job ? (
             <div className="flex items-center gap-3">
               <PlatformLogo name={job.platform?.name || "?"} logo={job.platform?.logo_url} size="lg" />
@@ -82,30 +84,30 @@ export function DetailDrawer({
               </div>
             </div>
           ) : (
-            <span className="text-default-500">Job detail</span>
+            <span className="text-default-500">{t("drawer.jobDetail")}</span>
           )}
         </DrawerHeader>
 
         {/* Body */}
         <DrawerBody className="overflow-y-auto p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-20 text-default-400">Loading…</div>
+            <div className="flex items-center justify-center py-20 text-default-400">{t("drawer.loading")}</div>
           ) : !job ? (
-            <div className="py-20 text-center text-default-400">Job not found.</div>
+            <div className="py-20 text-center text-default-400">{t("drawer.notFound")}</div>
           ) : (
             <div className="space-y-5 p-6">
               {/* Stat grid */}
               <div className="grid grid-cols-4 gap-2.5">
-                <KVStat label="Salary" value={fmtSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_period)} />
-                <KVStat label="Type" value={JOB_TYPE_LABEL[job.job_type] ?? job.job_type} />
-                <KVStat label="Level" value={SENIORITY_LABEL[job.seniority] ?? `L${job.seniority}`} />
-                <KVStat label="Posted" value={daysAgo(job.date_posted)} />
+                <KVStat label={t("drawer.salary")} value={fmtSalary(t, job.salary_min, job.salary_max, job.salary_currency, job.salary_period)} />
+                <KVStat label={t("drawer.type")} value={JOB_TYPE_LABEL_KEY[job.job_type] ? t(JOB_TYPE_LABEL_KEY[job.job_type]) : job.job_type} />
+                <KVStat label={t("drawer.level")} value={SENIORITY_LABEL_KEY[job.seniority] ? t(SENIORITY_LABEL_KEY[job.seniority]) : t("seniority.level", { level: job.seniority })} />
+                <KVStat label={t("drawer.posted")} value={daysAgo(t, job.date_posted)} />
               </div>
 
               {/* Skills */}
               {job.skills && job.skills.length > 0 && (
                 <div>
-                  <PaneLabel>Skills ({job.skills.length})</PaneLabel>
+                  <PaneLabel>{t("drawer.skills", { count: job.skills.length })}</PaneLabel>
                   <div className="flex flex-wrap gap-1.5">
                     {job.skills.map((s) => (
                       <span
@@ -123,7 +125,7 @@ export function DetailDrawer({
               {/* Source */}
               {(job.platform || job.source_url) && (
                 <div>
-                  <PaneLabel>Source</PaneLabel>
+                  <PaneLabel>{t("drawer.source")}</PaneLabel>
                   <div className="flex items-center gap-3">
                     {job.platform && <PlatformChip name={job.platform.name} />}
                     {job.source_url && (
@@ -133,7 +135,7 @@ export function DetailDrawer({
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-[12px] font-medium text-violet-600 hover:underline"
                       >
-                        View original <ExternalLink className="size-3" />
+                        {t("drawer.viewOriginal")} <ExternalLink className="size-3" />
                       </a>
                     )}
                   </div>
@@ -143,7 +145,7 @@ export function DetailDrawer({
               {/* Description */}
               {job.description && (
                 <div>
-                  <PaneLabel>Description</PaneLabel>
+                  <PaneLabel>{t("drawer.description")}</PaneLabel>
                   <p className="whitespace-pre-wrap text-[13px] leading-[1.55] text-default-700">
                     {job.description}
                   </p>
@@ -153,7 +155,7 @@ export function DetailDrawer({
               {/* Responsibilities */}
               {job.responsibilities && (
                 <div>
-                  <PaneLabel>Responsibilities</PaneLabel>
+                  <PaneLabel>{t("drawer.responsibilities")}</PaneLabel>
                   <p className="whitespace-pre-wrap text-[13px] leading-[1.55] text-default-700">
                     {job.responsibilities}
                   </p>
@@ -163,7 +165,7 @@ export function DetailDrawer({
               {/* Requirements */}
               {job.requirements && (
                 <div>
-                  <PaneLabel>Requirements</PaneLabel>
+                  <PaneLabel>{t("drawer.requirements")}</PaneLabel>
                   <p className="whitespace-pre-wrap text-[13px] leading-[1.55] text-default-700">
                     {job.requirements}
                   </p>
@@ -175,16 +177,16 @@ export function DetailDrawer({
                 <div className="flex items-start gap-2.5 rounded-xl border border-green-100 bg-green-50 px-3.5 py-3 text-[13px] text-green-700">
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
                   <div>
-                    <span className="font-semibold">Active</span>
-                    {" — this job is currently visible to candidates."}
+                    <span className="font-semibold">{t("drawer.active")}</span>
+                    {t("drawer.activeNote")}
                   </div>
                 </div>
               ) : (
                 <div className="flex items-start gap-2.5 rounded-xl border border-default-200 bg-default-50 px-3.5 py-3 text-[13px] text-default-500">
                   <XCircle className="mt-0.5 size-4 shrink-0" />
                   <div>
-                    <span className="font-semibold">Inactive</span>
-                    {" — this job is not visible to candidates."}
+                    <span className="font-semibold">{t("drawer.inactive")}</span>
+                    {t("drawer.inactiveNote")}
                   </div>
                 </div>
               )}

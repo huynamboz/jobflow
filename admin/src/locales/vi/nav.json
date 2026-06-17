@@ -1,0 +1,26 @@
+{
+  "sections": {
+    "staffing": "Tuyển dụng",
+    "system": "Hệ thống"
+  },
+  "items": {
+    "dashboard": "Bảng điều khiển",
+    "employees": "Nhân viên",
+    "jobs": "Việc làm",
+    "jobTracking": "Theo dõi ứng tuyển",
+    "mail": "Thư",
+    "morningRefresh": "Làm mới buổi sáng",
+    "systemOverview": "Tổng quan hệ thống",
+    "labeling": "Gán nhãn",
+    "cvs": "CV (dữ liệu)",
+    "llmProviders": "Nhà cung cấp LLM",
+    "llmLogs": "Nhật ký LLM",
+    "jdBatch": "Lô JD",
+    "cvBatch": "Lô CV",
+    "labelBatch": "Lô gán nhãn",
+    "verifySchedule": "Lịch kiểm tra",
+    "extractSchedule": "Lịch trích xuất",
+    "integrations": "Tích hợp",
+    "settings": "Cài đặt"
+  }
+}

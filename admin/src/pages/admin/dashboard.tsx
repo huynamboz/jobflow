@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { RefreshCcw } from "lucide-react";
 
 import StaffingDashboard from "@/components/dashboard/StaffingDashboard";
 import MailRepliesBlock from "@/components/dashboard/MailRepliesBlock";
 
 export default function DashboardPage() {
+  const { t } = useTranslation("dashboard");
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -20,7 +22,7 @@ export default function DashboardPage() {
               margin: 0,
             }}
           >
-            Dashboard
+            {t("page.title")}
           </h1>
           <p
             style={{
@@ -30,7 +32,7 @@ export default function DashboardPage() {
               margin: "4px 0 0",
             }}
           >
-            What your team needs to handle today.
+            {t("page.subtitle")}
           </p>
         </div>
         <button
@@ -48,7 +50,7 @@ export default function DashboardPage() {
           }}
         >
           <RefreshCcw className="size-3.5" strokeWidth={1.75} />
-          Refresh
+          {t("common:actions.refresh")}
         </button>
       </header>
 

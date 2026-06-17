@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { LabelingProgress } from "@/types/labeling.types";
 
 interface LabelingProgressProps {
@@ -5,17 +6,18 @@ interface LabelingProgressProps {
 }
 
 export function LabelingProgressBar({ progress }: LabelingProgressProps) {
+  const { t } = useTranslation("labeling");
   const pct = progress.total > 0 ? Math.round((progress.labeled / progress.total) * 100) : 0;
 
   return (
     <div className="rounded-2xl border border-default-200 bg-white px-5 py-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-default-700">
-          {progress.labeled} / {progress.total} labeled
+          {t("progress.labeled", { labeled: progress.labeled, total: progress.total })}
         </span>
         <div className="flex gap-4 text-xs text-default-500">
-          <span>Skipped: {progress.skipped}</span>
-          <span>Remaining: {progress.pending}</span>
+          <span>{t("progress.skipped", { count: progress.skipped })}</span>
+          <span>{t("progress.remaining", { count: progress.pending })}</span>
           <span className="font-semibold text-default-700">{pct}%</span>
         </div>
       </div>

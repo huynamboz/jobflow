@@ -1,3 +1,6 @@
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
+
 // ── Color helpers ──────────────────────────────────────────────────
 const PLATFORM_PALETTE: Record<string, string> = {
   linkedin: "#0A66C2",
@@ -146,8 +149,10 @@ export function PlatformChip({ name, logo }: { name: string; logo?: string }) {
 }
 
 // ── Seniority badge ────────────────────────────────────────────────
-export const SENIORITY_LABEL: Record<number, string> = {
-  0: "Intern", 1: "Junior", 2: "Mid", 3: "Senior", 4: "Lead", 5: "Manager",
+// Maps a seniority level to its i18n key under the `jobs:seniority` namespace.
+export const SENIORITY_LABEL_KEY: Record<number, string> = {
+  0: "seniority.intern", 1: "seniority.junior", 2: "seniority.mid",
+  3: "seniority.senior", 4: "seniority.lead", 5: "seniority.manager",
 };
 
 const SENIORITY_CLS: Record<number, string> = {
@@ -160,9 +165,11 @@ const SENIORITY_CLS: Record<number, string> = {
 };
 
 export function SeniorityBadge({ level }: { level: number }) {
+  const { t } = useTranslation("jobs");
+  const key = SENIORITY_LABEL_KEY[level];
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${SENIORITY_CLS[level] ?? "bg-gray-100 text-gray-600"}`}>
-      {SENIORITY_LABEL[level] ?? `Level ${level}`}
+      {key ? t(key) : t("seniority.level", { level })}
     </span>
   );
 }
@@ -174,10 +181,18 @@ const WORK_MODE_CLS: Record<string, string> = {
   "on-site": "bg-amber-50 text-amber-600",
 };
 
+const WORK_MODE_KEY: Record<string, string> = {
+  remote: "workMode.remote",
+  hybrid: "workMode.hybrid",
+  "on-site": "workMode.onSite",
+};
+
 export function WorkModeBadge({ mode }: { mode: string }) {
+  const { t } = useTranslation("jobs");
+  const key = WORK_MODE_KEY[mode];
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.04em] ${WORK_MODE_CLS[mode] ?? "bg-default-100 text-default-600"}`}>
-      {mode}
+      {key ? t(key) : mode}
     </span>
   );
 }
@@ -191,28 +206,30 @@ const STATUS_CLS: Record<StatusKind, string> = {
   inactive: "bg-default-100 text-default-500",
 };
 
-const STATUS_LABEL: Record<StatusKind, string> = {
-  active: "active",
-  running: "running",
-  inactive: "inactive",
+const STATUS_LABEL_KEY: Record<StatusKind, string> = {
+  active: "statusBadge.active",
+  running: "statusBadge.running",
+  inactive: "statusBadge.inactive",
 };
 
 export function StatusBadge({ kind }: { kind: StatusKind }) {
+  const { t } = useTranslation("jobs");
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11.5px] font-semibold ${STATUS_CLS[kind]}`}>
       <span className={`size-1.5 rounded-full bg-current ${kind === "running" ? "animate-pulse" : ""}`} />
-      {STATUS_LABEL[kind]}
+      {t(STATUS_LABEL_KEY[kind])}
     </span>
   );
 }
 
 // ── Job type label ─────────────────────────────────────────────────
-export const JOB_TYPE_LABEL: Record<string, string> = {
-  "full-time": "Full-time",
-  "part-time": "Part-time",
-  remote: "Remote",
-  hybrid: "Hybrid",
-  "on-site": "On-site",
+// Maps a job-type value to its i18n key under the `jobs:jobType` namespace.
+export const JOB_TYPE_LABEL_KEY: Record<string, string> = {
+  "full-time": "jobType.fullTime",
+  "part-time": "jobType.partTime",
+  remote: "jobType.remote",
+  hybrid: "jobType.hybrid",
+  "on-site": "jobType.onSite",
 };
 
 export const WORK_MODES = new Set(["remote", "hybrid", "on-site"]);
@@ -222,28 +239,30 @@ const CURRENCY_SYMBOL: Record<string, string> = {
   USD: "$", SGD: "S$", VND: "₫", EUR: "€", GBP: "£", JPY: "¥", AUD: "A$",
 };
 
-const PERIOD_SUFFIX: Record<string, string> = {
-  hourly: "/hr", daily: "/day", weekly: "/wk", monthly: "/mo", annual: "/yr",
+// Maps a salary pay-period to its i18n key under the `jobs:salaryPeriod` namespace.
+const PERIOD_SUFFIX_KEY: Record<string, string> = {
+  hourly: "salaryPeriod.hourly", daily: "salaryPeriod.daily", weekly: "salaryPeriod.weekly",
+  monthly: "salaryPeriod.monthly", annual: "salaryPeriod.annual",
 };
 
-export function fmtSalary(min: number | null, max: number | null, currency = "USD", period?: string): string {
+export function fmtSalary(t: TFunction, min: number | null, max: number | null, currency = "USD", period?: string): string {
   if (!min && !max) return "—";
   const sym = CURRENCY_SYMBOL[currency] ?? currency + " ";
-  const suffix = period ? (PERIOD_SUFFIX[period] ?? "") : "";
+  const suffix = period ? (PERIOD_SUFFIX_KEY[period] ? t(PERIOD_SUFFIX_KEY[period]) : "") : "";
   const fmt = (n: number) => {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
     if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
     return String(n);
   };
   if (min && max) return `${sym}${fmt(min)}–${sym}${fmt(max)}${suffix}`;
-  if (min) return `≥ ${sym}${fmt(min)}${suffix}`;
-  return `≤ ${sym}${fmt(max!)}${suffix}`;
+  if (min) return t("salary.atLeast", { value: `${sym}${fmt(min)}${suffix}` });
+  return t("salary.atMost", { value: `${sym}${fmt(max!)}${suffix}` });
 }
 
-export function daysAgo(d: string | null): string {
+export function daysAgo(t: TFunction, d: string | null): string {
   if (!d) return "—";
   const days = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 86400000));
-  if (days === 0) return "today";
-  if (days === 1) return "1d ago";
-  return `${days}d ago`;
+  if (days === 0) return t("relativeTime.today");
+  if (days === 1) return t("relativeTime.dayAgo");
+  return t("relativeTime.daysAgo", { count: days });
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
 import { Select, SelectItem } from "@heroui/select";
@@ -24,13 +25,13 @@ const PAGE_SIZE = 20;
 const TRACKED = "applied,won,in_progress,completed,lost";
 
 type TrackTab = "all" | "applied" | "won" | "in_progress" | "completed" | "lost";
-const TABS: { key: TrackTab; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "applied", label: "Applied" },
-  { key: "won", label: "Accepted" },
-  { key: "in_progress", label: "In progress" },
-  { key: "completed", label: "Completed" },
-  { key: "lost", label: "Rejected" },
+const TABS: { key: TrackTab; labelKey: string }[] = [
+  { key: "all", labelKey: "tracking.tabs.all" },
+  { key: "applied", labelKey: "tracking.tabs.applied" },
+  { key: "won", labelKey: "tracking.tabs.won" },
+  { key: "in_progress", labelKey: "tracking.tabs.inProgress" },
+  { key: "completed", labelKey: "tracking.tabs.completed" },
+  { key: "lost", labelKey: "tracking.tabs.lost" },
 ];
 
 const TAB_FILTER: Record<TrackTab, { status?: MatchStatus; statuses?: string }> = {
@@ -42,20 +43,20 @@ const TAB_FILTER: Record<TrackTab, { status?: MatchStatus; statuses?: string }> 
   lost: { status: "lost" },
 };
 
-const STATUS_CHIP: Record<string, { label: string; bg: string; color: string }> = {
-  applied: { label: "Applied", bg: "oklch(0.94 0.05 280)", color: "oklch(0.45 0.16 280)" },
-  won: { label: "Accepted", bg: "#e8f4f4", color: "#0e5353" },
-  in_progress: { label: "In progress", bg: T.warning50, color: T.warning },
-  completed: { label: "Completed", bg: T.success50, color: T.success },
-  lost: { label: "Rejected", bg: T.danger50, color: T.danger },
+const STATUS_CHIP: Record<string, { labelKey: string; bg: string; color: string }> = {
+  applied: { labelKey: "tracking.status.applied", bg: "oklch(0.94 0.05 280)", color: "oklch(0.45 0.16 280)" },
+  won: { labelKey: "tracking.status.won", bg: "#e8f4f4", color: "#0e5353" },
+  in_progress: { labelKey: "tracking.status.inProgress", bg: T.warning50, color: T.warning },
+  completed: { labelKey: "tracking.status.completed", bg: T.success50, color: T.success },
+  lost: { labelKey: "tracking.status.lost", bg: T.danger50, color: T.danger },
 };
 
-const STATUS_OPTIONS: { key: MatchStatus; label: string }[] = [
-  { key: "applied", label: "Applied" },
-  { key: "won", label: "Accepted" },
-  { key: "in_progress", label: "In progress" },
-  { key: "completed", label: "Completed" },
-  { key: "lost", label: "Rejected" },
+const STATUS_OPTIONS: { key: MatchStatus; labelKey: string }[] = [
+  { key: "applied", labelKey: "tracking.status.applied" },
+  { key: "won", labelKey: "tracking.status.won" },
+  { key: "in_progress", labelKey: "tracking.status.inProgress" },
+  { key: "completed", labelKey: "tracking.status.completed" },
+  { key: "lost", labelKey: "tracking.status.lost" },
 ];
 
 function initials(name: string): string {
@@ -77,6 +78,7 @@ function dateFor(m: EmployeeJobMatch): string | null {
 
 export default function JobTrackingPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation("jobs");
   const [tab, setTab] = useState<TrackTab>("all");
   const [items, setItems] = useState<EmployeeJobMatch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,12 +97,12 @@ export default function JobTrackingPage() {
         setTotal(m.count ?? m.results.length);
         setPage(pg);
       } catch {
-        addToast({ title: "Failed to load job tracking", color: "danger" });
+        addToast({ title: t("tracking.loadError"), color: "danger" });
       } finally {
         setLoading(false);
       }
     },
-    [tab],
+    [tab, t],
   );
 
   useEffect(() => { void load(1, false); }, [load]);
@@ -109,10 +111,10 @@ export default function JobTrackingPage() {
     setBusy(m.id);
     try {
       await matchService.update(m.id, { status });
-      addToast({ title: `Marked ${label}`, color: "success" });
+      addToast({ title: t("tracking.marked", { label }), color: "success" });
       await load(1, false);
     } catch {
-      addToast({ title: "Update failed", color: "danger" });
+      addToast({ title: t("tracking.updateFailed"), color: "danger" });
     } finally {
       setBusy(null);
     }
@@ -122,25 +124,25 @@ export default function JobTrackingPage() {
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
         <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, color: T.ink }}>
-          Job <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>Tracking</span>
+          {t("tracking.titlePrefix")} <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>{t("tracking.titleEmphasis")}</span>
         </h1>
         <p style={{ margin: "4px 0 0", color: T.ink3, fontSize: 14 }}>
-          Applied → accepted → in progress → completed. Drive each project through its lifecycle.
+          {t("tracking.subtitle")}
         </p>
       </div>
 
       {/* tabs */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {TABS.map((t) => {
-          const active = tab === t.key;
+        {TABS.map((tabItem) => {
+          const active = tab === tabItem.key;
           return (
-            <button key={t.key} type="button" onClick={() => setTab(t.key)}
+            <button key={tabItem.key} type="button" onClick={() => setTab(tabItem.key)}
               style={{
                 padding: "7px 14px", borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: "pointer",
                 border: `1px solid ${active ? T.accent : T.line}`,
                 background: active ? T.accent : "#fff", color: active ? "#fff" : T.ink2,
               }}>
-              {t.label}{active && total ? ` (${total})` : ""}
+              {t(tabItem.labelKey)}{active && total ? ` (${total})` : ""}
             </button>
           );
         })}
@@ -152,8 +154,8 @@ export default function JobTrackingPage() {
         <Card style={{ display: "grid", placeItems: "center", height: 240, color: T.ink3 }}>
           <div style={{ textAlign: "center" }}>
             <IconBriefcase size={30} style={{ margin: "0 auto 10px", color: T.ink4 }} />
-            <div style={{ fontWeight: 600 }}>No jobs here yet</div>
-            <div style={{ fontSize: 13 }}>Apply to jobs from an employee's job browser to start tracking.</div>
+            <div style={{ fontWeight: 600 }}>{t("tracking.emptyTitle")}</div>
+            <div style={{ fontSize: 13 }}>{t("tracking.emptyHint")}</div>
           </div>
         </Card>
       ) : (
@@ -177,36 +179,37 @@ export default function JobTrackingPage() {
                           {m.employee_name} · {m.job.title}
                         </span>
                         <span style={{ display: "block", fontSize: 12.5, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {m.job.company_name || "—"} · {(STATUS_CHIP[m.status]?.label ?? m.status).toLowerCase()} {fmtDate(dateFor(m))}
+                          {m.job.company_name || t("tracking.dash")} · {(STATUS_CHIP[m.status] ? t(STATUS_CHIP[m.status].labelKey) : m.status).toLowerCase()} {fmtDate(dateFor(m))}
                         </span>
                       </span>
                     </button>
 
                     <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: chip.bg, color: chip.color, flexShrink: 0 }}>
-                      {chip.label}
+                      {t(chip.labelKey)}
                     </span>
 
                     {m.job.source_url && (
                       <a href={m.job.source_url} target="_blank" rel="noreferrer"
-                        style={{ flexShrink: 0, color: T.ink4, display: "flex" }} title="Open posting">
+                        style={{ flexShrink: 0, color: T.ink4, display: "flex" }} title={t("tracking.openPosting")}>
                         <IconExternalLink size={16} />
                       </a>
                     )}
 
                     <Select
-                      aria-label="Change status"
+                      aria-label={t("tracking.changeStatus")}
                       size="sm"
                       selectedKeys={[m.status]}
                       isDisabled={busy === m.id}
                       onSelectionChange={(keys) => {
                         const next = Array.from(keys)[0] as MatchStatus;
                         if (next && next !== m.status) {
-                          setStatus(m, next, STATUS_OPTIONS.find((o) => o.key === next)?.label ?? next);
+                          const opt = STATUS_OPTIONS.find((o) => o.key === next);
+                          setStatus(m, next, opt ? t(opt.labelKey) : next);
                         }
                       }}
                       className="w-[150px] shrink-0"
                     >
-                      {STATUS_OPTIONS.map((o) => <SelectItem key={o.key}>{o.label}</SelectItem>)}
+                      {STATUS_OPTIONS.map((o) => <SelectItem key={o.key}>{t(o.labelKey)}</SelectItem>)}
                     </Select>
                   </div>
                 </li>
@@ -218,7 +221,7 @@ export default function JobTrackingPage() {
 
       {hasMore && !loading && (
         <Button color="primary" variant="flat" onPress={() => void load(page + 1, true)}>
-          View more ({Math.max(0, total - items.length)} left)
+          {t("tracking.viewMore", { count: Math.max(0, total - items.length) })}
         </Button>
       )}
     </div>

@@ -1,10 +1,11 @@
 import { clsx } from "clsx";
+import { useTranslation } from "react-i18next";
 import type { DimScore } from "@/types/labeling.types";
 
-const OPTIONS: { value: DimScore; emoji: string; label: string; active: string }[] = [
-  { value: 0, emoji: "✗", label: "Bad",  active: "bg-red-50 border-red-300 text-red-600" },
-  { value: 1, emoji: "~", label: "OK",   active: "bg-amber-50 border-amber-300 text-amber-600" },
-  { value: 2, emoji: "✓", label: "Good", active: "bg-emerald-50 border-emerald-400 text-emerald-700" },
+const OPTIONS: { value: DimScore; emoji: string; labelKey: string; active: string }[] = [
+  { value: 0, emoji: "✗", labelKey: "dimScore.bad",  active: "bg-red-50 border-red-300 text-red-600" },
+  { value: 1, emoji: "~", labelKey: "dimScore.ok",   active: "bg-amber-50 border-amber-300 text-amber-600" },
+  { value: 2, emoji: "✓", labelKey: "dimScore.good", active: "bg-emerald-50 border-emerald-400 text-emerald-700" },
 ];
 
 interface DimScoreInputProps {
@@ -14,6 +15,7 @@ interface DimScoreInputProps {
 }
 
 export function DimScoreInput({ label, value, onChange }: DimScoreInputProps) {
+  const { t } = useTranslation("labeling");
   return (
     <div className="flex items-center gap-3">
       <span className="w-32 shrink-0 text-sm text-default-600">{label}</span>
@@ -31,7 +33,7 @@ export function DimScoreInput({ label, value, onChange }: DimScoreInputProps) {
             )}
           >
             <span className="font-mono text-sm">{opt.emoji}</span>
-            {opt.label}
+            {t(opt.labelKey)}
           </button>
         ))}
       </div>

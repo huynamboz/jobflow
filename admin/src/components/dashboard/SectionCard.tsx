@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, Inbox, RefreshCcw } from "lucide-react";
 
 interface SectionCardProps {
@@ -33,11 +34,12 @@ export default function SectionCard({
   loading,
   error,
   empty,
-  emptyMessage = "No data yet",
+  emptyMessage,
   onRetry,
   children,
   action,
 }: SectionCardProps) {
+  const { t } = useTranslation("dashboard");
   return (
     <section
       style={{
@@ -87,7 +89,7 @@ export default function SectionCard({
             aria-live="polite"
           >
             <span className="inline-block animate-pulse" style={{ width: 8, height: 8, borderRadius: 999, background: "var(--c5)" }} />
-            Loading…
+            {t("section.loading")}
           </div>
         )}
 
@@ -105,7 +107,7 @@ export default function SectionCard({
           >
             <div className="flex items-center gap-2" style={{ font: "600 12.5px/16px var(--font-node-sans)", color: "var(--red)" }}>
               <AlertCircle className="size-4" />
-              <span>Failed to load</span>
+              <span>{t("section.failedToLoad")}</span>
             </div>
             <p style={{ font: "400 11.5px/16px var(--font-node-sans)", color: "var(--ink-soft)", letterSpacing: "-0.01em", margin: 0 }}>
               {error.message}
@@ -125,7 +127,7 @@ export default function SectionCard({
                   boxShadow: "var(--shadow-btn)",
                 }}
               >
-                <RefreshCcw className="size-3" /> Retry
+                <RefreshCcw className="size-3" /> {t("section.retry")}
               </button>
             )}
           </div>
@@ -137,7 +139,7 @@ export default function SectionCard({
             style={{ font: "400 12.5px/18px var(--font-node-sans)", color: "var(--muted)", padding: "40px 0" }}
           >
             <Inbox className="size-6" strokeWidth={1.5} />
-            <span>{emptyMessage}</span>
+            <span>{emptyMessage ?? t("section.noData")}</span>
           </div>
         )}
 

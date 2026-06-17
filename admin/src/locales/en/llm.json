@@ -1,0 +1,251 @@
+{
+  "providers": {
+    "title": "LLM Providers",
+    "count_one": "{{count}} provider configured",
+    "count_other": "{{count}} providers configured",
+    "add": "Add Provider",
+    "empty": "No LLM providers yet.",
+    "loading": "Loading…",
+    "modal": {
+      "editTitle": "Edit Provider",
+      "addTitle": "Add Provider",
+      "clientType": "Client Type",
+      "clientOpenai": "OpenAI Compatible (/chat/completions)",
+      "clientMessages": "Messages API (/messages)",
+      "name": "Name",
+      "model": "Model",
+      "baseUrl": "Base URL",
+      "apiKey": "API Key",
+      "apiKeyPlaceholderKeep": "Leave blank to keep current",
+      "apiKeyPlaceholderNew": "sk-...",
+      "apiKeyDescription": "Leave blank to keep current key"
+    },
+    "table": {
+      "name": "Name",
+      "model": "Model",
+      "baseUrl": "Base URL",
+      "apiKey": "API Key",
+      "status": "Status",
+      "test": "Test",
+      "updated": "Updated",
+      "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "test": {
+      "ok": "OK",
+      "fail": "Fail"
+    },
+    "tooltip": {
+      "edit": "Edit",
+      "test": "Test connection",
+      "activate": "Set as active",
+      "delete": "Delete",
+      "cannotDeleteActive": "Cannot delete active provider"
+    },
+    "confirm": {
+      "delete": "Delete this provider?"
+    },
+    "errors": {
+      "save": "Save failed.",
+      "activate": "Activate failed.",
+      "test": "Test failed.",
+      "delete": "Delete failed."
+    }
+  },
+  "logs": {
+    "title": "LLM Call Logs",
+    "count": "{{count}} logs",
+    "empty": "No logs yet.",
+    "loading": "Loading…",
+    "filter": {
+      "allStatus": "All Status",
+      "success": "Success",
+      "error": "Error",
+      "allFeatures": "All Features"
+    },
+    "feature": {
+      "cvExtraction": "CV Extraction",
+      "jdExtraction": "JD Extraction",
+      "labeling": "Labeling",
+      "unknown": "Unknown"
+    },
+    "status": {
+      "success": "Success",
+      "error": "Error"
+    },
+    "table": {
+      "id": "ID",
+      "feature": "Feature",
+      "provider": "Provider",
+      "status": "Status",
+      "duration": "Duration",
+      "time": "Time"
+    },
+    "drawer": {
+      "title": "Log #{{id}}",
+      "feature": "Feature",
+      "provider": "Provider",
+      "duration": "Duration",
+      "time": "Time",
+      "inputPreview": "Input (preview)",
+      "output": "Output",
+      "error": "Error"
+    },
+    "pagination": "Page {{page}} of {{totalPages}} · {{total}} total"
+  },
+  "batch": {
+    "overview": {
+      "titlePrefix": "JD Batch",
+      "titleAccent": "Extraction",
+      "description": "Normalize scraped job postings into structured JSON using an LLM.",
+      "newBatch": "New batch",
+      "statActiveNow": "Active now",
+      "statActiveNowUnit": "running",
+      "statTotalBatches": "Total batches",
+      "statTotalBatchesUnit": "all-time",
+      "statRecordsExtracted": "Records extracted",
+      "statLastBatch": "Last batch",
+      "emptyTitle": "No batches yet",
+      "emptyHint": "Upload a JSONL file to start extraction.",
+      "card": {
+        "batch": "Batch #{{id}}",
+        "records": "{{done}} / {{total}} records",
+        "fields": "Fields",
+        "fieldsCombined": "{{count}} combined",
+        "errors": "Errors"
+      }
+    },
+    "new": {
+      "titlePrefix": "New",
+      "titleAccent": "Batch",
+      "description": "Upload a JSONL file and configure the extraction prompt.",
+      "allBatches": "All batches",
+      "steps": {
+        "upload": "Upload",
+        "fieldsPrompt": "Fields & prompt",
+        "run": "Run"
+      },
+      "errors": {
+        "readFile": "Failed to read file",
+        "startBatch": "Failed to start batch"
+      },
+      "uploadStep": {
+        "headingPrefix": "Upload a",
+        "headingAccent": "JSONL",
+        "headingSuffix": "file",
+        "description": "One JSON object per line. Each object becomes one LLM extraction job.",
+        "dropTitle": "Drop your .jsonl file here",
+        "orBrowsePrefix": "or",
+        "browse": "browse from your computer",
+        "maxSize": "— max 50 MB",
+        "readingFile": "Reading file…",
+        "rowsDetected": "rows detected",
+        "remove": "Remove",
+        "previewRows": "Preview rows",
+        "totalBadge": "{{count}} total",
+        "valid": "valid",
+        "moreRows": "+ {{count}} more rows",
+        "continue": "Continue — pick fields"
+      },
+      "fieldsStep": {
+        "headingPrefix": "Build the",
+        "headingAccent": "extraction prompt",
+        "description": "Click fields to include them in the prompt sent to the LLM per row.",
+        "fieldsFromRow": "Fields from row",
+        "selectedOf": "{{selected}} of {{total}} selected",
+        "all": "All",
+        "none": "None",
+        "promptPreview": "Prompt preview",
+        "promptPreviewHint": "row #1 — what LLM will see",
+        "selectAtLeastOne": "Select at least one field to build the prompt.",
+        "recordLimit": "Record limit",
+        "custom": "Custom",
+        "customPlaceholder": "e.g. 200",
+        "willProcessPrefix": "Will process",
+        "willProcessSuffix": "records · ~{{min}} min estimated",
+        "parallelWorkers": "Parallel workers",
+        "concurrentCalls": "concurrent LLM calls",
+        "workersHint": "Higher = faster but risks rate limiting. Recommended: 3–5 for most providers.",
+        "back": "Back",
+        "starting": "Starting…",
+        "run": "Run · {{count}} rows"
+      }
+    },
+    "detail": {
+      "allBatches": "All batches",
+      "batch": "Batch #{{id}}",
+      "refresh": "Refresh",
+      "export": "Export",
+      "workers": "Workers",
+      "resuming": "Resuming…",
+      "resume": "Resume · {{count}} to retry",
+      "cancelling": "Cancelling…",
+      "cancel": "Cancel",
+      "stat": {
+        "progress": "Progress",
+        "completed": "Completed",
+        "completedUnit": "/ {{total}} rows",
+        "errors": "Errors",
+        "errorsClean": "clean",
+        "errorsNeedRetry": "need retry",
+        "fields": "Fields",
+        "fieldsUnit": "combined per row"
+      },
+      "promptFields": "Prompt fields",
+      "promptFieldsHint": "{{count}} fields combined per row",
+      "liveLog": "Live log",
+      "streaming": "streaming",
+      "tab": {
+        "records": "Records · {{count}}",
+        "config": "Config"
+      },
+      "filter": {
+        "all": "All · {{count}}",
+        "running": "Running · {{count}}",
+        "done": "Done · {{count}}",
+        "error": "Error · {{count}}",
+        "pending": "Pending"
+      },
+      "search": "Search…",
+      "noRecordsMatch": "No records match.",
+      "th": {
+        "title": "Title",
+        "company": "Company",
+        "location": "Location",
+        "status": "Status"
+      },
+      "pagination": "Page {{page}} of {{totalPages}}",
+      "config": {
+        "fieldsCombined": "Fields combined",
+        "batchInfo": "Batch info",
+        "id": "ID",
+        "file": "File",
+        "workers": "Workers",
+        "total": "Total",
+        "done": "Done",
+        "errors": "Errors",
+        "created": "Created",
+        "status": "Status",
+        "progress": "Progress",
+        "summaryDone": "{{done}} done",
+        "summaryErrors": "{{count}} errors · ",
+        "summaryPending": "{{pending}} pending · {{pct}}%"
+      }
+    },
+    "record": {
+      "record": "Record",
+      "copyJson": "Copy extracted JSON",
+      "rawInput": "Raw input",
+      "fieldsInPrompt": "{{count}} fields in prompt",
+      "noCombinedText": "No combined text stored.",
+      "extractedByLlm": "Extracted by LLM",
+      "extractionFailed": "Extraction failed",
+      "queued": "Queued",
+      "waitingForWorker": "Waiting for a worker…",
+      "extracting": "Extracting…"
+    }
+  }
+}

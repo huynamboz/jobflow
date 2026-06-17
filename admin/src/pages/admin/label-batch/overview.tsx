@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@heroui/button";
 import {
   IconLoader2, IconPlayerPlay, IconPlayerStop,
@@ -18,6 +19,7 @@ function fmtDate(iso: string) {
 }
 
 function BatchCard({ batch, onCancel }: { batch: LabelingBatch; onCancel: (id: number) => void }) {
+  const { t } = useTranslation("labeling");
   const navigate = useNavigate();
   const running = batch.status === "running";
   return (
@@ -33,8 +35,8 @@ function BatchCard({ batch, onCancel }: { batch: LabelingBatch; onCancel: (id: n
         </div>
       </div>
 
-      <div className="font-bold text-[15px] tracking-[-0.01em]">Batch #{batch.id}</div>
-      <div className="font-mono text-[12px] text-jb-ink3 mt-0.5">{batch.workers} workers</div>
+      <div className="font-bold text-[15px] tracking-[-0.01em]">{t("batch.card.batchNumber", { id: batch.id })}</div>
+      <div className="font-mono text-[12px] text-jb-ink3 mt-0.5">{t("batch.card.workers", { count: batch.workers })}</div>
 
       <div className="mt-3.5">
         <ProgressBar
@@ -42,7 +44,7 @@ function BatchCard({ batch, onCancel }: { batch: LabelingBatch; onCancel: (id: n
           running={running} done={batch.status === "done"}
         />
         <div className="flex justify-between text-xs mt-2">
-          <span className="text-jb-ink3">{batch.done_count} / {batch.total} labeled</span>
+          <span className="text-jb-ink3">{t("batch.card.labeledOf", { done: batch.done_count, total: batch.total })}</span>
           <span className="font-semibold">{batch.pct.toFixed(0)}%</span>
         </div>
       </div>
@@ -51,17 +53,17 @@ function BatchCard({ batch, onCancel }: { batch: LabelingBatch; onCancel: (id: n
 
       <div className="grid grid-cols-3 gap-2 text-[11.5px]">
         <div>
-          <div className="uppercase tracking-[0.05em] font-semibold text-[10px] text-jb-ink4">Done</div>
+          <div className="uppercase tracking-[0.05em] font-semibold text-[10px] text-jb-ink4">{t("batch.card.done")}</div>
           <div className="mt-0.5 text-jb-success font-semibold">{batch.done_count}</div>
         </div>
         <div>
-          <div className="uppercase tracking-[0.05em] font-semibold text-[10px] text-jb-ink4">Errors</div>
+          <div className="uppercase tracking-[0.05em] font-semibold text-[10px] text-jb-ink4">{t("batch.card.errors")}</div>
           <div className={cn("mt-0.5 font-semibold", batch.error_count > 0 ? "text-jb-danger" : "text-jb-ink2")}>
             {batch.error_count}
           </div>
         </div>
         <div>
-          <div className="uppercase tracking-[0.05em] font-semibold text-[10px] text-jb-ink4">Pending</div>
+          <div className="uppercase tracking-[0.05em] font-semibold text-[10px] text-jb-ink4">{t("batch.card.pending")}</div>
           <div className="mt-0.5 text-jb-ink2">{Math.max(0, batch.total - batch.done_count - batch.error_count)}</div>
         </div>
       </div>
@@ -73,7 +75,7 @@ function BatchCard({ batch, onCancel }: { batch: LabelingBatch; onCancel: (id: n
             startContent={<IconPlayerStop size={13} />}
             onPress={() => onCancel(batch.id)}
           >
-            Stop
+            {t("batch.card.stop")}
           </Button>
         </div>
       )}
@@ -82,14 +84,15 @@ function BatchCard({ batch, onCancel }: { batch: LabelingBatch; onCancel: (id: n
 }
 
 function OverallBar({ total, n0, n1, n2 }: { total: number; n0: number; n1: number; n2: number }) {
-  if (total === 0) return <div className="text-jb-ink4 text-xs">No labels yet</div>;
+  const { t } = useTranslation("labeling");
+  if (total === 0) return <div className="text-jb-ink4 text-xs">{t("batch.noLabelsYet")}</div>;
   const pct = (n: number) => total > 0 ? ((n / total) * 100).toFixed(0) : "0";
   return (
     <div className="space-y-1.5 text-[12px]">
       {[
-        { label: "Not suitable (0)", n: n0, cls: "bg-jb-danger" },
-        { label: "Suitable (1)",     n: n1, cls: "bg-jb-accent" },
-        { label: "Strong fit (2)",   n: n2, cls: "bg-jb-success" },
+        { label: t("batch.dist.notSuitable"), n: n0, cls: "bg-jb-danger" },
+        { label: t("batch.dist.suitable"),    n: n1, cls: "bg-jb-accent" },
+        { label: t("batch.dist.strongFit"),   n: n2, cls: "bg-jb-success" },
       ].map(({ label, n, cls }) => (
         <div key={label} className="flex items-center gap-2">
           <span className="text-jb-ink3 w-[110px] shrink-0">{label}</span>
@@ -105,6 +108,7 @@ function OverallBar({ total, n0, n1, n2 }: { total: number; n0: number; n1: numb
 }
 
 export default function LabelBatchOverview() {
+  const { t } = useTranslation("labeling");
   const [data, setData] = useState<LabelingBatchListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [workers, setWorkers] = useState(3);
@@ -132,7 +136,7 @@ export default function LabelBatchOverview() {
       await labelingService.startBatch(workers);
       await load();
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ?? "Failed to start batch";
+      const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ?? t("batch.startFailed");
       setErr(msg);
     } finally {
       setStarting(false);
@@ -156,10 +160,10 @@ export default function LabelBatchOverview() {
       <div className="flex flex-col sm:flex-row sm:items-end gap-3">
         <div>
           <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] m-0 text-jb-ink">
-            LLM <span className="italic text-jb-accent font-normal">Labeling</span>
+            {t("batch.titleEmphasis")} <span className="italic text-jb-accent font-normal">{t("batch.title")}</span>
           </h1>
           <p className="mt-1 text-jb-ink3 text-sm m-0">
-            Auto-label CV-Job pairs using LLM for training data.
+            {t("batch.subtitle")}
           </p>
         </div>
 
@@ -167,7 +171,7 @@ export default function LabelBatchOverview() {
           {/* Workers spinner */}
           {!hasRunning && (
             <div className="flex items-center gap-1.5 border border-jb-line rounded-[10px] px-2.5 py-1.5 bg-jb-surface">
-              <span className="text-[11px] font-semibold text-jb-ink3 uppercase tracking-wide">Workers</span>
+              <span className="text-[11px] font-semibold text-jb-ink3 uppercase tracking-wide">{t("batch.workers")}</span>
               <button
                 type="button" onClick={() => setWorkers((w) => Math.max(1, w - 1))}
                 className="w-5 h-5 rounded flex items-center justify-center text-jb-ink2 hover:bg-jb-surface2 text-sm font-bold"
@@ -184,7 +188,7 @@ export default function LabelBatchOverview() {
             startContent={!starting && <IconPlayerPlay size={14} />}
             onPress={handleStart}
           >
-            {hasRunning ? "Running…" : "Start batch"}
+            {hasRunning ? t("batch.running") : t("batch.startBatch")}
           </Button>
         </div>
       </div>
@@ -198,10 +202,10 @@ export default function LabelBatchOverview() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Pending"    value={q?.pending ?? "—"}  unit="pairs"   accent={!!q?.pending} />
-        <StatCard label="Labeled"    value={q?.labeled ?? "—"}  unit="pairs" />
-        <StatCard label="Total pairs" value={q?.total ?? "—"}   unit="in queue" />
-        <StatCard label="Labels"     value={lbl?.total ?? "—"}  unit="created" />
+        <StatCard label={t("batch.stat.pending")}    value={q?.pending ?? "—"}  unit={t("batch.stat.unitPairs")}   accent={!!q?.pending} />
+        <StatCard label={t("batch.stat.labeled")}    value={q?.labeled ?? "—"}  unit={t("batch.stat.unitPairs")} />
+        <StatCard label={t("batch.stat.totalPairs")} value={q?.total ?? "—"}   unit={t("batch.stat.unitInQueue")} />
+        <StatCard label={t("batch.stat.labels")}     value={lbl?.total ?? "—"}  unit={t("batch.stat.unitCreated")} />
       </div>
 
       {/* Label distribution */}
@@ -209,7 +213,7 @@ export default function LabelBatchOverview() {
         <div className="bg-jb-surface border border-jb-line rounded-[20px] p-5">
           <div className="font-semibold text-[13px] text-jb-ink mb-3 flex items-center gap-2">
             <IconTag size={14} className="text-jb-accent" />
-            Label distribution
+            {t("batch.labelDistribution")}
           </div>
           <OverallBar total={lbl.total} n0={lbl.overall_0} n1={lbl.overall_1} n2={lbl.overall_2} />
         </div>
@@ -224,8 +228,8 @@ export default function LabelBatchOverview() {
         <div className="grid place-items-center h-48 text-jb-ink3">
           <div className="text-center">
             <IconCheck size={32} className="mx-auto mb-3 text-jb-ink4" />
-            <div className="font-semibold mb-1">No batches yet</div>
-            <div className="text-[13px]">Start a batch to auto-label pending pairs.</div>
+            <div className="font-semibold mb-1">{t("batch.noBatchesTitle")}</div>
+            <div className="text-[13px]">{t("batch.noBatchesHint")}</div>
           </div>
         </div>
       ) : (

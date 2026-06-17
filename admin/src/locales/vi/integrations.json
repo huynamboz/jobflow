@@ -1,0 +1,151 @@
+{
+  "page": {
+    "title": "Tích hợp",
+    "subtitle": "Kết nối một nền tảng để nhận bản tin nhân sự buổi sáng mỗi ngày."
+  },
+  "card": {
+    "connected": "Đã kết nối",
+    "error": "Lỗi",
+    "manage": "Quản lý",
+    "connect": "Kết nối"
+  },
+  "platforms": {
+    "slack": {
+      "blurb": "Đăng bản tin buổi sáng lên một kênh Slack.",
+      "guide": "Tạo Incoming Webhook trong workspace Slack của bạn và dán URL bên dưới. Bản tin sẽ được gửi tới kênh đó mỗi sáng.",
+      "fields": {
+        "webhookUrl": {
+          "label": "URL Incoming webhook",
+          "help": "Slack → Apps → Incoming Webhooks → Add to channel."
+        },
+        "channel": {
+          "label": "Kênh (tùy chọn)"
+        }
+      }
+    },
+    "telegram": {
+      "blurb": "Gửi tin nhắn hằng ngày qua bot Telegram.",
+      "guide": "Nhắn @BotFather để tạo bot và lấy token, sau đó thêm bot vào nhóm/kênh của bạn và cung cấp chat ID.",
+      "fields": {
+        "botToken": {
+          "label": "Bot token"
+        },
+        "chatId": {
+          "label": "Chat ID",
+          "help": "ID dạng số của người dùng, nhóm hoặc kênh sẽ nhận tin nhắn."
+        }
+      }
+    },
+    "discord": {
+      "blurb": "Đưa bản tin vào một kênh Discord.",
+      "guide": "Trong máy chủ Discord: Channel settings → Integrations → Webhooks → New Webhook, rồi sao chép URL webhook.",
+      "fields": {
+        "webhookUrl": {
+          "label": "URL Webhook"
+        }
+      }
+    },
+    "whatsapp": {
+      "blurb": "Gửi bản tin qua WhatsApp Business.",
+      "guide": "Dùng số WhatsApp Business Cloud API. Cung cấp phone number ID và access token vĩnh viễn.",
+      "fields": {
+        "phoneNumberId": {
+          "label": "Phone number ID"
+        },
+        "accessToken": {
+          "label": "Access token"
+        },
+        "recipient": {
+          "label": "Số người nhận",
+          "help": "Số nhận bản tin buổi sáng (định dạng E.164)."
+        }
+      }
+    },
+    "zalo": {
+      "blurb": "Thông báo tới một người/nhóm Zalo qua sidecar zca-js.",
+      "guide": "Zalo gửi qua tài khoản cá nhân (zca-js sidecar). Bấm “Đăng nhập QR” bên dưới rồi quét mã bằng app Zalo của tài khoản gửi — không cần chạy lệnh nào. Sau đó nhập threadId người/nhóm nhận. (Cần sidecar backend/zalo_sidecar đang chạy: npm install → npm start.)",
+      "fields": {
+        "recipient": {
+          "label": "Recipient threadId",
+          "help": "ID của user (sender có thể nhắn) hoặc nhóm — xem zalo_sidecar/README.md."
+        },
+        "threadType": {
+          "label": "Thread type",
+          "placeholder": "user hoặc group (mặc định: user)",
+          "help": "Để 'user' nếu gửi cho một người, 'group' nếu gửi vào nhóm."
+        }
+      }
+    },
+    "gmail": {
+      "blurb": "Gửi bản tin qua email từ một tài khoản Gmail.",
+      "guide": "Bật Xác minh 2 bước trên tài khoản Google và tạo App Password (16 ký tự). Dùng nó thay cho mật khẩu thông thường.",
+      "fields": {
+        "email": {
+          "label": "Địa chỉ Gmail"
+        },
+        "appPassword": {
+          "label": "App password",
+          "help": "App Password 16 ký tự của Google — không bao giờ dùng mật khẩu thật."
+        }
+      }
+    },
+    "email": {
+      "blurb": "Gửi qua bất kỳ máy chủ SMTP tùy chỉnh nào.",
+      "guide": "Kết nối bất kỳ nhà cung cấp SMTP nào (SendGrid, Mailgun, máy chủ riêng) bằng cách nhập host, port và thông tin đăng nhập.",
+      "fields": {
+        "host": {
+          "label": "SMTP host"
+        },
+        "port": {
+          "label": "Port"
+        },
+        "username": {
+          "label": "Tên đăng nhập"
+        },
+        "password": {
+          "label": "Mật khẩu"
+        },
+        "fromAddress": {
+          "label": "Địa chỉ gửi"
+        }
+      }
+    }
+  },
+  "logoAlt": "Logo {{name}}",
+  "zaloLogin": {
+    "sessionTitle": "Phiên Zalo (tài khoản gửi)",
+    "loggedIn": "Đã đăng nhập",
+    "waiting": "Đang chờ…",
+    "loginQr": "Đăng nhập QR",
+    "qrAlt": "QR Zalo",
+    "scanHint": "Mở Zalo trên điện thoại tài khoản gửi → quét mã.",
+    "scanned": "Đã quét — đang hoàn tất đăng nhập…",
+    "scannedNamed": "Đã quét ({{name}}) — đang hoàn tất đăng nhập…",
+    "expired": "Mã QR đã hết hạn — bấm “Đăng nhập QR” để tạo mã mới.",
+    "declined": "Đăng nhập bị từ chối trên điện thoại — thử lại.",
+    "loggedInToast": "Zalo đã đăng nhập",
+    "startErrorTitle": "Không bắt đầu được đăng nhập Zalo",
+    "startErrorDesc": "Sidecar chưa chạy?"
+  },
+  "modal": {
+    "connectTitle": "Kết nối {{name}}",
+    "subtitle": "Gửi bản tin buổi sáng",
+    "savedPlaceholder": "•••••••• (đã lưu — để trống nếu giữ nguyên)",
+    "disconnect": "Ngắt kết nối",
+    "test": "Kiểm tra",
+    "update": "Cập nhật",
+    "connect": "Kết nối"
+  },
+  "toast": {
+    "connectedTitle": "{{name}} đã kết nối",
+    "updatedTitle": "{{name}} đã cập nhật",
+    "savedDesc": "Bản tin buổi sáng sẽ được gửi tới kênh này.",
+    "saveFailedTitle": "Không thể lưu",
+    "saveFailedDesc": "Vui lòng thử lại.",
+    "testSentTitle": "Đã gửi tin nhắn kiểm tra",
+    "testSentDesc": "Kiểm tra kênh {{name}} của bạn.",
+    "testFailedTitle": "Kiểm tra thất bại",
+    "testFailedDesc": "Gửi thất bại.",
+    "disconnectedTitle": "{{name}} đã ngắt kết nối"
+  }
+}

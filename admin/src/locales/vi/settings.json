@@ -1,0 +1,26 @@
+{
+  "title": "Cài đặt",
+  "account": {
+    "title": "Thông tin tài khoản",
+    "username": "Tên đăng nhập",
+    "email": "Email",
+    "role": "Vai trò"
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "dailyDigest": {
+      "label": "Bản tóm tắt email hàng ngày",
+      "description": "Nhận email tóm tắt hàng ngày về các cặp nhân viên–công việc có điểm cao vào mỗi sáng lúc 8:00"
+    }
+  },
+  "security": {
+    "title": "Bảo mật",
+    "passwordHint": "Để đổi mật khẩu, vui lòng dùng chức năng đổi mật khẩu qua API."
+  },
+  "savedSuccessfully": "Đã lưu thành công",
+  "saveChanges": "Lưu thay đổi",
+  "system": {
+    "title": "Hệ thống",
+    "subtitle": "Tình trạng hệ thống, danh mục, mô hình và vận hành pipeline trong một cái nhìn tổng quan."
+  }
+}

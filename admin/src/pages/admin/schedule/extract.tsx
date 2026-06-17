@@ -1,11 +1,15 @@
+import { useTranslation } from "react-i18next";
+
 import SchedulePage from "./_schedule-page";
 
 export default function ExtractSchedulePage() {
+  const { t } = useTranslation("schedule");
+
   return (
     <SchedulePage
       command="extract_job_dates"
-      title="Extract schedule"
-      description="Daily date-backfill (also runs the bundled verify pass) · auto-fire + manual runs · live log + history."
+      title={t("pages.extract.title")}
+      description={t("pages.extract.description")}
     />
   );
 }

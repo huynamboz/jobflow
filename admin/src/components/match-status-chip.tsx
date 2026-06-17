@@ -1,4 +1,5 @@
 import { Chip } from "@heroui/chip";
+import { useTranslation } from "react-i18next";
 
 import type { MatchStatus } from "@/types/match.types";
 
@@ -10,18 +11,11 @@ const TONE: Record<MatchStatus, "default" | "primary" | "secondary" | "success" 
   lost: "danger",
 };
 
-const LABEL: Record<MatchStatus, string> = {
-  suggested: "Suggested",
-  pursuing: "Pursuing",
-  applied: "Applied",
-  won: "Won",
-  lost: "Lost",
-};
-
 export function MatchStatusChip({ status }: { status: MatchStatus }) {
+  const { t } = useTranslation("employees");
   return (
     <Chip color={TONE[status]} size="sm" variant="flat">
-      {LABEL[status]}
+      {t(`matchStatus.${status}`)}
     </Chip>
   );
 }

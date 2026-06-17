@@ -1,0 +1,251 @@
+{
+  "providers": {
+    "title": "Nhà cung cấp LLM",
+    "count_one": "Đã cấu hình {{count}} nhà cung cấp",
+    "count_other": "Đã cấu hình {{count}} nhà cung cấp",
+    "add": "Thêm nhà cung cấp",
+    "empty": "Chưa có nhà cung cấp LLM nào.",
+    "loading": "Đang tải…",
+    "modal": {
+      "editTitle": "Sửa nhà cung cấp",
+      "addTitle": "Thêm nhà cung cấp",
+      "clientType": "Loại client",
+      "clientOpenai": "Tương thích OpenAI (/chat/completions)",
+      "clientMessages": "Messages API (/messages)",
+      "name": "Tên",
+      "model": "Model",
+      "baseUrl": "Base URL",
+      "apiKey": "API Key",
+      "apiKeyPlaceholderKeep": "Để trống để giữ key hiện tại",
+      "apiKeyPlaceholderNew": "sk-...",
+      "apiKeyDescription": "Để trống để giữ key hiện tại"
+    },
+    "table": {
+      "name": "Tên",
+      "model": "Model",
+      "baseUrl": "Base URL",
+      "apiKey": "API Key",
+      "status": "Trạng thái",
+      "test": "Kiểm tra",
+      "updated": "Cập nhật",
+      "actions": "Thao tác"
+    },
+    "status": {
+      "active": "Đang hoạt động",
+      "inactive": "Không hoạt động"
+    },
+    "test": {
+      "ok": "OK",
+      "fail": "Lỗi"
+    },
+    "tooltip": {
+      "edit": "Sửa",
+      "test": "Kiểm tra kết nối",
+      "activate": "Đặt làm mặc định",
+      "delete": "Xoá",
+      "cannotDeleteActive": "Không thể xoá nhà cung cấp đang hoạt động"
+    },
+    "confirm": {
+      "delete": "Xoá nhà cung cấp này?"
+    },
+    "errors": {
+      "save": "Lưu thất bại.",
+      "activate": "Kích hoạt thất bại.",
+      "test": "Kiểm tra thất bại.",
+      "delete": "Xoá thất bại."
+    }
+  },
+  "logs": {
+    "title": "Nhật ký gọi LLM",
+    "count": "{{count}} bản ghi",
+    "empty": "Chưa có nhật ký nào.",
+    "loading": "Đang tải…",
+    "filter": {
+      "allStatus": "Tất cả trạng thái",
+      "success": "Thành công",
+      "error": "Lỗi",
+      "allFeatures": "Tất cả tính năng"
+    },
+    "feature": {
+      "cvExtraction": "Trích xuất CV",
+      "jdExtraction": "Trích xuất JD",
+      "labeling": "Gán nhãn",
+      "unknown": "Không xác định"
+    },
+    "status": {
+      "success": "Thành công",
+      "error": "Lỗi"
+    },
+    "table": {
+      "id": "ID",
+      "feature": "Tính năng",
+      "provider": "Nhà cung cấp",
+      "status": "Trạng thái",
+      "duration": "Thời lượng",
+      "time": "Thời gian"
+    },
+    "drawer": {
+      "title": "Nhật ký #{{id}}",
+      "feature": "Tính năng",
+      "provider": "Nhà cung cấp",
+      "duration": "Thời lượng",
+      "time": "Thời gian",
+      "inputPreview": "Đầu vào (xem trước)",
+      "output": "Đầu ra",
+      "error": "Lỗi"
+    },
+    "pagination": "Trang {{page}} / {{totalPages}} · {{total}} tổng"
+  },
+  "batch": {
+    "overview": {
+      "titlePrefix": "Trích xuất JD",
+      "titleAccent": "theo lô",
+      "description": "Chuẩn hoá các tin tuyển dụng đã thu thập thành JSON có cấu trúc bằng LLM.",
+      "newBatch": "Lô mới",
+      "statActiveNow": "Đang chạy",
+      "statActiveNowUnit": "đang chạy",
+      "statTotalBatches": "Tổng số lô",
+      "statTotalBatchesUnit": "tất cả",
+      "statRecordsExtracted": "Bản ghi đã trích",
+      "statLastBatch": "Lô gần nhất",
+      "emptyTitle": "Chưa có lô nào",
+      "emptyHint": "Tải lên tệp JSONL để bắt đầu trích xuất.",
+      "card": {
+        "batch": "Lô #{{id}}",
+        "records": "{{done}} / {{total}} bản ghi",
+        "fields": "Trường",
+        "fieldsCombined": "{{count}} kết hợp",
+        "errors": "Lỗi"
+      }
+    },
+    "new": {
+      "titlePrefix": "Lô",
+      "titleAccent": "mới",
+      "description": "Tải lên tệp JSONL và cấu hình prompt trích xuất.",
+      "allBatches": "Tất cả lô",
+      "steps": {
+        "upload": "Tải lên",
+        "fieldsPrompt": "Trường & prompt",
+        "run": "Chạy"
+      },
+      "errors": {
+        "readFile": "Đọc tệp thất bại",
+        "startBatch": "Khởi chạy lô thất bại"
+      },
+      "uploadStep": {
+        "headingPrefix": "Tải lên tệp",
+        "headingAccent": "JSONL",
+        "headingSuffix": "",
+        "description": "Mỗi dòng một đối tượng JSON. Mỗi đối tượng là một tác vụ trích xuất LLM.",
+        "dropTitle": "Thả tệp .jsonl của bạn vào đây",
+        "orBrowsePrefix": "hoặc",
+        "browse": "chọn từ máy tính của bạn",
+        "maxSize": "— tối đa 50 MB",
+        "readingFile": "Đang đọc tệp…",
+        "rowsDetected": "dòng được phát hiện",
+        "remove": "Gỡ bỏ",
+        "previewRows": "Xem trước dòng",
+        "totalBadge": "{{count}} tổng",
+        "valid": "hợp lệ",
+        "moreRows": "+ {{count}} dòng nữa",
+        "continue": "Tiếp tục — chọn trường"
+      },
+      "fieldsStep": {
+        "headingPrefix": "Xây dựng",
+        "headingAccent": "prompt trích xuất",
+        "description": "Nhấp vào các trường để đưa vào prompt gửi cho LLM theo từng dòng.",
+        "fieldsFromRow": "Trường từ dòng",
+        "selectedOf": "Đã chọn {{selected}} / {{total}}",
+        "all": "Tất cả",
+        "none": "Không",
+        "promptPreview": "Xem trước prompt",
+        "promptPreviewHint": "dòng #1 — LLM sẽ thấy gì",
+        "selectAtLeastOne": "Chọn ít nhất một trường để xây dựng prompt.",
+        "recordLimit": "Giới hạn bản ghi",
+        "custom": "Tuỳ chỉnh",
+        "customPlaceholder": "vd. 200",
+        "willProcessPrefix": "Sẽ xử lý",
+        "willProcessSuffix": "bản ghi · ~{{min}} phút ước tính",
+        "parallelWorkers": "Worker song song",
+        "concurrentCalls": "lệnh gọi LLM đồng thời",
+        "workersHint": "Cao hơn = nhanh hơn nhưng dễ bị giới hạn tốc độ. Khuyến nghị: 3–5 cho hầu hết nhà cung cấp.",
+        "back": "Quay lại",
+        "starting": "Đang khởi chạy…",
+        "run": "Chạy · {{count}} dòng"
+      }
+    },
+    "detail": {
+      "allBatches": "Tất cả lô",
+      "batch": "Lô #{{id}}",
+      "refresh": "Làm mới",
+      "export": "Xuất",
+      "workers": "Worker",
+      "resuming": "Đang tiếp tục…",
+      "resume": "Tiếp tục · {{count}} cần thử lại",
+      "cancelling": "Đang huỷ…",
+      "cancel": "Huỷ",
+      "stat": {
+        "progress": "Tiến độ",
+        "completed": "Hoàn thành",
+        "completedUnit": "/ {{total}} dòng",
+        "errors": "Lỗi",
+        "errorsClean": "sạch",
+        "errorsNeedRetry": "cần thử lại",
+        "fields": "Trường",
+        "fieldsUnit": "kết hợp mỗi dòng"
+      },
+      "promptFields": "Trường prompt",
+      "promptFieldsHint": "{{count}} trường kết hợp mỗi dòng",
+      "liveLog": "Log trực tiếp",
+      "streaming": "đang phát",
+      "tab": {
+        "records": "Bản ghi · {{count}}",
+        "config": "Cấu hình"
+      },
+      "filter": {
+        "all": "Tất cả · {{count}}",
+        "running": "Đang chạy · {{count}}",
+        "done": "Xong · {{count}}",
+        "error": "Lỗi · {{count}}",
+        "pending": "Chờ xử lý"
+      },
+      "search": "Tìm kiếm…",
+      "noRecordsMatch": "Không có bản ghi nào khớp.",
+      "th": {
+        "title": "Tiêu đề",
+        "company": "Công ty",
+        "location": "Địa điểm",
+        "status": "Trạng thái"
+      },
+      "pagination": "Trang {{page}} / {{totalPages}}",
+      "config": {
+        "fieldsCombined": "Trường kết hợp",
+        "batchInfo": "Thông tin lô",
+        "id": "ID",
+        "file": "Tệp",
+        "workers": "Worker",
+        "total": "Tổng",
+        "done": "Xong",
+        "errors": "Lỗi",
+        "created": "Tạo lúc",
+        "status": "Trạng thái",
+        "progress": "Tiến độ",
+        "summaryDone": "{{done}} xong",
+        "summaryErrors": "{{count}} lỗi · ",
+        "summaryPending": "{{pending}} chờ xử lý · {{pct}}%"
+      }
+    },
+    "record": {
+      "record": "Bản ghi",
+      "copyJson": "Sao chép JSON đã trích",
+      "rawInput": "Đầu vào thô",
+      "fieldsInPrompt": "{{count}} trường trong prompt",
+      "noCombinedText": "Chưa lưu văn bản kết hợp.",
+      "extractedByLlm": "Trích xuất bởi LLM",
+      "extractionFailed": "Trích xuất thất bại",
+      "queued": "Đã xếp hàng",
+      "waitingForWorker": "Đang chờ worker…",
+      "extracting": "Đang trích xuất…"
+    }
+  }
+}

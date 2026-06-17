@@ -1,0 +1,26 @@
+{
+  "title": "Settings",
+  "account": {
+    "title": "Account information",
+    "username": "Username",
+    "email": "Email",
+    "role": "Role"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "dailyDigest": {
+      "label": "Daily email digest",
+      "description": "Receive a daily summary email of high-scoring employee–job matches every morning at 8:00"
+    }
+  },
+  "security": {
+    "title": "Security",
+    "passwordHint": "To change your password, use the password-change function via the API."
+  },
+  "savedSuccessfully": "Saved successfully",
+  "saveChanges": "Save changes",
+  "system": {
+    "title": "System",
+    "subtitle": "System health, catalog, model and pipeline ops at a glance."
+  }
+}

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface Datum { day: string; count: number }
@@ -17,10 +18,11 @@ function shortDay(iso: string) {
 }
 
 export default function AreaSeries({ data, height = 220, ariaLabel, color = "#0ea5e9" }: AreaSeriesProps) {
+  const { t } = useTranslation("dashboard");
   if (!data.length) {
     return (
-      <div className="flex items-center justify-center py-8 text-sm text-default-400" role="img" aria-label={`${ariaLabel}: no data`}>
-        No data
+      <div className="flex items-center justify-center py-8 text-sm text-default-400" role="img" aria-label={t("chart.noDataAria", { label: ariaLabel })}>
+        {t("chart.noData")}
       </div>
     );
   }
@@ -39,7 +41,7 @@ export default function AreaSeries({ data, height = 220, ariaLabel, color = "#0e
         <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
         <Tooltip
           contentStyle={{ borderRadius: 8, fontSize: 12 }}
-          formatter={(v: number) => [fmt.format(v), "jobs"]}
+          formatter={(v: number) => [fmt.format(v), t("chart.jobs")]}
           labelFormatter={(_, payload) => {
             const iso = (payload as any)?.[0]?.payload?.day;
             return iso ? new Date(iso + "T00:00:00Z").toLocaleDateString() : "";

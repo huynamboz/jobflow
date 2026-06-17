@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   IconChevronLeft,
   IconClock,
@@ -32,10 +33,10 @@ const OVERALL_CLS: Record<number, string> = {
   1: "bg-amber-100 text-amber-700 ring-1 ring-amber-300/40",
   2: "bg-jb-success50 text-jb-success ring-1 ring-jb-success/30",
 };
-const OVERALL_LABEL: Record<number, string> = {
-  0: "Not suitable",
-  1: "Suitable",
-  2: "Strong fit",
+const OVERALL_LABEL_KEY: Record<number, string> = {
+  0: "detail.overallLabel.notSuitable",
+  1: "detail.overallLabel.suitable",
+  2: "detail.overallLabel.strongFit",
 };
 
 function ScoreChip({ value, large }: { value: number; large?: boolean }) {
@@ -70,11 +71,11 @@ function SelectionChip({ value }: { value: string }) {
 
 // ── Label drawer ──────────────────────────────────────────────────────────────
 
-const DIM_META: { key: "skill_fit" | "seniority_fit" | "experience_fit" | "domain_fit"; label: string; descs: [string, string, string] }[] = [
-  { key: "skill_fit",      label: "Skill fit",      descs: ["<30% skills matched", "30–70% matched", ">70% matched"] },
-  { key: "seniority_fit",  label: "Seniority",      descs: ["≥2 levels apart", "1 level apart", "Exact / overqualified"] },
-  { key: "experience_fit", label: "Experience",     descs: ["<50% of required", "50–90% of required", "Meets or exceeds"] },
-  { key: "domain_fit",     label: "Domain",         descs: ["Different domain", "Related domain", "Same domain"] },
+const DIM_META: { key: "skill_fit" | "seniority_fit" | "experience_fit" | "domain_fit"; labelKey: string; descKey: string }[] = [
+  { key: "skill_fit",      labelKey: "detail.dim.skillFit",   descKey: "detail.dimDesc.skillFit" },
+  { key: "seniority_fit",  labelKey: "detail.dim.seniority",  descKey: "detail.dimDesc.seniority" },
+  { key: "experience_fit", labelKey: "detail.dim.experience", descKey: "detail.dimDesc.experience" },
+  { key: "domain_fit",     labelKey: "detail.dim.domain",     descKey: "detail.dimDesc.domain" },
 ];
 
 function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -98,6 +99,7 @@ function SkillPills({ skills }: { skills: string[] }) {
 }
 
 function LabelDrawer({ row, onClose }: { row: RecentLabel; onClose: () => void }) {
+  const { t } = useTranslation("labeling");
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div
@@ -107,7 +109,7 @@ function LabelDrawer({ row, onClose }: { row: RecentLabel; onClose: () => void }
         {/* Header */}
         <div className="sticky top-0 flex items-center justify-between border-b border-default-200 bg-white px-5 py-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-default-900">Pair #{row.pair_id}</span>
+            <span className="font-semibold text-default-900">{t("detail.drawer.pairNumber", { id: row.pair_id })}</span>
             <SelectionChip value={row.selection} />
             <span className="text-[11px] text-default-400">{fmtDate(row.created_at)}</span>
           </div>
@@ -124,12 +126,12 @@ function LabelDrawer({ row, onClose }: { row: RecentLabel; onClose: () => void }
               {row.overall}
             </span>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-[14px] text-default-900">{OVERALL_LABEL[row.overall]}</p>
+              <p className="font-semibold text-[14px] text-default-900">{t(OVERALL_LABEL_KEY[row.overall])}</p>
               <div className="flex gap-3 mt-1.5 flex-wrap">
-                {DIM_META.map(({ key, label }) => (
+                {DIM_META.map(({ key, labelKey }) => (
                   <span key={key} className="flex items-center gap-1 text-[11px] text-default-500">
                     <span className={cn("inline-block rounded px-1 font-bold text-[10px]", SCORE_CLS[row[key]])}>{row[key]}</span>
-                    {label}
+                    {t(labelKey)}
                   </span>
                 ))}
               </div>
@@ -139,18 +141,18 @@ function LabelDrawer({ row, onClose }: { row: RecentLabel; onClose: () => void }
           {/* CV card */}
           <div className="rounded-xl border border-default-200 overflow-hidden">
             <div className="bg-default-50 px-4 py-2.5 flex items-center gap-2 border-b border-default-100">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-default-400">CV</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-default-400">{t("detail.drawer.cv")}</span>
               <span className="font-mono text-[11px] text-default-500">#{row.cv_id}</span>
-              <span className="ml-auto rounded-md bg-white border border-default-200 px-2 py-0.5 text-[11px] font-medium text-default-700">{row.cv_role || "other"}</span>
+              <span className="ml-auto rounded-md bg-white border border-default-200 px-2 py-0.5 text-[11px] font-medium text-default-700">{row.cv_role || t("detail.drawer.roleOther")}</span>
               <span className="text-[11px] text-default-500">{row.cv_seniority}</span>
-              <span className="text-[11px] text-default-400">{row.cv_experience}y exp</span>
+              <span className="text-[11px] text-default-400">{t("detail.drawer.cvExp", { count: row.cv_experience })}</span>
             </div>
             <div className="px-4 py-3 space-y-2.5">
-              <DrawerSection title="Skills">
+              <DrawerSection title={t("detail.drawer.skills")}>
                 <SkillPills skills={row.cv_skills} />
               </DrawerSection>
               {row.cv_text && (
-                <DrawerSection title="Summary">
+                <DrawerSection title={t("detail.drawer.summary")}>
                   <p className="text-[11.5px] leading-relaxed text-default-600 whitespace-pre-wrap line-clamp-5">{row.cv_text}</p>
                 </DrawerSection>
               )}
@@ -160,21 +162,21 @@ function LabelDrawer({ row, onClose }: { row: RecentLabel; onClose: () => void }
           {/* JD card */}
           <div className="rounded-xl border border-default-200 overflow-hidden">
             <div className="bg-default-50 px-4 py-2.5 flex items-center gap-2 flex-wrap border-b border-default-100">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-default-400">Job</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-default-400">{t("detail.drawer.job")}</span>
               <span className="font-mono text-[11px] text-default-500">#{row.job_id}</span>
               <span className="font-semibold text-[12px] text-default-800 flex-1 min-w-0 truncate">{row.job_title}</span>
-              <span className="rounded-md bg-white border border-default-200 px-2 py-0.5 text-[11px] font-medium text-default-700 shrink-0">{row.job_role || "other"}</span>
+              <span className="rounded-md bg-white border border-default-200 px-2 py-0.5 text-[11px] font-medium text-default-700 shrink-0">{row.job_role || t("detail.drawer.roleOther")}</span>
             </div>
             <div className="px-4 py-3 space-y-2.5">
               <div className="flex gap-3 text-[11.5px] text-default-500">
-                <span>Seniority: <strong className="text-default-700">{row.job_seniority}</strong></span>
-                <span>Exp: <strong className="text-default-700">{row.job_experience}</strong></span>
+                <span>{t("detail.drawer.seniority")} <strong className="text-default-700">{row.job_seniority}</strong></span>
+                <span>{t("detail.drawer.exp")} <strong className="text-default-700">{row.job_experience}</strong></span>
               </div>
-              <DrawerSection title="Required skills">
+              <DrawerSection title={t("detail.drawer.requiredSkills")}>
                 <SkillPills skills={row.job_skills} />
               </DrawerSection>
               {row.job_text && (
-                <DrawerSection title="Description">
+                <DrawerSection title={t("detail.drawer.description")}>
                   <p className="text-[11.5px] leading-relaxed text-default-600 whitespace-pre-wrap line-clamp-5">{row.job_text}</p>
                 </DrawerSection>
               )}
@@ -182,17 +184,20 @@ function LabelDrawer({ row, onClose }: { row: RecentLabel; onClose: () => void }
           </div>
 
           {/* Dim score breakdown */}
-          <DrawerSection title="Score breakdown">
+          <DrawerSection title={t("detail.drawer.scoreBreakdown")}>
             <div className="space-y-2">
-              {DIM_META.map(({ key, label, descs }) => (
-                <div key={key} className="flex items-center gap-3">
-                  <ScoreChip value={row[key]} large />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12.5px] font-semibold text-default-800">{label}</p>
-                    <p className="text-[11px] text-default-400">{descs[row[key]] ?? ""}</p>
+              {DIM_META.map(({ key, labelKey, descKey }) => {
+                const descs = t(descKey, { returnObjects: true }) as string[];
+                return (
+                  <div key={key} className="flex items-center gap-3">
+                    <ScoreChip value={row[key]} large />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12.5px] font-semibold text-default-800">{t(labelKey)}</p>
+                      <p className="text-[11px] text-default-400">{descs[row[key]] ?? ""}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </DrawerSection>
 
@@ -205,14 +210,15 @@ function LabelDrawer({ row, onClose }: { row: RecentLabel; onClose: () => void }
 // ── Label distribution bar ────────────────────────────────────────────────────
 
 function DistBar({ total, n0, n1, n2 }: { total: number; n0: number; n1: number; n2: number }) {
-  if (total === 0) return <div className="text-jb-ink4 text-xs">No labels yet</div>;
+  const { t } = useTranslation("labeling");
+  if (total === 0) return <div className="text-jb-ink4 text-xs">{t("detail.noLabelsYetDist")}</div>;
   const pct = (n: number) => total > 0 ? ((n / total) * 100).toFixed(0) : "0";
   return (
     <div className="space-y-1.5 text-[12px]">
       {[
-        { label: "Not suitable (0)", n: n0, cls: "bg-jb-danger" },
-        { label: "Suitable (1)",     n: n1, cls: "bg-amber-400" },
-        { label: "Strong fit (2)",   n: n2, cls: "bg-jb-success" },
+        { label: t("detail.dist.notSuitable"), n: n0, cls: "bg-jb-danger" },
+        { label: t("detail.dist.suitable"),    n: n1, cls: "bg-amber-400" },
+        { label: t("detail.dist.strongFit"),   n: n2, cls: "bg-jb-success" },
       ].map(({ label, n, cls }) => (
         <div key={label} className="flex items-center gap-2">
           <span className="text-jb-ink3 w-[120px] shrink-0">{label}</span>
@@ -233,25 +239,26 @@ const thCls = "text-left text-[11px] font-semibold text-jb-ink3 uppercase tracki
 const tdCls = "px-3 py-[11px] border-b border-jb-line align-middle";
 
 function LabelsTable({ rows, onSelect }: { rows: RecentLabel[]; onSelect: (r: RecentLabel) => void }) {
+  const { t } = useTranslation("labeling");
   if (rows.length === 0) {
-    return <div className="text-center text-jb-ink3 py-10 text-sm">No labels yet.</div>;
+    return <div className="text-center text-jb-ink3 py-10 text-sm">{t("detail.table.empty")}</div>;
   }
   return (
     <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
       <table className="w-full min-w-[780px] border-separate border-spacing-0 text-[13px]">
         <thead>
           <tr>
-            <th className={thCls} style={{ width: 56 }}>Pair</th>
-            <th className={thCls}>CV role</th>
-            <th className={thCls}>Job title</th>
-            <th className={thCls}>Job role</th>
-            <th className={thCls} style={{ width: 56 }}>Skill</th>
-            <th className={thCls} style={{ width: 70 }}>Seniority</th>
-            <th className={thCls} style={{ width: 50 }}>Exp</th>
-            <th className={thCls} style={{ width: 65 }}>Domain</th>
-            <th className={thCls} style={{ width: 72 }}>Overall</th>
-            <th className={thCls}>Type</th>
-            <th className={thCls} style={{ width: 70 }}>Time</th>
+            <th className={thCls} style={{ width: 56 }}>{t("detail.table.pair")}</th>
+            <th className={thCls}>{t("detail.table.cvRole")}</th>
+            <th className={thCls}>{t("detail.table.jobTitle")}</th>
+            <th className={thCls}>{t("detail.table.jobRole")}</th>
+            <th className={thCls} style={{ width: 56 }}>{t("detail.table.skill")}</th>
+            <th className={thCls} style={{ width: 70 }}>{t("detail.table.seniority")}</th>
+            <th className={thCls} style={{ width: 50 }}>{t("detail.table.exp")}</th>
+            <th className={thCls} style={{ width: 65 }}>{t("detail.table.domain")}</th>
+            <th className={thCls} style={{ width: 72 }}>{t("detail.table.overall")}</th>
+            <th className={thCls}>{t("detail.table.type")}</th>
+            <th className={thCls} style={{ width: 70 }}>{t("detail.table.time")}</th>
           </tr>
         </thead>
         <tbody>
@@ -263,13 +270,13 @@ function LabelsTable({ rows, onSelect }: { rows: RecentLabel[]; onSelect: (r: Re
             >
               <td className={cn(tdCls, "font-mono text-xs text-jb-ink4")}>#{r.pair_id}</td>
               <td className={cn(tdCls, "text-jb-ink2 text-xs")}>
-                <span className="rounded-md bg-jb-surface2 px-1.5 py-0.5">{r.cv_role || "—"}</span>
+                <span className="rounded-md bg-jb-surface2 px-1.5 py-0.5">{r.cv_role || t("detail.table.dash")}</span>
               </td>
               <td className={cn(tdCls, "font-medium text-jb-ink max-w-[200px] truncate")} title={r.job_title}>
-                {r.job_title || "—"}
+                {r.job_title || t("detail.table.dash")}
               </td>
               <td className={cn(tdCls, "text-jb-ink2 text-xs")}>
-                <span className="rounded-md bg-jb-surface2 px-1.5 py-0.5">{r.job_role || "—"}</span>
+                <span className="rounded-md bg-jb-surface2 px-1.5 py-0.5">{r.job_role || t("detail.table.dash")}</span>
               </td>
               <td className={tdCls}><ScoreChip value={r.skill_fit} /></td>
               <td className={tdCls}><ScoreChip value={r.seniority_fit} /></td>
@@ -295,6 +302,7 @@ function LabelsTable({ rows, onSelect }: { rows: RecentLabel[]; onSelect: (r: Re
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LabelBatchDetail() {
+  const { t } = useTranslation("labeling");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const batchId = Number(id);
@@ -330,7 +338,7 @@ export default function LabelBatchDetail() {
   const handleCancel = async () => {
     setCancelling(true); setErr(null);
     try { await labelingService.cancelBatch(batchId); await load(); }
-    catch { setErr("Failed to cancel."); }
+    catch { setErr(t("detail.cancelFailed")); }
     finally { setCancelling(false); }
   };
 
@@ -338,7 +346,7 @@ export default function LabelBatchDetail() {
     setResuming(true); setErr(null);
     try { await labelingService.resumeBatch(batchId, workers); await load(); }
     catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ?? "Failed to resume.";
+      const msg = (e as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ?? t("detail.resumeFailed");
       setErr(msg);
     }
     finally { setResuming(false); }
@@ -370,11 +378,11 @@ export default function LabelBatchDetail() {
             onClick={() => navigate("/admin/label-batch")}
             className="bg-transparent border-none text-jb-ink3 text-[12.5px] cursor-pointer flex items-center gap-1 p-0 mb-2.5 font-medium"
           >
-            <IconChevronLeft size={13} /> All batches
+            <IconChevronLeft size={13} /> {t("detail.allBatches")}
           </button>
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-[28px] font-bold tracking-[-0.025em] m-0 text-jb-ink">
-              Batch #{detail.id}
+              {t("detail.batchNumber", { id: detail.id })}
             </h2>
             <Badge status={detail.status as BadgeStatus} />
           </div>
@@ -382,11 +390,11 @@ export default function LabelBatchDetail() {
             <span className="flex items-center gap-[5px]">
               <IconClock size={13} />{fmtDate(detail.created_at)}
             </span>
-            <span>{detail.workers} workers</span>
+            <span>{t("detail.workers", { count: detail.workers })}</span>
             {running && (
               <span className="flex items-center gap-[5px] text-jb-accent">
                 <IconLoader2 size={13} className="animate-[jb-spin_1.5s_linear_infinite]" />
-                Labeling…
+                {t("detail.labeling")}
               </span>
             )}
           </div>
@@ -396,7 +404,7 @@ export default function LabelBatchDetail() {
         <div className="flex gap-2 items-center flex-wrap pt-0 sm:pt-7">
           {!running && (
             <div className="flex items-center gap-1.5 border border-jb-line rounded-[10px] px-2.5 py-1.5 bg-jb-surface">
-              <span className="text-[11px] font-semibold text-jb-ink3 uppercase tracking-wide">Workers</span>
+              <span className="text-[11px] font-semibold text-jb-ink3 uppercase tracking-wide">{t("detail.workersLabel")}</span>
               <button type="button" onClick={() => setWorkers((w) => Math.max(1, w - 1))}
                 className="w-5 h-5 rounded-md bg-jb-surface2 text-jb-ink2 text-xs font-bold flex items-center justify-center border-none leading-none">−</button>
               <span className="text-[13px] font-bold text-jb-ink w-4 text-center tabular-nums">{workers}</span>
@@ -410,7 +418,7 @@ export default function LabelBatchDetail() {
               className="flex items-center gap-1.5 py-2 px-3.5 rounded-[10px] border-none bg-jb-accent50 text-jb-accent600 text-[13px] font-semibold disabled:opacity-50"
             >
               {resuming ? <IconLoader2 size={13} className="animate-[jb-spin_0.7s_linear_infinite]" /> : <IconRefresh size={13} />}
-              {resuming ? "Resuming…" : "Resume"}
+              {resuming ? t("detail.resuming") : t("detail.resume")}
             </button>
           )}
           {running && (
@@ -419,14 +427,14 @@ export default function LabelBatchDetail() {
               className="flex items-center gap-1.5 py-2 px-3.5 rounded-[10px] border-none bg-jb-danger50 text-jb-danger text-[13px] font-semibold disabled:opacity-50"
             >
               {cancelling ? <IconLoader2 size={13} className="animate-[jb-spin_0.7s_linear_infinite]" /> : <IconPlayerStop size={13} />}
-              {cancelling ? "Stopping…" : "Stop"}
+              {cancelling ? t("detail.stopping") : t("detail.stop")}
             </button>
           )}
           <button
             type="button" onClick={load}
             className="flex items-center gap-1.5 py-2 px-3.5 rounded-[10px] border border-jb-line bg-jb-surface text-jb-ink2 text-[13px]"
           >
-            <IconRefresh size={13} /> Refresh
+            <IconRefresh size={13} /> {t("detail.refresh")}
           </button>
         </div>
       </div>
@@ -440,7 +448,7 @@ export default function LabelBatchDetail() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
-          label="Progress" value={`${pct.toFixed(0)}%`}
+          label={t("detail.stat.progress")} value={`${pct.toFixed(0)}%`}
           accent={running}
           extra={
             <div className="mt-2.5">
@@ -448,21 +456,21 @@ export default function LabelBatchDetail() {
             </div>
           }
         />
-        <StatCard label="Labeled" value={<span className="text-jb-success">{detail.done_count}</span>} unit={`/ ${detail.total}`} />
+        <StatCard label={t("detail.stat.labeled")} value={<span className="text-jb-success">{detail.done_count}</span>} unit={`/ ${detail.total}`} />
         <StatCard
-          label="Errors"
+          label={t("detail.stat.errors")}
           value={<span className={detail.error_count > 0 ? "text-jb-danger" : "text-jb-ink"}>{detail.error_count}</span>}
-          unit={detail.error_count === 0 ? "clean" : "failed"}
+          unit={detail.error_count === 0 ? t("detail.stat.clean") : t("detail.stat.failed")}
         />
-        <StatCard label="Pending" value={pending} unit="pairs" />
+        <StatCard label={t("detail.stat.pending")} value={pending} unit={t("detail.stat.unitPairs")} />
       </div>
 
       {/* Score distribution */}
       {distTotal > 0 && (
         <Card>
           <CardHead>
-            <span className="font-semibold text-[14px]">Label distribution</span>
-            <span className="text-[11.5px] text-jb-ink3 ml-auto">{distTotal} labels in this batch</span>
+            <span className="font-semibold text-[14px]">{t("detail.labelDistribution")}</span>
+            <span className="text-[11.5px] text-jb-ink3 ml-auto">{t("detail.labelsInBatch", { count: distTotal })}</span>
           </CardHead>
           <CardBody>
             <DistBar total={distTotal} n0={detail.dist.overall_0} n1={detail.dist.overall_1} n2={detail.dist.overall_2} />
@@ -474,11 +482,11 @@ export default function LabelBatchDetail() {
       <Card>
         <CardHead>
           <span className="font-semibold text-[14px]">
-            Recent labels
+            {t("detail.recentLabels")}
             {running && <span className="ml-2 w-1.5 h-1.5 rounded-full bg-jb-accent inline-block align-middle animate-[jb-pulse_1.4s_infinite]" />}
           </span>
           <span className="text-[11.5px] text-jb-ink3 ml-auto">
-            {detail.recent.length > 0 ? `last ${detail.recent.length} · click to inspect` : "no labels yet"}
+            {detail.recent.length > 0 ? t("detail.recentSummary", { count: detail.recent.length }) : t("detail.noLabelsYet")}
           </span>
         </CardHead>
         <LabelsTable rows={detail.recent} onSelect={setSelected} />

@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { Download, RefreshCw, Tag } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { labelingService } from "@/services/labeling.service";
 import { useLabelingStore } from "@/stores/labeling.store";
@@ -9,6 +10,7 @@ import { JobCard } from "@/components/labeling/JobCard";
 import { LabelingProgressBar } from "@/components/labeling/LabelingProgress";
 
 export default function LabelingPage() {
+  const { t } = useTranslation("labeling");
   const {
     currentCV, pairs, progress, activePairId, isLoading, isEmpty,
     setQueue, setEmpty, setLoading, setActivePair, markLabeled, markSkipped,
@@ -65,8 +67,8 @@ export default function LabelingPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-default-900">Labeling Tool</h1>
-          <p className="text-sm text-default-500">Label CV–Job pairs for ML training</p>
+          <h1 className="text-2xl font-bold text-default-900">{t("page.title")}</h1>
+          <p className="text-sm text-default-500">{t("page.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -75,7 +77,7 @@ export default function LabelingPage() {
             className="flex items-center gap-1.5 rounded-xl border border-default-200 bg-white px-3 py-2 text-sm text-default-600 hover:bg-default-50 transition-colors"
           >
             <RefreshCw className="size-4" />
-            Refresh
+            {t("page.refresh")}
           </button>
           <button
             type="button"
@@ -83,7 +85,7 @@ export default function LabelingPage() {
             className="flex items-center gap-1.5 rounded-xl border border-default-200 bg-white px-3 py-2 text-sm text-default-600 hover:bg-default-50 transition-colors"
           >
             <Download className="size-4" />
-            Export
+            {t("page.export")}
           </button>
         </div>
       </div>
@@ -95,7 +97,7 @@ export default function LabelingPage() {
       {isLoading && (
         <div className="flex items-center justify-center py-20 text-default-400">
           <RefreshCw className="size-5 animate-spin mr-2" />
-          <span className="text-sm">Loading queue...</span>
+          <span className="text-sm">{t("page.loadingQueue")}</span>
         </div>
       )}
 
@@ -103,9 +105,13 @@ export default function LabelingPage() {
       {isEmpty && !isLoading && (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-default-200 bg-white py-20 gap-3 text-center">
           <Tag className="size-10 text-default-300" />
-          <p className="text-lg font-semibold text-default-700">All pairs labeled!</p>
+          <p className="text-lg font-semibold text-default-700">{t("page.allLabeledTitle")}</p>
           <p className="text-sm text-default-500 max-w-xs">
-            No pending pairs. Run <code className="rounded bg-default-100 px-1.5 py-0.5 text-xs">populate_pair_queue</code> to add more.
+            <Trans
+              i18nKey="page.allLabeledHint"
+              t={t}
+              components={[<code className="rounded bg-default-100 px-1.5 py-0.5 text-xs" />]}
+            />
           </p>
         </div>
       )}
@@ -123,7 +129,7 @@ export default function LabelingPage() {
             {pairs.length === 0 ? (
               <div className="flex items-center justify-center rounded-2xl border border-default-200 bg-white py-12 text-default-400">
                 <RefreshCw className="size-4 animate-spin mr-2" />
-                <span className="text-sm">Loading next CV...</span>
+                <span className="text-sm">{t("page.loadingNextCV")}</span>
               </div>
             ) : (
               pairs.map((pair) => (

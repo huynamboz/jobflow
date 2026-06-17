@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Chip } from "@heroui/chip";
@@ -42,23 +43,24 @@ type FieldType = "text" | "password" | "number";
 
 interface ConnectField {
   key: string;
-  label: string;
+  /** i18n key suffix under platforms.<id>.fields — the camelCase field name. */
+  i18nKey: string;
   placeholder?: string;
+  /** i18n key for a translated placeholder (overrides `placeholder` when set). */
+  placeholderKey?: string;
   type?: FieldType;
   required?: boolean;
   /** Secret fields are write-only — never returned by the API. */
   secret?: boolean;
-  help?: string;
+  hasHelp?: boolean;
 }
 
 interface Platform {
   id: string;
   name: string;
-  blurb: string;
   logo: string;
   icon: TablerIcon;
   color: string;
-  guide: string;
   fields: ConnectField[];
 }
 
@@ -70,37 +72,31 @@ const PLATFORMS: Platform[] = [
   {
     id: "slack",
     name: "Slack",
-    blurb: "Post the morning digest to a Slack channel.",
     logo: FAVICON("slack.com"),
     icon: IconBrandSlack,
     color: "#4A154B",
-    guide:
-      "Create an Incoming Webhook in your Slack workspace and paste the URL below. The digest is delivered to that channel each morning.",
     fields: [
       {
         key: "webhook_url",
-        label: "Incoming webhook URL",
+        i18nKey: "webhookUrl",
         placeholder: "https://hooks.slack.com/services/T000/B000/XXXX",
         required: true,
         secret: true,
-        help: "Slack → Apps → Incoming Webhooks → Add to channel.",
+        hasHelp: true,
       },
-      { key: "channel", label: "Channel (optional)", placeholder: "#staffing-digest" },
+      { key: "channel", i18nKey: "channel", placeholder: "#staffing-digest" },
     ],
   },
   {
     id: "telegram",
     name: "Telegram",
-    blurb: "Send a daily message via a Telegram bot.",
     logo: SI("telegram"),
     icon: IconBrandTelegram,
     color: "#229ED9",
-    guide:
-      "Talk to @BotFather to create a bot and grab its token, then add the bot to your group/channel and provide the chat ID.",
     fields: [
       {
         key: "bot_token",
-        label: "Bot token",
+        i18nKey: "botToken",
         placeholder: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
         type: "password",
         required: true,
@@ -108,26 +104,23 @@ const PLATFORMS: Platform[] = [
       },
       {
         key: "chat_id",
-        label: "Chat ID",
+        i18nKey: "chatId",
         placeholder: "-1001234567890",
         required: true,
-        help: "Numeric ID of the user, group, or channel to message.",
+        hasHelp: true,
       },
     ],
   },
   {
     id: "discord",
     name: "Discord",
-    blurb: "Drop the digest into a Discord channel.",
     logo: SI("discord"),
     icon: IconBrandDiscord,
     color: "#5865F2",
-    guide:
-      "In your Discord server: Channel settings → Integrations → Webhooks → New Webhook, then copy the webhook URL.",
     fields: [
       {
         key: "webhook_url",
-        label: "Webhook URL",
+        i18nKey: "webhookUrl",
         placeholder: "https://discord.com/api/webhooks/000/XXXX",
         required: true,
         secret: true,
@@ -137,22 +130,19 @@ const PLATFORMS: Platform[] = [
   {
     id: "whatsapp",
     name: "WhatsApp",
-    blurb: "Deliver the digest over WhatsApp Business.",
     logo: SI("whatsapp"),
     icon: IconBrandWhatsapp,
     color: "#25D366",
-    guide:
-      "Use a WhatsApp Business Cloud API number. Provide your phone number ID and a permanent access token.",
     fields: [
       {
         key: "phone_number_id",
-        label: "Phone number ID",
+        i18nKey: "phoneNumberId",
         placeholder: "100000000000000",
         required: true,
       },
       {
         key: "access_token",
-        label: "Access token",
+        i18nKey: "accessToken",
         placeholder: "EAAG...",
         type: "password",
         required: true,
@@ -160,80 +150,71 @@ const PLATFORMS: Platform[] = [
       },
       {
         key: "recipient",
-        label: "Recipient number",
+        i18nKey: "recipient",
         placeholder: "+84901234567",
         required: true,
-        help: "Number that receives the morning digest (E.164 format).",
+        hasHelp: true,
       },
     ],
   },
   {
     id: "zalo",
     name: "Zalo",
-    blurb: "Notify a Zalo user/group via the zca-js sidecar.",
     logo: SI("zalo"),
     icon: IconMessageCircle2,
     color: "#0068FF",
-    guide:
-      "Zalo gửi qua tài khoản cá nhân (zca-js sidecar). Bấm “Đăng nhập QR” bên dưới rồi quét mã bằng app Zalo của tài khoản gửi — không cần chạy lệnh nào. Sau đó nhập threadId người/nhóm nhận. (Cần sidecar backend/zalo_sidecar đang chạy: npm install → npm start.)",
     fields: [
       {
         key: "recipient",
-        label: "Recipient threadId",
+        i18nKey: "recipient",
         placeholder: "Zalo user/group threadId",
         required: true,
-        help: "ID của user (sender có thể nhắn) hoặc nhóm — xem zalo_sidecar/README.md.",
+        hasHelp: true,
       },
       {
         key: "thread_type",
-        label: "Thread type",
-        placeholder: "user hoặc group (mặc định: user)",
-        help: "Để 'user' nếu gửi cho một người, 'group' nếu gửi vào nhóm.",
+        i18nKey: "threadType",
+        placeholderKey: "platforms.zalo.fields.threadType.placeholder",
+        hasHelp: true,
       },
     ],
   },
   {
     id: "gmail",
     name: "Gmail",
-    blurb: "Email the digest from a Gmail account.",
     logo: SI("gmail"),
     icon: IconBrandGmail,
     color: "#EA4335",
-    guide:
-      "Enable 2-Step Verification on the Google account and create an App Password (16 characters). Use it instead of your normal password.",
     fields: [
       {
         key: "email",
-        label: "Gmail address",
+        i18nKey: "email",
         placeholder: "you@gmail.com",
         required: true,
       },
       {
         key: "app_password",
-        label: "App password",
+        i18nKey: "appPassword",
         placeholder: "xxxx xxxx xxxx xxxx",
         type: "password",
         required: true,
         secret: true,
-        help: "16-char Google App Password — never your real password.",
+        hasHelp: true,
       },
     ],
   },
   {
     id: "email",
     name: "Email (SMTP)",
-    blurb: "Send via any custom SMTP server.",
     logo: SI("maildotru"),
     icon: IconMailFast,
     color: "#0F766E",
-    guide:
-      "Connect any SMTP provider (SendGrid, Mailgun, your own server) by entering the host, port, and credentials.",
     fields: [
-      { key: "host", label: "SMTP host", placeholder: "smtp.example.com", required: true },
-      { key: "port", label: "Port", placeholder: "587", type: "number", required: true },
-      { key: "username", label: "Username", placeholder: "apikey or user", required: true },
-      { key: "password", label: "Password", placeholder: "••••••••", type: "password", required: true, secret: true },
-      { key: "from_address", label: "From address", placeholder: "digest@example.com", required: true },
+      { key: "host", i18nKey: "host", placeholder: "smtp.example.com", required: true },
+      { key: "port", i18nKey: "port", placeholder: "587", type: "number", required: true },
+      { key: "username", i18nKey: "username", placeholder: "apikey or user", required: true },
+      { key: "password", i18nKey: "password", placeholder: "••••••••", type: "password", required: true, secret: true },
+      { key: "from_address", i18nKey: "fromAddress", placeholder: "digest@example.com", required: true },
     ],
   },
 ];
@@ -246,6 +227,7 @@ function errMessage(e: unknown, fallback: string): string {
 
 /** Brand logo on a tinted tile, falling back to the Tabler icon on load error. */
 function BrandLogo({ platform, size }: { platform: Platform; size: number }) {
+  const { t } = useTranslation("integrations");
   const [failed, setFailed] = useState(false);
   const Icon = platform.icon;
   const tile = Math.round(size * 1.85);
@@ -266,7 +248,7 @@ function BrandLogo({ platform, size }: { platform: Platform; size: number }) {
         <Icon size={size} style={{ color: platform.color }} />
       ) : (
         <img
-          alt={`${platform.name} logo`}
+          alt={t("logoAlt", { name: platform.name })}
           src={platform.logo}
           width={size}
           height={size}
@@ -281,6 +263,7 @@ function BrandLogo({ platform, size }: { platform: Platform; size: number }) {
 /** Zalo QR-login panel — drives the zca-js sidecar session from the UI so HR
  * never has to run the backend CLI. Polls the sidecar status while a QR is live. */
 function ZaloLogin() {
+  const { t } = useTranslation("integrations");
   const [status, setStatus] = useState<ZaloQrStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -318,7 +301,7 @@ function ZaloLogin() {
         setStatus(s);
         if (s.loggedIn || ["logged_in", "expired", "declined", "error"].includes(s.state)) {
           stopPolling();
-          if (s.loggedIn) addToast({ title: "Zalo đã đăng nhập", color: "success" });
+          if (s.loggedIn) addToast({ title: t("zaloLogin.loggedInToast"), color: "success" });
         }
       } catch {
         stopPolling();
@@ -333,7 +316,7 @@ function ZaloLogin() {
       setStatus(s);
       if (!s.loggedIn) poll();
     } catch (e) {
-      addToast({ title: "Không bắt đầu được đăng nhập Zalo", description: errMessage(e, "Sidecar chưa chạy?"), color: "danger" });
+      addToast({ title: t("zaloLogin.startErrorTitle"), description: errMessage(e, t("zaloLogin.startErrorDesc")), color: "danger" });
     } finally {
       setBusy(false);
     }
@@ -348,15 +331,17 @@ function ZaloLogin() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <IconQrcode size={18} />
-          <span className="text-small font-medium">Phiên Zalo (tài khoản gửi)</span>
+          <span className="text-small font-medium">{t("zaloLogin.sessionTitle")}</span>
         </div>
         {loggedIn ? (
           <Chip size="sm" color="success" variant="flat" startContent={<IconCheck size={13} />}>
-            Đã đăng nhập
+            {t("zaloLogin.loggedIn")}
           </Chip>
         ) : (
           <Button size="sm" radius="full" variant="flat" isLoading={busy} onPress={start}>
-            {st && ["waiting_scan", "scanned", "starting"].includes(st) ? "Đang chờ…" : "Đăng nhập QR"}
+            {st && ["waiting_scan", "scanned", "starting"].includes(st)
+              ? t("zaloLogin.waiting")
+              : t("zaloLogin.loginQr")}
           </Button>
         )}
       </div>
@@ -364,25 +349,27 @@ function ZaloLogin() {
       {!loggedIn && showQr && (
         <div className="mt-3 flex flex-col items-center gap-2">
           <img
-            alt="Zalo QR"
+            alt={t("zaloLogin.qrAlt")}
             src={`data:image/png;base64,${status!.image}`}
             width={180}
             height={180}
             style={{ width: 180, height: 180, borderRadius: 12 }}
           />
-          <span className="text-tiny text-default-500">Mở Zalo trên điện thoại tài khoản gửi → quét mã.</span>
+          <span className="text-tiny text-default-500">{t("zaloLogin.scanHint")}</span>
         </div>
       )}
       {!loggedIn && st === "scanned" && (
         <p className="mt-2 text-tiny text-default-500">
-          Đã quét{status?.user?.name ? ` (${status.user.name})` : ""} — đang hoàn tất đăng nhập…
+          {status?.user?.name
+            ? t("zaloLogin.scannedNamed", { name: status.user.name })
+            : t("zaloLogin.scanned")}
         </p>
       )}
       {!loggedIn && st === "expired" && (
-        <p className="mt-2 text-tiny text-warning">Mã QR đã hết hạn — bấm “Đăng nhập QR” để tạo mã mới.</p>
+        <p className="mt-2 text-tiny text-warning">{t("zaloLogin.expired")}</p>
       )}
       {!loggedIn && st === "declined" && (
-        <p className="mt-2 text-tiny text-warning">Đăng nhập bị từ chối trên điện thoại — thử lại.</p>
+        <p className="mt-2 text-tiny text-warning">{t("zaloLogin.declined")}</p>
       )}
       {!loggedIn && st === "error" && status?.error && (
         <p className="mt-2 text-tiny text-danger">{status.error}</p>
@@ -392,6 +379,7 @@ function ZaloLogin() {
 }
 
 export default function IntegrationsPage() {
+  const { t } = useTranslation("integrations");
   const [states, setStates] = useState<Record<string, IntegrationState>>({});
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<Platform | null>(null);
@@ -418,10 +406,10 @@ export default function IntegrationsPage() {
             margin: "0 0 6px",
           }}
         >
-          Integrations
+          {t("page.title")}
         </h1>
         <p className="text-default-500 text-small">
-          Connect a platform to receive the morning staffing digest each day.
+          {t("page.subtitle")}
         </p>
       </header>
 
@@ -449,16 +437,18 @@ export default function IntegrationsPage() {
                           variant="flat"
                           startContent={<IconCheck size={13} />}
                         >
-                          Connected
+                          {t("card.connected")}
                         </Chip>
                       )}
                       {isError && (
                         <Chip size="sm" color="danger" variant="flat">
-                          Error
+                          {t("card.error")}
                         </Chip>
                       )}
                     </div>
-                    <p className="truncate text-small text-default-400">{p.blurb}</p>
+                    <p className="truncate text-small text-default-400">
+                      {t(`platforms.${p.id}.blurb`)}
+                    </p>
                   </div>
                   <Button
                     size="sm"
@@ -467,7 +457,7 @@ export default function IntegrationsPage() {
                     color={isConnected ? "default" : "primary"}
                     onPress={() => setActive(p)}
                   >
-                    {isConnected ? "Manage" : "Connect"}
+                    {isConnected ? t("card.manage") : t("card.connect")}
                   </Button>
                 </div>
               </Card>
@@ -506,6 +496,7 @@ function ConnectModal({
   onChanged,
   onCloseAfterSave,
 }: ConnectModalProps) {
+  const { t } = useTranslation("integrations");
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -543,13 +534,15 @@ function ConnectModal({
       await integrationService.save(platform.id, payload);
       await onChanged();
       addToast({
-        title: `${platform.name} ${isConnected ? "updated" : "connected"}`,
-        description: "The morning digest will be delivered to this channel.",
+        title: isConnected
+          ? t("toast.updatedTitle", { name: platform.name })
+          : t("toast.connectedTitle", { name: platform.name }),
+        description: t("toast.savedDesc"),
         color: "success",
       });
       onCloseAfterSave();
     } catch (e) {
-      addToast({ title: "Could not save", description: errMessage(e, "Please try again."), color: "danger" });
+      addToast({ title: t("toast.saveFailedTitle"), description: errMessage(e, t("toast.saveFailedDesc")), color: "danger" });
     } finally {
       setSaving(false);
     }
@@ -561,13 +554,13 @@ function ConnectModal({
       await integrationService.test(platform.id);
       await onChanged();
       addToast({
-        title: "Test message sent",
-        description: `Check your ${platform.name} channel.`,
+        title: t("toast.testSentTitle"),
+        description: t("toast.testSentDesc", { name: platform.name }),
         color: "success",
       });
     } catch (e) {
       await onChanged();
-      addToast({ title: "Test failed", description: errMessage(e, "Delivery failed."), color: "danger" });
+      addToast({ title: t("toast.testFailedTitle"), description: errMessage(e, t("toast.testFailedDesc")), color: "danger" });
     } finally {
       setTesting(false);
     }
@@ -578,7 +571,7 @@ function ConnectModal({
     try {
       await integrationService.disconnect(platform.id);
       await onChanged();
-      addToast({ title: `${platform.name} disconnected`, color: "default" });
+      addToast({ title: t("toast.disconnectedTitle", { name: platform.name }), color: "default" });
       onCloseAfterSave();
     } finally {
       setRemoving(false);
@@ -591,16 +584,18 @@ function ConnectModal({
         <ModalHeader className="flex items-center gap-3">
           <BrandLogo platform={platform} size={20} />
           <div className="flex flex-col">
-            <span className="text-base font-semibold">Connect {platform.name}</span>
+            <span className="text-base font-semibold">
+              {t("modal.connectTitle", { name: platform.name })}
+            </span>
             <span className="text-tiny font-normal text-default-400">
-              Morning digest delivery
+              {t("modal.subtitle")}
             </span>
           </div>
         </ModalHeader>
 
         <ModalBody className="gap-4">
           <p className="rounded-xl bg-default-100 p-3 text-small text-default-600">
-            {platform.guide}
+            {t(`platforms.${platform.id}.guide`)}
           </p>
 
           {platform.id === "zalo" && <ZaloLogin />}
@@ -608,15 +603,22 @@ function ConnectModal({
           <div className="flex flex-col gap-3">
             {platform.fields.map((f) => {
               const saved = f.secret && secretsSet.includes(f.key);
+              const fieldPlaceholder = f.placeholderKey
+                ? t(f.placeholderKey)
+                : f.placeholder;
               return (
                 <Input
                   key={f.key}
-                  label={f.label}
+                  label={t(`platforms.${platform.id}.fields.${f.i18nKey}.label`)}
                   labelPlacement="outside"
-                  placeholder={saved ? "•••••••• (đã lưu — để trống nếu giữ nguyên)" : f.placeholder}
+                  placeholder={saved ? t("modal.savedPlaceholder") : fieldPlaceholder}
                   type={f.type ?? "text"}
                   isRequired={f.required && !saved}
-                  description={f.help}
+                  description={
+                    f.hasHelp
+                      ? t(`platforms.${platform.id}.fields.${f.i18nKey}.help`)
+                      : undefined
+                  }
                   value={values[f.key] ?? ""}
                   onValueChange={(v) =>
                     setValues((prev) => ({ ...prev, [f.key]: v }))
@@ -642,7 +644,7 @@ function ConnectModal({
               isLoading={removing}
               onPress={handleDisconnect}
             >
-              Disconnect
+              {t("modal.disconnect")}
             </Button>
           ) : (
             <span />
@@ -656,7 +658,7 @@ function ConnectModal({
                 isLoading={testing}
                 onPress={handleTest}
               >
-                Test
+                {t("modal.test")}
               </Button>
             )}
             <Button
@@ -667,7 +669,7 @@ function ConnectModal({
               isLoading={saving}
               onPress={handleSave}
             >
-              {isConnected ? "Update" : "Connect"}
+              {isConnected ? t("modal.update") : t("modal.connect")}
             </Button>
           </div>
         </ModalFooter>

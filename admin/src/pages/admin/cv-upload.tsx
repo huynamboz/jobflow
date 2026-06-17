@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Card, CardBody } from "@heroui/card";
 import { AlertTriangle, ArrowLeft, FileUp, Loader2, Plus, Save, Trash2, X } from "lucide-react";
 
@@ -7,19 +8,19 @@ import { cvAdminService } from "@/services/cv-admin.service";
 import type { CVExtractResult, CVSkillEdit, WorkExperienceItem } from "@/types/cv-admin.types";
 
 const EDUCATION_OPTIONS = [
-  { value: 0, label: "None" },
-  { value: 1, label: "College" },
-  { value: 2, label: "Bachelor" },
-  { value: 3, label: "Master" },
-  { value: 4, label: "PhD" },
+  { value: 0, label: "education.none" },
+  { value: 1, label: "education.college" },
+  { value: 2, label: "education.bachelor" },
+  { value: 3, label: "education.master" },
+  { value: 4, label: "education.phd" },
 ];
 const SENIORITY_OPTIONS = [
-  { value: 0, label: "Intern" },
-  { value: 1, label: "Junior" },
-  { value: 2, label: "Mid" },
-  { value: 3, label: "Senior" },
-  { value: 4, label: "Lead" },
-  { value: 5, label: "Manager" },
+  { value: 0, label: "seniority.intern" },
+  { value: 1, label: "seniority.junior" },
+  { value: 2, label: "seniority.mid" },
+  { value: 3, label: "seniority.senior" },
+  { value: 4, label: "seniority.lead" },
+  { value: 5, label: "seniority.manager" },
 ];
 
 // ─── Skills editor ───────────────────────────────────────────────────────────
@@ -31,6 +32,7 @@ function SkillsEditor({
   skills: CVSkillEdit[];
   onChange: (s: CVSkillEdit[]) => void;
 }) {
+  const { t } = useTranslation("cvs");
   const [input, setInput] = useState("");
 
   const add = () => {
@@ -72,11 +74,11 @@ function SkillsEditor({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())}
-          placeholder="Add skill…"
+          placeholder={t("skillsEditor.addPlaceholder")}
           className="h-8 flex-1 rounded-lg border border-default-200 px-3 text-sm outline-none focus:border-blue-400"
         />
         <button onClick={add} className="flex items-center gap-1 rounded-lg border border-default-200 px-3 py-1.5 text-sm text-default-600 hover:bg-default-50">
-          <Plus className="size-3.5" /> Add
+          <Plus className="size-3.5" /> {t("skillsEditor.add")}
         </button>
       </div>
     </div>
@@ -92,6 +94,7 @@ function WorkExpEditor({
   items: WorkExperienceItem[];
   onChange: (items: WorkExperienceItem[]) => void;
 }) {
+  const { t } = useTranslation("cvs");
   const empty: WorkExperienceItem = { title: "", company: "", duration: "", description: "" };
 
   const update = (i: number, field: keyof WorkExperienceItem, val: string) => {
@@ -114,22 +117,22 @@ function WorkExpEditor({
           </div>
           <div className="grid grid-cols-2 gap-2">
             <input
-              value={w.title} placeholder="Job title"
+              value={w.title} placeholder={t("workExpEditor.jobTitle")}
               onChange={(e) => update(i, "title", e.target.value)}
               className="col-span-2 rounded-lg border border-default-200 px-3 py-1.5 text-sm outline-none focus:border-blue-400"
             />
             <input
-              value={w.company} placeholder="Company"
+              value={w.company} placeholder={t("workExpEditor.company")}
               onChange={(e) => update(i, "company", e.target.value)}
               className="rounded-lg border border-default-200 px-3 py-1.5 text-sm outline-none focus:border-blue-400"
             />
             <input
-              value={w.duration} placeholder="Duration (e.g. 2021–2024)"
+              value={w.duration} placeholder={t("workExpEditor.duration")}
               onChange={(e) => update(i, "duration", e.target.value)}
               className="rounded-lg border border-default-200 px-3 py-1.5 text-sm outline-none focus:border-blue-400"
             />
             <textarea
-              value={w.description} placeholder="Description"
+              value={w.description} placeholder={t("workExpEditor.description")}
               onChange={(e) => update(i, "description", e.target.value)}
               rows={2}
               className="col-span-2 rounded-lg border border-default-200 px-3 py-1.5 text-sm outline-none focus:border-blue-400 resize-none"
@@ -141,7 +144,7 @@ function WorkExpEditor({
         onClick={() => onChange([...items, { ...empty }])}
         className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-default-300 py-2.5 text-sm text-default-500 hover:border-blue-400 hover:text-blue-600"
       >
-        <Plus className="size-4" /> Add work experience
+        <Plus className="size-4" /> {t("workExpEditor.addWorkExperience")}
       </button>
     </div>
   );
@@ -150,6 +153,7 @@ function WorkExpEditor({
 // ─── Drop zone ────────────────────────────────────────────────────────────────
 
 function DropZone({ onFile }: { onFile: (f: File) => void }) {
+  const { t } = useTranslation("cvs");
   const ref = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -171,8 +175,8 @@ function DropZone({ onFile }: { onFile: (f: File) => void }) {
     >
       <FileUp className="size-10 text-default-300" />
       <div className="text-center">
-        <p className="text-sm font-medium text-default-700">Drop CV here or click to browse</p>
-        <p className="mt-0.5 text-xs text-default-400">PDF, DOCX, TXT</p>
+        <p className="text-sm font-medium text-default-700">{t("dropZone.instruction")}</p>
+        <p className="mt-0.5 text-xs text-default-400">{t("dropZone.fileTypes")}</p>
       </div>
       <input ref={ref} type="file" accept=".pdf,.docx,.txt" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handle(f); }} />
@@ -185,6 +189,7 @@ function DropZone({ onFile }: { onFile: (f: File) => void }) {
 type Step = "pick" | "extracting" | "editing" | "saving";
 
 export default function CVUploadPage() {
+  const { t } = useTranslation("cvs");
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("pick");
   const [form, setForm] = useState<CVExtractResult | null>(null);
@@ -201,7 +206,7 @@ export default function CVUploadPage() {
       setForm(result);
       setStep("editing");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Extraction failed.");
+      setError(err instanceof Error ? err.message : t("upload.extractionFailed"));
       setStep("pick");
     }
   };
@@ -214,7 +219,7 @@ export default function CVUploadPage() {
       await cvAdminService.saveCV(form);
       navigate("/admin/cvs");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Save failed.");
+      setError(err instanceof Error ? err.message : t("upload.saveFailed"));
       setStep("editing");
     }
   };
@@ -227,12 +232,12 @@ export default function CVUploadPage() {
           <ArrowLeft className="size-5" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-default-900">Upload CV</h1>
+          <h1 className="text-2xl font-bold text-default-900">{t("upload.title")}</h1>
           <p className="text-sm text-default-500">
-            {step === "pick" && "Choose a CV file to parse"}
-            {step === "extracting" && "Extracting information…"}
-            {step === "editing" && "Review and edit extracted information"}
-            {step === "saving" && "Saving…"}
+            {step === "pick" && t("upload.stepPick")}
+            {step === "extracting" && t("upload.stepExtracting")}
+            {step === "editing" && t("upload.stepEditing")}
+            {step === "saving" && t("upload.stepSaving")}
           </p>
         </div>
       </div>
@@ -246,14 +251,14 @@ export default function CVUploadPage() {
       {step === "extracting" && (
         <div className="flex flex-col items-center justify-center gap-3 py-24 text-default-400">
           <Loader2 className="size-10 animate-spin text-blue-500" />
-          <p className="text-sm">LLM is extracting CV information…</p>
+          <p className="text-sm">{t("upload.extracting")}</p>
         </div>
       )}
 
       {(step === "editing" || step === "saving") && form && !form.llm_used && (
         <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <span>LLM extraction unavailable — data was extracted using rule-based parser. Please review and edit before saving.</span>
+          <span>{t("upload.ruleBasedWarning")}</span>
         </div>
       )}
 
@@ -262,21 +267,21 @@ export default function CVUploadPage() {
           {/* Basic info */}
           <Card className="shadow-sm">
             <CardBody className="space-y-4 p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-default-400">Basic Information</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-default-400">{t("upload.basicInformation")}</p>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-default-600">Full Name</label>
+                <label className="mb-1 block text-xs font-medium text-default-600">{t("upload.fullName")}</label>
                 <input
                   value={form.candidate_name}
                   onChange={(e) => set("candidate_name", e.target.value)}
-                  placeholder="Candidate name"
+                  placeholder={t("upload.candidateNamePlaceholder")}
                   className="w-full rounded-lg border border-default-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-default-600">Experience (years)</label>
+                  <label className="mb-1 block text-xs font-medium text-default-600">{t("upload.experienceYears")}</label>
                   <input
                     type="number" min={0} step={0.5}
                     value={form.experience_years}
@@ -285,23 +290,23 @@ export default function CVUploadPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-default-600">Seniority</label>
+                  <label className="mb-1 block text-xs font-medium text-default-600">{t("upload.seniority")}</label>
                   <select
                     value={form.seniority}
                     onChange={(e) => set("seniority", Number(e.target.value))}
                     className="w-full rounded-lg border border-default-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
                   >
-                    {SENIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    {SENIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-default-600">Education</label>
+                  <label className="mb-1 block text-xs font-medium text-default-600">{t("upload.education")}</label>
                   <select
                     value={form.education}
                     onChange={(e) => set("education", Number(e.target.value))}
                     className="w-full rounded-lg border border-default-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
                   >
-                    {EDUCATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    {EDUCATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
                   </select>
                 </div>
               </div>
@@ -312,7 +317,7 @@ export default function CVUploadPage() {
           <Card className="shadow-sm">
             <CardBody className="space-y-3 p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-default-400">
-                Skills ({form.skills.length})
+                {t("upload.skillsHeading", { count: form.skills.length })}
               </p>
               <SkillsEditor skills={form.skills} onChange={(s) => set("skills", s)} />
             </CardBody>
@@ -322,7 +327,7 @@ export default function CVUploadPage() {
           <Card className="shadow-sm">
             <CardBody className="space-y-3 p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-default-400">
-                Work Experience ({form.work_experience.length})
+                {t("upload.workExperienceHeading", { count: form.work_experience.length })}
               </p>
               <WorkExpEditor items={form.work_experience} onChange={(items) => set("work_experience", items)} />
             </CardBody>
@@ -332,7 +337,7 @@ export default function CVUploadPage() {
           <div className="flex gap-3">
             <button onClick={() => { setForm(null); setStep("pick"); }}
               className="rounded-xl border border-default-200 px-5 py-2.5 text-sm text-default-600 hover:bg-default-50">
-              Re-upload
+              {t("upload.reUpload")}
             </button>
             <button
               onClick={handleSave}
@@ -340,7 +345,7 @@ export default function CVUploadPage() {
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
             >
               {step === "saving" ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-              {step === "saving" ? "Saving…" : "Save CV"}
+              {step === "saving" ? t("upload.saving") : t("upload.saveCv")}
             </button>
           </div>
         </div>

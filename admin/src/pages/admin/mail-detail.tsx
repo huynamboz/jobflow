@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
 import { addToast } from "@heroui/toast";
@@ -21,6 +22,7 @@ function initials(name: string): string {
 }
 
 function Message({ m, active }: { m: MailLog; active: boolean }) {
+  const { t } = useTranslation("mail");
   const inbound = m.direction === "in";
   return (
     <div className={`rounded-2xl border p-4 transition-colors ${
@@ -34,18 +36,18 @@ function Message({ m, active }: { m: MailLog; active: boolean }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-semibold text-foreground">
-            {inbound ? `Reply from ${m.from_addr}` : `Sent to ${m.to_addr}`}
+            {inbound ? t("detail.replyFrom", { addr: m.from_addr }) : t("detail.sentTo", { addr: m.to_addr })}
           </div>
           <div className="truncate text-xs text-default-400">{m.subject}</div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {m.cv_attached && <Chip size="sm" variant="flat" startContent={<IconPaperclip size={12} />}>CV</Chip>}
-          {m.is_bounce && <Chip size="sm" variant="flat" color="danger">bounced</Chip>}
-          {m.status === "failed" && !m.is_bounce && <Chip size="sm" variant="flat" color="danger">failed</Chip>}
+          {m.is_bounce && <Chip size="sm" variant="flat" color="danger">{t("chip.bounced")}</Chip>}
+          {m.status === "failed" && !m.is_bounce && <Chip size="sm" variant="flat" color="danger">{t("chip.failed")}</Chip>}
         </div>
       </div>
       <div className="mt-3 whitespace-pre-wrap break-words border-t border-default-100 pt-3 text-sm leading-relaxed text-default-700">
-        {m.body_text?.trim() || <span className="italic text-default-400">(no body)</span>}
+        {m.body_text?.trim() || <span className="italic text-default-400">{t("detail.noBody")}</span>}
       </div>
       <div className="mt-2 text-[11px] tabular-nums text-default-400">{new Date(m.created_at).toLocaleString("vi-VN")}</div>
     </div>
@@ -53,6 +55,7 @@ function Message({ m, active }: { m: MailLog; active: boolean }) {
 }
 
 export default function MailDetailPage() {
+  const { t } = useTranslation("mail");
   const { id } = useParams<{ id: string }>();
   const logId = Number(id);
   const navigate = useNavigate();
@@ -62,7 +65,7 @@ export default function MailDetailPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try { setData(await mailService.logDetail(logId)); }
-    catch { addToast({ title: "Failed to load mail", color: "danger" }); }
+    catch { addToast({ title: t("toast.loadFailed"), color: "danger" }); }
     finally { setLoading(false); }
   }, [logId]);
   useEffect(() => { void load(); }, [load]);
@@ -93,16 +96,16 @@ export default function MailDetailPage() {
           <IconMail size={24} stroke={1.75} />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold tracking-tight text-foreground">{log.subject || "(no subject)"}</h1>
+          <h1 className="truncate text-lg font-bold tracking-tight text-foreground">{log.subject || t("detail.noSubject")}</h1>
           <div className="mt-1 truncate text-sm text-default-500">
             {emp?.full_name || log.employee_name}{job ? ` · ${job.title}` : ""}
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Chip size="sm" variant="flat" color={log.direction === "in" ? "success" : "default"}>
-            {log.direction === "in" ? "Reply" : "Sent"}
+            {log.direction === "in" ? t("detail.reply") : t("detail.sent")}
           </Chip>
-          {replies > 0 && <Chip size="sm" variant="flat" color="success">{replies} repl{replies === 1 ? "y" : "ies"}</Chip>}
+          {replies > 0 && <Chip size="sm" variant="flat" color="success">{t("detail.repliesCount", { count: replies })}</Chip>}
         </div>
       </Card>
 
@@ -111,8 +114,8 @@ export default function MailDetailPage() {
         <Card padding={20} className="space-y-3 lg:col-span-2">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <IconMail size={16} className="text-primary" />
-            Conversation
-            <Chip size="sm" variant="flat" className="ml-auto">{thread.length} message{thread.length === 1 ? "" : "s"}</Chip>
+            {t("detail.conversation")}
+            <Chip size="sm" variant="flat" className="ml-auto">{t("detail.messagesCount", { count: thread.length })}</Chip>
           </div>
           <div className="space-y-3">
             {thread.map((m) => <Message key={m.id} m={m} active={m.id === log.id} />)}
@@ -124,7 +127,7 @@ export default function MailDetailPage() {
           {emp && (
             <Card padding={18} className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <IconUser size={16} className="text-primary" /> Candidate
+                <IconUser size={16} className="text-primary" /> {t("detail.candidate")}
               </div>
               <div className="flex items-center gap-3">
                 <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-sm font-bold text-primary">
@@ -137,7 +140,7 @@ export default function MailDetailPage() {
               </div>
               <div className="flex flex-wrap gap-1.5">
                 <Chip size="sm" variant="flat">{SENIORITY_LABELS[emp.seniority] ?? emp.seniority}</Chip>
-                {emp.experience_years != null && <Chip size="sm" variant="flat">{emp.experience_years}y exp</Chip>}
+                {emp.experience_years != null && <Chip size="sm" variant="flat">{t("detail.yearsExp", { count: emp.experience_years })}</Chip>}
               </div>
               <div className="space-y-1 text-xs text-default-500">
                 {emp.email && <div className="flex items-center gap-1.5"><IconMail size={13} className="text-default-400" />{emp.email}</div>}
@@ -151,14 +154,14 @@ export default function MailDetailPage() {
                     ? <IconMailExclamation size={15} className="shrink-0 text-danger" />
                     : <IconMailCheck size={15} className="shrink-0 text-success" />}
                   <span className="min-w-0">
-                    <span className="block text-[10px] uppercase tracking-wide opacity-70">Linked Gmail</span>
+                    <span className="block text-[10px] uppercase tracking-wide opacity-70">{t("detail.linkedGmail")}</span>
                     <span className="block truncate font-medium">{emp.linked_email}</span>
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 rounded-xl bg-default-50 px-3 py-2 text-xs text-default-400">
                   <IconMail size={15} className="shrink-0" />
-                  <span>No Gmail linked</span>
+                  <span>{t("detail.noGmailLinked")}</span>
                 </div>
               )}
               {emp.skills.length > 0 && (
@@ -168,14 +171,14 @@ export default function MailDetailPage() {
                 </div>
               )}
               <Button size="sm" variant="bordered" className="w-full" startContent={<IconUser size={14} />}
-                onPress={() => navigate(`/admin/employees/${emp.id}/info`)}>View employee</Button>
+                onPress={() => navigate(`/admin/employees/${emp.id}/info`)}>{t("detail.viewEmployee")}</Button>
             </Card>
           )}
 
           {job && (
             <Card padding={18} className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <IconBriefcase size={16} className="text-primary" /> Job
+                <IconBriefcase size={16} className="text-primary" /> {t("detail.job")}
               </div>
               <div>
                 <div className="text-sm font-semibold leading-snug text-foreground">{job.title}</div>
@@ -194,11 +197,11 @@ export default function MailDetailPage() {
               <div className="flex flex-col gap-2">
                 {match && (
                   <Button size="sm" variant="bordered" className="w-full" startContent={<IconBriefcase size={14} />}
-                    onPress={() => navigate(`/admin/employees/${emp?.id}?match=${match.id}`)}>View match</Button>
+                    onPress={() => navigate(`/admin/employees/${emp?.id}?match=${match.id}`)}>{t("detail.viewMatch")}</Button>
                 )}
                 {job.source_url && (
                   <Button size="sm" variant="light" className="w-full" startContent={<IconExternalLink size={14} />}
-                    onPress={() => window.open(job.source_url, "_blank", "noopener")}>Open job posting</Button>
+                    onPress={() => window.open(job.source_url, "_blank", "noopener")}>{t("detail.openJobPosting")}</Button>
                 )}
               </div>
             </Card>

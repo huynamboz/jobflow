@@ -1,0 +1,26 @@
+{
+  "sections": {
+    "staffing": "Staffing",
+    "system": "System"
+  },
+  "items": {
+    "dashboard": "Dashboard",
+    "employees": "Employees",
+    "jobs": "Jobs",
+    "jobTracking": "Job tracking",
+    "mail": "Mail",
+    "morningRefresh": "Morning refresh",
+    "systemOverview": "System overview",
+    "labeling": "Labeling",
+    "cvs": "CVs (dataset)",
+    "llmProviders": "LLM Providers",
+    "llmLogs": "LLM Logs",
+    "jdBatch": "JD Batch",
+    "cvBatch": "CV Batch",
+    "labelBatch": "Label Batch",
+    "verifySchedule": "Verify schedule",
+    "extractSchedule": "Extract schedule",
+    "integrations": "Integrations",
+    "settings": "Settings"
+  }
+}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Card, CardBody } from "@heroui/card";
 import { Drawer, DrawerContent, DrawerHeader, DrawerBody } from "@heroui/drawer";
 import { ChevronLeft, ChevronRight, Download, FileText, Upload } from "lucide-react";
@@ -8,7 +9,7 @@ import { cvAdminService } from "@/services/cv-admin.service";
 import type { AdminCVDetail, AdminCVItem, WorkExperienceItem } from "@/types/cv-admin.types";
 
 const SENIORITY_LABEL: Record<number, string> = {
-  0: "Intern", 1: "Junior", 2: "Mid", 3: "Senior", 4: "Lead", 5: "Manager",
+  0: "seniority.intern", 1: "seniority.junior", 2: "seniority.mid", 3: "seniority.senior", 4: "seniority.lead", 5: "seniority.manager",
 };
 const SENIORITY_COLOR: Record<number, string> = {
   0: "bg-gray-100 text-gray-600",
@@ -19,10 +20,10 @@ const SENIORITY_COLOR: Record<number, string> = {
   5: "bg-rose-100 text-rose-700",
 };
 const EDUCATION_LABEL: Record<number, string> = {
-  0: "None", 1: "College", 2: "Bachelor", 3: "Master", 4: "PhD",
+  0: "education.none", 1: "education.college", 2: "education.bachelor", 3: "education.master", 4: "education.phd",
 };
 const SKILL_CATEGORY_LABEL: Record<number, string> = {
-  0: "Technical", 1: "Soft", 2: "Tool", 3: "Domain",
+  0: "skillCategory.technical", 1: "skillCategory.soft", 2: "skillCategory.tool", 3: "skillCategory.domain",
 };
 const SKILL_CATEGORY_COLOR: Record<number, string> = {
   0: "bg-blue-50 text-blue-700 border-blue-200",
@@ -31,9 +32,9 @@ const SKILL_CATEGORY_COLOR: Record<number, string> = {
   3: "bg-purple-50 text-purple-700 border-purple-200",
 };
 const SOURCE_LABEL: Record<string, string> = {
-  upload: "Upload",
-  linkedin_dataset: "LinkedIn",
-  kaggle: "Kaggle",
+  upload: "source.upload",
+  linkedin_dataset: "source.linkedin",
+  kaggle: "source.kaggle",
 };
 
 const ROLE_COLOR: Record<string, string> = {
@@ -51,10 +52,11 @@ const ROLE_COLOR: Record<string, string> = {
 };
 
 function WorkExperienceSection({ items }: { items: WorkExperienceItem[] }) {
+  const { t } = useTranslation("cvs");
   return (
     <div>
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-default-400">
-        Work Experience ({items.length})
+        {t("detail.workExperience", { count: items.length })}
       </p>
       <div className="space-y-3">
         {items.map((w, i) => (
@@ -79,6 +81,7 @@ function WorkExperienceSection({ items }: { items: WorkExperienceItem[] }) {
 }
 
 function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: boolean; onClose: () => void }) {
+  const { t } = useTranslation("cvs");
   const [cv, setCv] = useState<AdminCVDetail | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -98,23 +101,23 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
         <DrawerHeader className="border-b border-default-200">
           <div>
             <p className="text-sm font-semibold text-default-900">
-              {loading ? "Loading…" : (cv?.candidate_name || `CV #${cv?.id ?? ""}` || "CV Detail")}
+              {loading ? t("detail.loading") : (cv?.candidate_name || `CV #${cv?.id ?? ""}` || t("detail.cvDetail"))}
             </p>
             {cv && <p className="text-xs font-normal text-default-400">CV #{cv.id}</p>}
           </div>
         </DrawerHeader>
         <DrawerBody className="p-0 overflow-y-auto">
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-default-400">Loading…</div>
+          <div className="flex items-center justify-center py-16 text-default-400">{t("detail.loading")}</div>
         ) : !cv ? (
-          <div className="py-16 text-center text-default-400">CV not found.</div>
+          <div className="py-16 text-center text-default-400">{t("detail.notFound")}</div>
         ) : (
           <div className="space-y-5 p-5">
             <p className="truncate text-xs text-default-400" title={cv.file_name}>{cv.file_name}</p>
 
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${SENIORITY_COLOR[cv.seniority] ?? "bg-gray-100"}`}>
-                {SENIORITY_LABEL[cv.seniority] ?? cv.seniority}
+                {SENIORITY_LABEL[cv.seniority] ? t(SENIORITY_LABEL[cv.seniority]) : cv.seniority}
               </span>
               {cv.role_category && (
                 <span style={{ background: ROLE_COLOR[cv.role_category] ?? ROLE_COLOR.other }}
@@ -123,7 +126,7 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
                 </span>
               )}
               <span className="rounded-lg border border-default-200 bg-default-50 px-2.5 py-1 text-xs text-default-600">
-                {SOURCE_LABEL[cv.source] ?? cv.source}
+                {SOURCE_LABEL[cv.source] ? t(SOURCE_LABEL[cv.source]) : cv.source}
               </span>
               {cv.source_category && (
                 <span className="rounded-lg border border-default-200 bg-default-50 px-2.5 py-1 text-xs text-default-500">
@@ -134,11 +137,11 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
 
             <div className="space-y-1.5 rounded-xl border border-default-100 bg-default-50 px-4 py-3 text-sm">
               {[
-                ["Role", cv.role_category || "—"],
-                ["Experience", `${cv.experience_years}y`],
-                ["Education", EDUCATION_LABEL[cv.education] ?? cv.education],
-                ["Skills", cv.skills?.length ?? 0],
-                ["Created", new Date(cv.created_at).toLocaleDateString("vi-VN")],
+                [t("detail.role"), cv.role_category || "—"],
+                [t("detail.experience"), t("detail.experienceValue", { count: cv.experience_years })],
+                [t("detail.education"), EDUCATION_LABEL[cv.education] ? t(EDUCATION_LABEL[cv.education]) : cv.education],
+                [t("detail.skills"), cv.skills?.length ?? 0],
+                [t("detail.created"), new Date(cv.created_at).toLocaleDateString("vi-VN")],
               ].map(([k, v]) => (
                 <div key={String(k)} className="flex justify-between">
                   <span className="text-default-500">{k}</span>
@@ -154,7 +157,7 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
             {cv.skills && cv.skills.length > 0 && (
               <div>
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-default-400">
-                  Skills ({cv.skills.length})
+                  {t("detail.skillsHeading", { count: cv.skills.length })}
                 </p>
                 {([0, 1, 2, 3] as const).map((cat) => {
                   const catSkills = cv.skills!.filter((s) => s.category === cat);
@@ -162,7 +165,7 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
                   return (
                     <div key={cat} className="mb-3">
                       <p className="mb-1.5 text-xs font-medium text-default-400">
-                        {SKILL_CATEGORY_LABEL[cat]}
+                        {t(SKILL_CATEGORY_LABEL[cat])}
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {catSkills
@@ -170,7 +173,7 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
                           .map((s) => (
                           <span
                             key={s.skill_name}
-                            title={`Proficiency: ${s.proficiency}/5`}
+                            title={t("detail.proficiencyTooltip", { proficiency: s.proficiency })}
                             className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium ${SKILL_CATEGORY_COLOR[cat]}`}
                           >
                             {s.skill_name}
@@ -188,7 +191,7 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
 
             {cv.parsed_text && (
               <div>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-default-400">CV Text</p>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-default-400">{t("detail.cvText")}</p>
                 <p className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-xl border border-default-100 bg-default-50 px-4 py-3 text-xs leading-relaxed text-default-600">
                   {cv.parsed_text}
                 </p>
@@ -206,6 +209,7 @@ function DetailDrawer({ cvId, isOpen, onClose }: { cvId: number | null; isOpen: 
 const PAGE_SIZE = 20;
 
 export default function CVsPage() {
+  const { t } = useTranslation("cvs");
   const navigate = useNavigate();
   const [items, setItems] = useState<AdminCVItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -238,8 +242,8 @@ export default function CVsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-default-900">CVs</h1>
-          <p className="text-default-500">{total.toLocaleString()} CVs in system</p>
+          <h1 className="text-2xl font-bold text-default-900">{t("list.title")}</h1>
+          <p className="text-default-500">{t("list.summary", { count: total, formattedCount: total.toLocaleString() })}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -252,13 +256,13 @@ export default function CVsPage() {
             className="flex items-center gap-2 rounded-xl border border-default-200 bg-white px-4 py-2 text-sm font-medium text-default-700 hover:bg-default-50 disabled:opacity-50"
           >
             <Download className="size-4" />
-            {exporting ? "Exporting…" : "Export JSON"}
+            {exporting ? t("list.exporting") : t("list.exportJson")}
           </button>
           <button
             onClick={() => navigate("/admin/cvs/upload")}
             className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            <Upload className="size-4" /> Upload CV
+            <Upload className="size-4" /> {t("list.uploadCv")}
           </button>
         </div>
       </div>
@@ -266,28 +270,28 @@ export default function CVsPage() {
       <div className="flex flex-wrap gap-3">
         <select value={roleCategory} onChange={(e) => handleFilter(seniority, source, e.target.value)}
           className="h-9 rounded-lg border border-default-200 bg-white px-3 text-sm text-default-700 outline-none focus:border-blue-400">
-          <option value="">All Roles</option>
+          <option value="">{t("list.allRoles")}</option>
           {Object.keys(ROLE_COLOR).map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
         <select value={seniority} onChange={(e) => handleFilter(e.target.value, source, roleCategory)}
           className="h-9 rounded-lg border border-default-200 bg-white px-3 text-sm text-default-700 outline-none focus:border-blue-400">
-          <option value="">All Seniority</option>
-          {Object.entries(SENIORITY_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          <option value="">{t("list.allSeniority")}</option>
+          {Object.entries(SENIORITY_LABEL).map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
         </select>
         <select value={source} onChange={(e) => handleFilter(seniority, e.target.value, roleCategory)}
           className="h-9 rounded-lg border border-default-200 bg-white px-3 text-sm text-default-700 outline-none focus:border-blue-400">
-          <option value="">All Sources</option>
-          {Object.entries(SOURCE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          <option value="">{t("list.allSources")}</option>
+          {Object.entries(SOURCE_LABEL).map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
         </select>
       </div>
 
       <Card className="shadow-sm">
         <CardBody className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-default-400">Loading…</div>
+            <div className="flex items-center justify-center py-16 text-default-400">{t("list.loading")}</div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-default-400">
-              <FileText className="size-8" /><p>No CVs found.</p>
+              <FileText className="size-8" /><p>{t("list.empty")}</p>
             </div>
           ) : (
             <>
@@ -295,14 +299,14 @@ export default function CVsPage() {
                 <table className="w-full text-sm">
                   <thead className="border-b border-default-100 bg-default-50 text-xs font-semibold uppercase tracking-wide text-default-500">
                     <tr>
-                      <th className="px-4 py-3 text-left">ID</th>
-                      <th className="px-4 py-3 text-left">File</th>
-                      <th className="px-4 py-3 text-left">Role</th>
-                      <th className="px-4 py-3 text-left">Seniority</th>
-                      <th className="px-4 py-3 text-right">Exp</th>
-                      <th className="px-4 py-3 text-left">Education</th>
-                      <th className="px-4 py-3 text-right">Skills</th>
-                      <th className="px-4 py-3 text-left">Source</th>
+                      <th className="px-4 py-3 text-left">{t("table.id")}</th>
+                      <th className="px-4 py-3 text-left">{t("table.file")}</th>
+                      <th className="px-4 py-3 text-left">{t("table.role")}</th>
+                      <th className="px-4 py-3 text-left">{t("table.seniority")}</th>
+                      <th className="px-4 py-3 text-right">{t("table.exp")}</th>
+                      <th className="px-4 py-3 text-left">{t("table.education")}</th>
+                      <th className="px-4 py-3 text-right">{t("table.skills")}</th>
+                      <th className="px-4 py-3 text-left">{t("table.source")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-default-100">
@@ -325,15 +329,15 @@ export default function CVsPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${SENIORITY_COLOR[cv.seniority] ?? "bg-gray-100"}`}>
-                            {SENIORITY_LABEL[cv.seniority] ?? cv.seniority}
+                            {SENIORITY_LABEL[cv.seniority] ? t(SENIORITY_LABEL[cv.seniority]) : cv.seniority}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right text-xs text-default-600">{cv.experience_years}y</td>
-                        <td className="px-4 py-3 text-xs text-default-500">{EDUCATION_LABEL[cv.education] ?? cv.education}</td>
+                        <td className="px-4 py-3 text-right text-xs text-default-600">{t("detail.experienceValue", { count: cv.experience_years })}</td>
+                        <td className="px-4 py-3 text-xs text-default-500">{EDUCATION_LABEL[cv.education] ? t(EDUCATION_LABEL[cv.education]) : cv.education}</td>
                         <td className="px-4 py-3 text-right font-medium text-default-700">{cv.skill_count}</td>
                         <td className="px-4 py-3">
                           <span className="rounded-md border border-default-200 bg-default-50 px-2 py-0.5 text-xs text-default-500">
-                            {SOURCE_LABEL[cv.source] ?? cv.source}
+                            {SOURCE_LABEL[cv.source] ? t(SOURCE_LABEL[cv.source]) : cv.source}
                           </span>
                         </td>
                       </tr>
@@ -344,7 +348,7 @@ export default function CVsPage() {
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-between border-t border-default-100 px-4 py-3">
-                  <span className="text-xs text-default-500">Page {page} of {totalPages} · {total.toLocaleString()} total</span>
+                  <span className="text-xs text-default-500">{t("list.pageInfo", { page, totalPages, total: total.toLocaleString() })}</span>
                   <div className="flex gap-1">
                     <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
                       className="rounded-lg border border-default-200 p-1.5 text-default-500 hover:bg-default-50 disabled:opacity-40">

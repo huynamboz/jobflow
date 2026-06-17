@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { dashboardService } from "@/services/dashboard.service";
 import type { CatalogComposition as Payload } from "@/types/dashboard.types";
 
@@ -29,6 +31,7 @@ function Pane({ label, children }: { label: string; children: React.ReactNode })
 }
 
 export default function CatalogComposition({ refreshKey }: Props) {
+  const { t } = useTranslation("dashboard");
   const { data, loading, error, reload } = useDashboardSection<Payload>(
     () => dashboardService.getCatalog(),
     refreshKey,
@@ -38,30 +41,30 @@ export default function CatalogComposition({ refreshKey }: Props) {
 
   return (
     <SectionCard
-      title="Catalog composition"
-      description="Platform, lifecycle, role and seniority breakdown"
+      title={t("catalog.title")}
+      description={t("catalog.description")}
       loading={loading} error={error} empty={empty}
       onRetry={reload}
     >
       {data && (
         <div className="grid gap-5 sm:grid-cols-2">
-          <Pane label="By platform">
-            <Donut data={data.by_platform} ariaLabel="Jobs by platform" colors={NODE_PALETTE} />
+          <Pane label={t("catalog.byPlatform")}>
+            <Donut data={data.by_platform} ariaLabel={t("catalog.aria.byPlatform")} colors={NODE_PALETTE} />
           </Pane>
-          <Pane label="By lifecycle">
+          <Pane label={t("catalog.byLifecycle")}>
             <Donut
               data={data.by_lifecycle}
-              ariaLabel="Jobs by lifecycle"
+              ariaLabel={t("catalog.aria.byLifecycle")}
               colors={data.by_lifecycle.map((d) => LIFECYCLE_COLOR_MAP[d.key] ?? NODE_PALETTE[0])}
             />
           </Pane>
-          <Pane label={`By role category${data.by_role_category.length ? ` (${data.by_role_category.length})` : ""}`}>
-            <BarH data={data.by_role_category} ariaLabel="Jobs by role category" color="#167a7a" />
+          <Pane label={data.by_role_category.length ? t("catalog.byRoleCategoryCount", { count: data.by_role_category.length }) : t("catalog.byRoleCategory")}>
+            <BarH data={data.by_role_category} ariaLabel={t("catalog.aria.byRoleCategory")} color="#167a7a" />
           </Pane>
-          <Pane label="By seniority">
+          <Pane label={t("catalog.bySeniority")}>
             <BarH
               data={data.by_seniority.map((d) => ({ key: String(d.key), label: d.label, count: d.count }))}
-              ariaLabel="Jobs by seniority"
+              ariaLabel={t("catalog.aria.bySeniority")}
               color="#8755e9"
             />
           </Pane>

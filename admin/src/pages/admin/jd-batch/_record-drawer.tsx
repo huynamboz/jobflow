@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Drawer, DrawerContent, DrawerHeader, DrawerBody } from "@heroui/drawer";
 import {
   IconAlertCircle,
@@ -20,6 +21,7 @@ export function RecordDrawer({ batchId, record, fieldsConfig, onClose }: {
   fieldsConfig: string[];
   onClose: () => void;
 }) {
+  const { t } = useTranslation("llm");
   const [detail, setDetail] = useState<JDBatchRecord | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -48,7 +50,7 @@ export function RecordDrawer({ batchId, record, fieldsConfig, onClose }: {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 {r && <span style={{ fontFamily: "monospace", fontSize: 12, color: T.ink3 }}>#{String(r.index + 1).padStart(2, "0")}</span>}
                 <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: "-0.015em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {r?.title || "Record"}
+                  {r?.title || t("batch.record.record")}
                 </span>
                 {r && <Badge status={r.status as BadgeStatus} />}
               </div>
@@ -57,7 +59,7 @@ export function RecordDrawer({ batchId, record, fieldsConfig, onClose }: {
             {res && (
               <button
                 type="button"
-                title="Copy extracted JSON"
+                title={t("batch.record.copyJson")}
                 onClick={() => navigator.clipboard?.writeText(JSON.stringify(res, null, 2))}
                 style={{ width: 34, height: 34, borderRadius: 12, background: T.surface2, border: "none", display: "grid", placeItems: "center", cursor: "pointer", color: T.ink2, flexShrink: 0 }}
               >
@@ -76,8 +78,8 @@ export function RecordDrawer({ batchId, record, fieldsConfig, onClose }: {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 400 }}>
               {/* Left — raw input */}
               <div style={{ overflow: "auto", padding: "20px 24px", borderRight: `1px solid ${T.line}` }}>
-                <PaneLabel icon={<IconFileText size={12} />} right={`${fieldsConfig.length} fields in prompt`}>
-                  Raw input
+                <PaneLabel icon={<IconFileText size={12} />} right={t("batch.record.fieldsInPrompt", { count: fieldsConfig.length })}>
+                  {t("batch.record.rawInput")}
                 </PaneLabel>
                 {r?.combined_text ? (
                   <pre style={{
@@ -89,18 +91,18 @@ export function RecordDrawer({ batchId, record, fieldsConfig, onClose }: {
                     {r.combined_text}
                   </pre>
                 ) : (
-                  <div style={{ color: T.ink4, fontSize: 13, padding: "24px 0" }}>No combined text stored.</div>
+                  <div style={{ color: T.ink4, fontSize: 13, padding: "24px 0" }}>{t("batch.record.noCombinedText")}</div>
                 )}
               </div>
 
               {/* Right — extracted */}
               <div style={{ overflow: "auto", padding: "20px 24px", background: `color-mix(in oklch,${T.surface2} 70%,white)` }}>
-                <PaneLabel icon={<IconSparkles size={12} />}>Extracted by LLM</PaneLabel>
+                <PaneLabel icon={<IconSparkles size={12} />}>{t("batch.record.extractedByLlm")}</PaneLabel>
 
                 {r?.status === "error" && r.error_msg && (
                   <div style={{ padding: 16, borderRadius: 12, background: T.danger50, border: `1px solid color-mix(in oklch,${T.danger} 20%,transparent)`, marginBottom: 14 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, color: T.danger, fontWeight: 700, fontSize: 13 }}>
-                      <IconAlertCircle size={14} /> Extraction failed
+                      <IconAlertCircle size={14} /> {t("batch.record.extractionFailed")}
                     </div>
                     <div style={{ marginTop: 6, fontSize: 12.5, color: T.ink2 }}>{r.error_msg}</div>
                   </div>
@@ -109,15 +111,15 @@ export function RecordDrawer({ batchId, record, fieldsConfig, onClose }: {
                 {r?.status === "pending" && (
                   <div style={{ padding: "32px 0", textAlign: "center", color: T.ink3 }}>
                     <IconClock size={24} style={{ display: "block", margin: "0 auto 12px" }} />
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>Queued</div>
-                    <div style={{ fontSize: 12, marginTop: 4 }}>Waiting for a worker…</div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{t("batch.record.queued")}</div>
+                    <div style={{ fontSize: 12, marginTop: 4 }}>{t("batch.record.waitingForWorker")}</div>
                   </div>
                 )}
 
                 {r?.status === "processing" && (
                   <div style={{ padding: "32px 0", textAlign: "center", color: T.accent }}>
                     <IconLoader2 size={22} style={{ display: "block", margin: "0 auto 12px", animation: "jb-spin 0.7s linear infinite" }} />
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>Extracting…</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{t("batch.record.extracting")}</div>
                   </div>
                 )}
 

@@ -1,0 +1,56 @@
+{
+  "language": {
+    "label": "Language",
+    "vi": "Tiếng Việt",
+    "en": "English"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "create": "Create",
+    "close": "Close",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "search": "Search",
+    "filter": "Filter",
+    "upload": "Upload",
+    "download": "Download",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "view": "View",
+    "viewAll": "View all",
+    "apply": "Apply",
+    "reset": "Reset",
+    "use": "Use",
+    "logout": "Logout"
+  },
+  "status": {
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "success": "Success",
+    "error": "Error",
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "done": "Done",
+    "failed": "Failed"
+  },
+  "table": {
+    "empty": "No data",
+    "loading": "Loading data…",
+    "rowsPerPage": "Rows per page",
+    "of": "of",
+    "page": "Page"
+  },
+  "toast": {
+    "saved": "Saved",
+    "deleted": "Deleted",
+    "updated": "Updated",
+    "genericError": "Something went wrong, please try again"
+  }
+}

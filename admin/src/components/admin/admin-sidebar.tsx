@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   IconChevronDown,
   IconChevronsLeft,
@@ -49,6 +50,7 @@ export function AdminSidebar({
 }: AdminSidebarProps) {
   const location = useLocation();
   const logout = useAuthStore((state) => state.logout);
+  const { t } = useTranslation(["nav", "common"]);
   // System (all technical tooling) starts collapsed so the staffing workflow leads.
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ System: true });
   // When the mobile drawer is open, isOpen wins — the rail only applies on desktop.
@@ -168,12 +170,12 @@ export function AdminSidebar({
         {/* Nav */}
         <div style={{ flex: 1, overflow: "auto", marginRight: -6, paddingRight: 6, display: "flex", flexDirection: "column", gap: 10 }}>
           {adminConfig.navSections.map((section, sectionIndex) => {
-            const open = !collapsed[section.title];
+            const open = !collapsed[section.id];
             // In the icon rail there is no section header to re-expand from,
             // so always show every item and separate sections with a divider.
             const showItems = mini || open;
             return (
-              <div key={section.title} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <div key={section.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {mini ? (
                   sectionIndex > 0 && (
                     <div style={{ height: 1, background: T.line, margin: "4px 8px 8px" }} />
@@ -181,7 +183,7 @@ export function AdminSidebar({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => toggleSection(section.title)}
+                    onClick={() => toggleSection(section.id)}
                     style={{
                       display: "flex", alignItems: "center", gap: 6,
                       padding: "6px 10px 4px",
@@ -191,7 +193,7 @@ export function AdminSidebar({
                       textAlign: "left", width: "100%",
                     }}
                   >
-                    {section.title}
+                    {t(section.titleKey)}
                     <IconChevronDown
                       size={20}
                       style={{
@@ -207,10 +209,11 @@ export function AdminSidebar({
                 {showItems && section.items.map((item) => {
                   const active = isActive(item.href);
                   const Icon = item.icon;
+                  const label = t(item.labelKey);
                   return (
                     <NavLink
                       key={item.href}
-                      title={mini ? item.label : undefined}
+                      title={mini ? label : undefined}
                       to={item.href}
                       onClick={() => onClose?.()}
                       style={{
@@ -240,7 +243,7 @@ export function AdminSidebar({
                         size={mini ? 18 : 16}
                         style={{ color: active ? T.ink2 : T.ink4, flexShrink: 0 }}
                       />
-                      {!mini && <span>{item.label}</span>}
+                      {!mini && <span>{label}</span>}
                     </NavLink>
                   );
                 })}
@@ -252,7 +255,7 @@ export function AdminSidebar({
         {/* Footer */}
         <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 2 }}>
           <NavLink
-            title={mini ? "Integrations" : undefined}
+            title={mini ? t("nav:items.integrations") : undefined}
             to="/admin/integrations"
             onClick={() => onClose?.()}
             style={{
@@ -265,11 +268,11 @@ export function AdminSidebar({
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.ink2; }}
           >
             <IconPlugConnected size={mini ? 18 : 16} style={{ flexShrink: 0 }} />
-            {!mini && "Integrations"}
+            {!mini && t("nav:items.integrations")}
           </NavLink>
 
           <NavLink
-            title={mini ? "Settings" : undefined}
+            title={mini ? t("nav:items.settings") : undefined}
             to="/admin/settings"
             onClick={() => onClose?.()}
             style={{
@@ -282,11 +285,11 @@ export function AdminSidebar({
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.ink2; }}
           >
             <IconSettings size={mini ? 18 : 16} style={{ flexShrink: 0 }} />
-            {!mini && "Settings"}
+            {!mini && t("nav:items.settings")}
           </NavLink>
 
           <button
-            title={mini ? "Logout" : undefined}
+            title={mini ? t("common:actions.logout") : undefined}
             type="button"
             onClick={logout}
             style={{
@@ -301,7 +304,7 @@ export function AdminSidebar({
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.ink2; }}
           >
             <IconLogout size={mini ? 18 : 16} style={{ flexShrink: 0 }} />
-            {!mini && "Logout"}
+            {!mini && t("common:actions.logout")}
           </button>
         </div>
       </aside>

@@ -6,6 +6,7 @@ interface ListParams {
   job?: number;
   status?: MatchStatus;
   statuses?: string; // comma-separated, e.g. "applied,won,lost"
+  platform?: string; // platform slug — per-platform ranking browse
   assigned_to?: number;
   page?: number;
   page_size?: number;

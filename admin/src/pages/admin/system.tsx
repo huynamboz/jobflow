@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { RefreshCcw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import AuthStateBanner from "@/components/dashboard/AuthStateBanner";
 import CatalogComposition from "@/components/dashboard/CatalogComposition";
@@ -10,6 +11,7 @@ import ModelStatus from "@/components/dashboard/ModelStatus";
 import VerifierExtractorOps from "@/components/dashboard/VerifierExtractorOps";
 
 export default function SystemPage() {
+  const { t } = useTranslation(["settings", "common"]);
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -25,7 +27,7 @@ export default function SystemPage() {
               margin: 0,
             }}
           >
-            System
+            {t("system.title")}
           </h1>
           <p
             style={{
@@ -35,7 +37,7 @@ export default function SystemPage() {
               margin: "4px 0 0",
             }}
           >
-            System health, catalog, model and pipeline ops at a glance.
+            {t("system.subtitle")}
           </p>
         </div>
         <button
@@ -53,7 +55,7 @@ export default function SystemPage() {
           }}
         >
           <RefreshCcw className="size-3.5" strokeWidth={1.75} />
-          Refresh
+          {t("common:actions.refresh")}
         </button>
       </header>
 

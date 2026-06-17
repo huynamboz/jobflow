@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface Datum { key: string; count: number }
@@ -17,10 +18,11 @@ const DEFAULT_COLORS = [
 const fmt = new Intl.NumberFormat();
 
 export default function Donut({ data, height = 220, ariaLabel, colors = DEFAULT_COLORS }: DonutProps) {
+  const { t } = useTranslation("dashboard");
   if (!data.length) {
     return (
-      <div className="flex items-center justify-center py-8 text-sm text-default-400" role="img" aria-label={`${ariaLabel}: no data`}>
-        No data
+      <div className="flex items-center justify-center py-8 text-sm text-default-400" role="img" aria-label={t("chart.noDataAria", { label: ariaLabel })}>
+        {t("chart.noData")}
       </div>
     );
   }

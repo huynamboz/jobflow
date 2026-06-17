@@ -2,12 +2,15 @@ import { Menu, Bell } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Button } from "@heroui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@heroui/popover";
 import { IconArrowDownLeft, IconAlertTriangle, IconBellOff, IconX } from "@tabler/icons-react";
 
 import { useAuthStore } from "@/stores/auth.store";
 import { mailService, type AppNotification } from "@/services/mail.service";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export interface AdminHeaderProps {
   onMenuClick?: () => void;
@@ -20,16 +23,17 @@ const N = {
   blue: "#3582ff", red: "#fe5938", green: "#49ba61",
 };
 
-function relTime(iso: string): string {
+function relTime(iso: string, t: TFunction): string {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return t("relTime.justNow");
+  if (m < 60) return t("relTime.minutesAgo", { count: m });
   const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
+  if (h < 24) return t("relTime.hoursAgo", { count: h });
+  return t("relTime.daysAgo", { count: Math.round(h / 24) });
 }
 
 function NotificationRow({ n, onSelect }: { n: AppNotification; onSelect: (n: AppNotification) => void }) {
+  const { t } = useTranslation("mail");
   const bounce = n.type === "mail_bounce";
   const unread = !n.read_at;
   const [hover, setHover] = useState(false);
@@ -55,7 +59,7 @@ function NotificationRow({ n, onSelect }: { n: AppNotification; onSelect: (n: Ap
           <span className="truncate" style={{ fontSize: 12.5, fontWeight: 600, color: N.ink, letterSpacing: "-0.01em" }}>
             {n.title}
           </span>
-          <span className="ml-auto shrink-0" style={{ fontSize: 10, color: N.muted }}>{relTime(n.created_at)}</span>
+          <span className="ml-auto shrink-0" style={{ fontSize: 10, color: N.muted }}>{relTime(n.created_at, t)}</span>
         </div>
         <div
           style={{ fontSize: 12, color: N.inkSoft, lineHeight: 1.4, marginTop: 2,
@@ -73,6 +77,7 @@ function NotificationRow({ n, onSelect }: { n: AppNotification; onSelect: (n: Ap
 }
 
 function NotificationBell() {
+  const { t } = useTranslation("mail");
   const navigate = useNavigate();
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<AppNotification[]>([]);
@@ -131,7 +136,7 @@ function NotificationBell() {
       {/* bell trigger */}
       <button
         type="button"
-        aria-label="Notifications"
+        aria-label={t("notifications.title")}
         onClick={() => setOpen(true)}
         className="relative inline-flex h-9 w-9 items-center justify-center rounded-[10px] border-0 bg-transparent transition-colors"
         style={{ color: N.inkSoft }}
@@ -171,11 +176,11 @@ function NotificationBell() {
             {/* header */}
             <div className="flex shrink-0 items-center justify-between" style={{ padding: "14px 14px 12px 18px", borderBottom: `1px solid ${N.line}` }}>
               <div className="flex items-center gap-2">
-                <span style={{ fontSize: 14, fontWeight: 600, color: N.ink, letterSpacing: "-0.015em" }}>Notifications</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: N.ink, letterSpacing: "-0.015em" }}>{t("notifications.title")}</span>
                 {panelUnread > 0 && (
                   <span className="inline-flex items-center justify-center rounded-full px-1.5"
                     style={{ height: 16, background: N.c3, color: N.inkSoft, fontSize: 10, fontWeight: 600 }}>
-                    {panelUnread} new
+                    {t("notifications.new", { count: panelUnread })}
                   </span>
                 )}
               </div>
@@ -186,10 +191,10 @@ function NotificationBell() {
                     style={{ fontSize: 11.5, color: N.inkSoft, padding: "4px 8px", borderRadius: 6 }}
                     onMouseEnter={(e) => { e.currentTarget.style.color = N.ink; e.currentTarget.style.background = N.c3; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = N.inkSoft; e.currentTarget.style.background = "transparent"; }}>
-                    Mark all read
+                    {t("notifications.markAllRead")}
                   </button>
                 )}
-                <button type="button" aria-label="Close" onClick={() => setOpen(false)}
+                <button type="button" aria-label={t("notifications.close")} onClick={() => setOpen(false)}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border-0 bg-transparent transition-colors"
                   style={{ color: N.inkSoft }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = N.c3; e.currentTarget.style.color = N.ink; }}
@@ -206,8 +211,8 @@ function NotificationBell() {
                   <span className="grid place-items-center rounded-full" style={{ width: 44, height: 44, background: N.c3, color: N.muted }}>
                     <IconBellOff size={22} strokeWidth={1.5} />
                   </span>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: N.inkSoft }}>You're all caught up</div>
-                  <p style={{ fontSize: 11.5, color: N.muted }}>Recruiter replies will show up here.</p>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: N.inkSoft }}>{t("notifications.allCaughtUp")}</div>
+                  <p style={{ fontSize: 11.5, color: N.muted }}>{t("notifications.emptyHint")}</p>
                 </div>
               ) : (
                 <div className="space-y-0.5">
@@ -220,7 +225,7 @@ function NotificationBell() {
             <div className="flex shrink-0 items-center justify-center" style={{ padding: "10px 12px", borderTop: `1px solid ${N.line}`, background: N.c2 }}>
               <button type="button" onClick={() => { setOpen(false); navigate("/admin/mail"); }}
                 className="cursor-pointer border-0 bg-transparent" style={{ fontSize: 12, color: N.blue, fontWeight: 500, padding: "4px 8px" }}>
-                View all mail
+                {t("notifications.viewAllMail")}
               </button>
             </div>
           </div>
@@ -254,6 +259,7 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
 
       {/* Right */}
       <div className="flex items-center gap-1">
+        <LanguageSwitcher />
         <NotificationBell />
 
         {user && (

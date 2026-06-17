@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { dashboardService } from "@/services/dashboard.service";
 import type { OpsHealth } from "@/types/dashboard.types";
 
@@ -79,6 +81,7 @@ function CoverageCard({
 }
 
 export default function VerifierExtractorOps({ refreshKey }: Props) {
+  const { t } = useTranslation("dashboard");
   const { data, loading, error, reload } = useDashboardSection<OpsHealth>(
     () => dashboardService.getOps(),
     refreshKey,
@@ -90,8 +93,8 @@ export default function VerifierExtractorOps({ refreshKey }: Props) {
 
   return (
     <SectionCard
-      title="Verifier & extractor ops"
-      description="Coverage and recent runs"
+      title={t("ops.title")}
+      description={t("ops.description")}
       loading={loading} error={error} empty={empty}
       onRetry={reload}
     >
@@ -99,34 +102,34 @@ export default function VerifierExtractorOps({ refreshKey }: Props) {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="grid gap-3 sm:grid-cols-2">
             <CoverageCard
-              title="LinkedIn jobs with date_posted"
+              title={t("ops.coverageDatePosted")}
               pct={data.coverage.linkedin_with_date_posted_pct}
               color="var(--blue)"
             />
             <CoverageCard
-              title="Verified in last 30 days"
+              title={t("ops.coverageVerified30d")}
               pct={data.coverage.linkedin_verified_last_30d_pct}
               color="var(--green)"
             />
           </div>
 
           <div>
-            <p style={NODE_DESC}>Recent runs ({data.recent_runs.length})</p>
+            <p style={NODE_DESC}>{t("ops.recentRuns", { count: data.recent_runs.length })}</p>
             <div className="overflow-x-auto mt-2">
               <table className="w-full text-left">
                 <thead>
                   <tr style={{ font: "500 11px/16px var(--font-node-sans)", color: "var(--muted)" }}>
-                    <th className="py-2 pr-3 font-normal">When</th>
-                    <th className="py-2 pr-3 font-normal">Command</th>
-                    <th className="py-2 pr-3 font-normal">Examined</th>
-                    <th className="py-2 pr-3 font-normal">Wall</th>
-                    <th className="py-2 pr-3 font-normal">Outcomes</th>
+                    <th className="py-2 pr-3 font-normal">{t("ops.table.when")}</th>
+                    <th className="py-2 pr-3 font-normal">{t("ops.table.command")}</th>
+                    <th className="py-2 pr-3 font-normal">{t("ops.table.examined")}</th>
+                    <th className="py-2 pr-3 font-normal">{t("ops.table.wall")}</th>
+                    <th className="py-2 pr-3 font-normal">{t("ops.table.outcomes")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.recent_runs.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ ...NODE_DESC, padding: "12px 0" }}>No runs yet</td>
+                      <td colSpan={5} style={{ ...NODE_DESC, padding: "12px 0" }}>{t("ops.noRuns")}</td>
                     </tr>
                   )}
                   {data.recent_runs.map((r) => (
@@ -136,15 +139,15 @@ export default function VerifierExtractorOps({ refreshKey }: Props) {
                         style={NODE_META}
                         title={r.started_at}
                       >
-                        {timeAgo(r.started_at)} ago
+                        {t("ops.ago", { time: timeAgo(r.started_at) })}
                       </td>
                       <td
                         className="py-2.5 pr-3 whitespace-nowrap"
                         style={{ font: "500 12px/16px var(--font-node-sans)", color: "var(--ink)" }}
                       >
-                        {r.command === "verify_job_status" ? "verify" : "extract"}
+                        {r.command === "verify_job_status" ? t("ops.verify") : t("ops.extract")}
                         {r.dry_run && (
-                          <span style={{ marginLeft: 6, ...NODE_META }}>dry</span>
+                          <span style={{ marginLeft: 6, ...NODE_META }}>{t("ops.dry")}</span>
                         )}
                       </td>
                       <td className="py-2.5 pr-3" style={{ font: "400 12px/16px var(--font-node-mono)", color: "var(--ink)" }}>

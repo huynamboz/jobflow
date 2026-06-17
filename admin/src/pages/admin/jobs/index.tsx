@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Briefcase, ChevronLeft, ChevronRight,
   Download, Grid3x3, List, Plus, RefreshCw, Search, Sparkles, Tag,
@@ -7,7 +8,7 @@ import {
 
 import { jobService } from "@/services/job.service";
 import type { AdminPlatform, JobListItem } from "@/types/job.types";
-import { PlatformDot, SENIORITY_LABEL } from "./_primitives";
+import { PlatformDot, SENIORITY_LABEL_KEY } from "./_primitives";
 import { JobCard, JobRow } from "./_job-card";
 import { DetailDrawer } from "./_job-drawer";
 
@@ -169,6 +170,7 @@ function ProviderPill({
 /* ── Main page ─────────────────────────────────────────────────────── */
 export default function JobsPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation("jobs");
   const [items, setItems] = useState<JobListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -247,7 +249,7 @@ export default function JobsPage() {
               margin: 0,
             }}
           >
-            All{" "}
+            {t("list.titlePrefix")}{" "}
             <em
               style={{
                 fontFamily: "Georgia, serif",
@@ -256,30 +258,35 @@ export default function JobsPage() {
                 color: "var(--blue)",
               }}
             >
-              jobs
+              {t("list.titleEmphasis")}
             </em>
           </h1>
           <div
             className="mt-1.5"
             style={{ font: "400 13px/18px var(--font-node-sans)", color: "var(--muted)" }}
           >
-            {total.toLocaleString()} postings · {platforms.length} platform{platforms.length !== 1 ? "s" : ""} · {activeCount} active, {inactiveCount} inactive
+            {t("list.summary", {
+              count: total.toLocaleString(),
+              platforms: t("list.platforms", { count: platforms.length }),
+              active: activeCount,
+              inactive: inactiveCount,
+            })}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <GhostBtn icon={<RefreshCw className="size-[13px]" />}>Re-scrape</GhostBtn>
+          <GhostBtn icon={<RefreshCw className="size-[13px]" />}>{t("list.rescrape")}</GhostBtn>
           <GhostBtn
             icon={<Download className="size-[14px]" />}
             onClick={async () => { setExporting(true); try { await jobService.exportJDs(); } finally { setExporting(false); } }}
             disabled={exporting}
           >
-            {exporting ? "Exporting…" : "Export"}
+            {exporting ? t("list.exporting") : t("list.export")}
           </GhostBtn>
           <AccentBtn
             icon={<Plus className="size-[14px]" strokeWidth={2.4} />}
             onClick={() => navigate("/admin/jd-batch/new")}
           >
-            New batch from jobs
+            {t("list.newBatch")}
           </AccentBtn>
         </div>
       </header>
@@ -309,7 +316,7 @@ export default function JobsPage() {
           />
           <input
             type="text"
-            placeholder="Search title, company, skill…"
+            placeholder={t("list.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
@@ -334,9 +341,9 @@ export default function JobsPage() {
           value={activeFilter}
           onChange={setActiveFilter}
           options={[
-            { value: "", label: `All · ${total}` },
-            { value: "active", label: `Active · ${activeCount}` },
-            { value: "inactive", label: `Inactive · ${inactiveCount}` },
+            { value: "", label: t("filter.all", { count: total }) },
+            { value: "active", label: t("filter.active", { count: activeCount }) },
+            { value: "inactive", label: t("filter.inactive", { count: inactiveCount }) },
           ]}
         />
 
@@ -344,10 +351,10 @@ export default function JobsPage() {
           value={jobType}
           onChange={handleWorkMode}
           options={[
-            { value: "", label: "Any" },
-            { value: "remote", label: "Remote" },
-            { value: "hybrid", label: "Hybrid" },
-            { value: "on-site", label: "On-site" },
+            { value: "", label: t("filter.any") },
+            { value: "remote", label: t("filter.remote") },
+            { value: "hybrid", label: t("filter.hybrid") },
+            { value: "on-site", label: t("filter.onSite") },
           ]}
         />
 
@@ -365,9 +372,9 @@ export default function JobsPage() {
             outline: "none",
           }}
         >
-          <option value="">All levels</option>
-          {Object.entries(SENIORITY_LABEL).map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
+          <option value="">{t("filter.allLevels")}</option>
+          {Object.entries(SENIORITY_LABEL_KEY).map(([v, k]) => (
+            <option key={v} value={v}>{t(k)}</option>
           ))}
         </select>
 
@@ -396,13 +403,13 @@ export default function JobsPage() {
             color: "var(--blue)",
           }}
         >
-          <span><strong>{selectedIds.size}</strong> selected</span>
+          <span><strong>{selectedIds.size}</strong> {t("selection.selected")}</span>
           <button
             type="button"
             onClick={clearSel}
             style={{ background: "transparent", border: "none", color: "rgba(53,130,255,0.6)", cursor: "pointer", font: "500 12.5px/16px var(--font-node-sans)" }}
           >
-            Clear
+            {t("selection.clear")}
           </button>
           <div className="ml-auto flex items-center gap-1.5">
             <button
@@ -419,7 +426,7 @@ export default function JobsPage() {
                 boxShadow: "var(--shadow-btn)",
               }}
             >
-              <Tag className="size-3" /> Tag…
+              <Tag className="size-3" /> {t("selection.tag")}
             </button>
             <button
               type="button"
@@ -435,7 +442,7 @@ export default function JobsPage() {
                 boxShadow: "var(--shadow-btn)",
               }}
             >
-              <Download className="size-3" /> Export {selectedIds.size}
+              <Download className="size-3" /> {t("selection.export", { count: selectedIds.size })}
             </button>
             <button
               type="button"
@@ -452,7 +459,7 @@ export default function JobsPage() {
                 boxShadow: "var(--shadow-btn)",
               }}
             >
-              <Sparkles className="size-3" /> Extract {selectedIds.size} jobs
+              <Sparkles className="size-3" /> {t("selection.extract", { count: selectedIds.size })}
             </button>
           </div>
         </div>
@@ -464,7 +471,7 @@ export default function JobsPage() {
           className="flex items-center justify-center"
           style={{ padding: "64px 0", color: "var(--muted)", font: "400 13px/18px var(--font-node-sans)" }}
         >
-          Loading…
+          {t("list.loading")}
         </div>
       ) : filtered.length === 0 ? (
         <div
@@ -480,7 +487,7 @@ export default function JobsPage() {
         >
           <Briefcase className="size-8" strokeWidth={1.5} />
           <p style={{ font: "400 13px/18px var(--font-node-sans)", margin: 0 }}>
-            No jobs match these filters.
+            {t("list.empty")}
           </p>
         </div>
       ) : view === "grid" ? (
@@ -525,7 +532,7 @@ export default function JobsPage() {
                       style={{ accentColor: "var(--blue)" }}
                     />
                   </th>
-                  {["Job", "Location", "Posted", "Salary", "Status", ""].map((h, i) => (
+                  {[t("table.job"), t("table.location"), t("table.posted"), t("table.salary"), t("table.status"), ""].map((h, i) => (
                     <th
                       key={i}
                       className="px-4 py-3"
@@ -565,7 +572,7 @@ export default function JobsPage() {
       {!loading && totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between">
           <span style={{ font: "400 12.5px/16px var(--font-node-sans)", color: "var(--muted)" }}>
-            Page {page} of {totalPages} · {total.toLocaleString()} total
+            {t("list.pageInfo", { page, totalPages, total: total.toLocaleString() })}
           </span>
           <div className="flex gap-1">
             <button

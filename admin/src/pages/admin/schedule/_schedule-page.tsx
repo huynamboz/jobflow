@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PlayCircle, RefreshCcw, Save, Square } from "lucide-react";
+import type { TFunction } from "i18next";
 
 import { scheduleService } from "@/services/schedule.service";
 import type {
@@ -82,18 +84,19 @@ function GhostBtn({
   );
 }
 
-function timeAgo(iso: string | null | undefined): string {
+function timeAgo(t: TFunction, iso: string | null | undefined): string {
   if (!iso) return "—";
   const sec = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (sec < 60) return `${Math.round(sec)}s ago`;
-  if (sec < 3600) return `${Math.round(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.round(sec / 3600)}h ago`;
-  return `${Math.round(sec / 86400)}d ago`;
+  if (sec < 60) return t("timeAgo.seconds", { count: Math.round(sec) });
+  if (sec < 3600) return t("timeAgo.minutes", { count: Math.round(sec / 60) });
+  if (sec < 86400) return t("timeAgo.hours", { count: Math.round(sec / 3600) });
+  return t("timeAgo.days", { count: Math.round(sec / 86400) });
 }
 
 /* ─── Page ───────────────────────────────────────────────────────── */
 
 export default function SchedulePage({ command, title, description, showCrawlOptions = true }: Props) {
+  const { t } = useTranslation("schedule");
   const [config, setConfig] = useState<ScheduleConfig | null>(null);
   const [history, setHistory] = useState<ScheduleHistory | null>(null);
   const [loading, setLoading] = useState(true);
@@ -135,7 +138,7 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
         headless: c.headless,
       });
     } catch (e: any) {
-      setError(e?.message || "Failed to load");
+      setError(e?.message || t("errors.load"));
     } finally {
       setLoading(false);
     }
@@ -191,7 +194,7 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
       });
       setConfig(updated);
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || e?.message || "Save failed");
+      setError(e?.response?.data?.error?.message || e?.message || t("errors.save"));
     } finally {
       setSaving(false);
     }
@@ -206,7 +209,7 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
       offsetRef.current = 0;
       setLogText("");
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || e?.message || "Start failed");
+      setError(e?.response?.data?.error?.message || e?.message || t("errors.start"));
     } finally {
       setStarting(false);
     }
@@ -219,7 +222,7 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
       const updated = await scheduleService.stop(command);
       setConfig(updated);
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || e?.message || "Stop failed");
+      setError(e?.response?.data?.error?.message || e?.message || t("errors.stop"));
     } finally {
       setStopping(false);
     }
@@ -237,27 +240,27 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
             {description}
           </p>
         </div>
-        <GhostBtn icon={<RefreshCcw className="size-3.5" />} onClick={refresh}>Refresh</GhostBtn>
+        <GhostBtn icon={<RefreshCcw className="size-3.5" />} onClick={refresh}>{t("common:actions.refresh")}</GhostBtn>
       </header>
 
       {/* ── Pending workload ── */}
       <div className="grid gap-4 sm:grid-cols-2">
         <section style={CARD}>
-          <p style={LABEL}>Jobs needing verify</p>
+          <p style={LABEL}>{t("pending.verifyTitle")}</p>
           <p style={{ ...VALUE, fontSize: 28 }}>
             {config?.pending?.verify?.toLocaleString() ?? "—"}
           </p>
           <p style={{ font: "400 11px/16px var(--font-node-mono)", color: "var(--muted)" }}>
-            active|stale ∩ backoff cleared
+            {t("pending.verifyHint")}
           </p>
         </section>
         <section style={CARD}>
-          <p style={LABEL}>Jobs needing date parse</p>
+          <p style={LABEL}>{t("pending.extractTitle")}</p>
           <p style={{ ...VALUE, fontSize: 28 }}>
             {config?.pending?.extract?.toLocaleString() ?? "—"}
           </p>
           <p style={{ font: "400 11px/16px var(--font-node-mono)", color: "var(--muted)" }}>
-            same set ∩ date_posted IS NULL
+            {t("pending.extractHint")}
           </p>
         </section>
       </div>
@@ -283,10 +286,10 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 style={{ font: "600 13px/18px var(--font-node-sans)", letterSpacing: "-0.01em", color: "var(--ink)", margin: 0 }}>
-                Schedule config
+                {t("config.title")}
               </h2>
               <p style={{ font: "400 12px/16px var(--font-node-sans)", color: "var(--muted)", margin: "2px 0 0" }}>
-                Daemon picks up new values on its next tick (≤60s).
+                {t("config.subtitle")}
               </p>
             </div>
           </div>
@@ -299,16 +302,16 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
                 onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
                 style={{ accentColor: "var(--blue)", width: 16, height: 16 }}
               />
-              <span style={{ font: "500 13px/18px var(--font-node-sans)", color: "var(--ink)" }}>Enabled</span>
+              <span style={{ font: "500 13px/18px var(--font-node-sans)", color: "var(--ink)" }}>{t("config.enabled")}</span>
               <span style={{ font: "400 12px/16px var(--font-node-sans)", color: "var(--muted)" }}>
-                — daemon may auto-fire at the configured hours
+                {t("config.enabledHint")}
               </span>
             </label>
 
             <div className="grid gap-3 sm:grid-cols-2">
               {showCrawlOptions && (
                 <div>
-                  <p style={LABEL}>Batch size</p>
+                  <p style={LABEL}>{t("config.batchSize")}</p>
                   <input
                     type="number"
                     min={1}
@@ -325,7 +328,7 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
                 </div>
               )}
               <div>
-                <p style={LABEL}>Hours (UTC, comma-sep)</p>
+                <p style={LABEL}>{t("config.hoursLabel")}</p>
                 <input
                   type="text"
                   value={form.hours_utc}
@@ -351,7 +354,7 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
                     style={{ accentColor: "var(--blue)", width: 16, height: 16 }}
                   />
                   <span style={{ font: "500 13px/18px var(--font-node-sans)", color: "var(--ink)" }}>
-                    Use --no-auth-check (guest mode)
+                    {t("config.noAuthCheck")}
                   </span>
                 </label>
 
@@ -362,9 +365,9 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
                     onChange={(e) => setForm({ ...form, headless: e.target.checked })}
                     style={{ accentColor: "var(--blue)", width: 16, height: 16 }}
                   />
-                  <span style={{ font: "500 13px/18px var(--font-node-sans)", color: "var(--ink)" }}>Headless</span>
+                  <span style={{ font: "500 13px/18px var(--font-node-sans)", color: "var(--ink)" }}>{t("config.headless")}</span>
                   <span style={{ font: "400 12px/16px var(--font-node-sans)", color: "var(--muted)" }}>
-                    — uncheck to see the Chromium window
+                    {t("config.headlessHint")}
                   </span>
                 </label>
               </>
@@ -377,11 +380,11 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
                 disabled={saving}
                 tone="primary"
               >
-                {saving ? "Saving…" : "Save config"}
+                {saving ? t("common:status.saving") : t("config.saveConfig")}
               </GhostBtn>
               {config?.last_fired_at && (
                 <span style={{ font: "400 11px/16px var(--font-node-mono)", color: "var(--muted)" }}>
-                  last fired {timeAgo(config.last_fired_at)}
+                  {t("config.lastFired", { time: timeAgo(t, config.last_fired_at) })}
                 </span>
               )}
             </div>
@@ -390,26 +393,26 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
 
         <section style={CARD}>
           <h2 style={{ font: "600 13px/18px var(--font-node-sans)", letterSpacing: "-0.01em", color: "var(--ink)", margin: 0 }}>
-            Active run
+            {t("run.title")}
           </h2>
           <p style={{ font: "400 12px/16px var(--font-node-sans)", color: "var(--muted)", margin: "2px 0 0" }}>
-            One-off invocation, or watch the daemon's currently-running batch.
+            {t("run.subtitle")}
           </p>
 
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p style={LABEL}>Status</p>
+                <p style={LABEL}>{t("run.status")}</p>
                 <p style={{ ...VALUE, fontSize: 18 }}>
                   {config?.active_run.is_alive ? (
-                    <span style={{ color: "var(--green)" }}>● running</span>
+                    <span style={{ color: "var(--green)" }}>{t("run.running")}</span>
                   ) : (
-                    <span style={{ color: "var(--muted)" }}>idle</span>
+                    <span style={{ color: "var(--muted)" }}>{t("run.idle")}</span>
                   )}
                 </p>
               </div>
               <div>
-                <p style={LABEL}>PID</p>
+                <p style={LABEL}>{t("run.pid")}</p>
                 <p style={{ ...VALUE, fontSize: 18, fontFamily: "var(--font-node-mono)" }}>
                   {config?.active_run.pid ?? "—"}
                 </p>
@@ -418,7 +421,10 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
 
             {config?.active_run.started_at && (
               <p style={{ font: "400 11px/16px var(--font-node-mono)", color: "var(--muted)" }}>
-                started {timeAgo(config.active_run.started_at)} · log: {config.active_run.log_path?.split("/").pop()}
+                {t("run.startedAt", {
+                  time: timeAgo(t, config.active_run.started_at),
+                  logName: config.active_run.log_path?.split("/").pop(),
+                })}
               </p>
             )}
 
@@ -429,7 +435,7 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
                 disabled={!!config?.active_run.is_alive || starting || stopping}
                 tone="success"
               >
-                {starting ? "Starting…" : "Run now"}
+                {starting ? t("run.starting") : t("run.runNow")}
               </GhostBtn>
               <GhostBtn
                 icon={<Square className="size-3.5" />}
@@ -437,7 +443,7 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
                 disabled={!config?.active_run.is_alive || stopping || starting}
                 tone="danger"
               >
-                {stopping ? "Stopping…" : "Stop"}
+                {stopping ? t("run.stopping") : t("run.stop")}
               </GhostBtn>
             </div>
           </div>
@@ -449,10 +455,10 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
         <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <h2 style={{ font: "600 13px/18px var(--font-node-sans)", letterSpacing: "-0.01em", color: "var(--ink)", margin: 0 }}>
-              Live log
+              {t("log.title")}
             </h2>
             <p style={{ font: "400 11px/16px var(--font-node-mono)", color: "var(--muted)", margin: "2px 0 0" }}>
-              {config?.active_run.is_alive ? "polling every 2s" : "idle — last run captured below"}
+              {config?.active_run.is_alive ? t("log.polling") : t("log.idle")}
             </p>
           </div>
           {config?.active_run.is_alive && (
@@ -474,30 +480,30 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
             borderBottomRightRadius: 24,
           }}
         >
-          {logText || (loading ? "Loading…" : "(no output yet)")}
+          {logText || (loading ? t("log.loading") : t("log.noOutput"))}
         </pre>
       </section>
 
       {/* ── History ── */}
       <section style={CARD}>
         <h2 style={{ font: "600 13px/18px var(--font-node-sans)", letterSpacing: "-0.01em", color: "var(--ink)", margin: 0 }}>
-          Recent runs ({history?.runs.length ?? 0})
+          {t("history.title", { count: history?.runs.length ?? 0 })}
         </h2>
         <div className="overflow-x-auto" style={{ marginTop: 8 }}>
           <table className="w-full text-left">
             <thead>
               <tr style={{ font: "600 10.5px/14px var(--font-node-mono)", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
-                <th className="py-2 pr-3 font-normal">When</th>
-                <th className="py-2 pr-3 font-normal">Wall</th>
-                <th className="py-2 pr-3 font-normal">Examined</th>
-                <th className="py-2 pr-3 font-normal">Outcomes</th>
+                <th className="py-2 pr-3 font-normal">{t("history.when")}</th>
+                <th className="py-2 pr-3 font-normal">{t("history.wall")}</th>
+                <th className="py-2 pr-3 font-normal">{t("history.examined")}</th>
+                <th className="py-2 pr-3 font-normal">{t("history.outcomes")}</th>
               </tr>
             </thead>
             <tbody>
               {(history?.runs ?? []).map((r) => (
                 <tr key={r.id} style={{ borderTop: "1px solid var(--line)" }}>
                   <td className="py-2.5 pr-3 whitespace-nowrap" style={{ font: "400 12px/16px var(--font-node-mono)", color: "var(--ink-soft)" }} title={r.started_at}>
-                    {timeAgo(r.started_at)}
+                    {timeAgo(t, r.started_at)}
                   </td>
                   <td className="py-2.5 pr-3" style={{ font: "400 12px/16px var(--font-node-mono)", color: "var(--muted)" }}>
                     {r.wall_clock_s.toFixed(1)}s
@@ -525,7 +531,7 @@ export default function SchedulePage({ command, title, description, showCrawlOpt
               ))}
               {(!history || history.runs.length === 0) && (
                 <tr><td colSpan={4} style={{ font: "400 12px/16px var(--font-node-sans)", color: "var(--muted)", padding: "12px 0" }}>
-                  No runs yet
+                  {t("history.empty")}
                 </td></tr>
               )}
             </tbody>

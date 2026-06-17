@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardBody } from "@heroui/card";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
 import { Input } from "@heroui/input";
@@ -22,6 +23,7 @@ function ProviderModal({
   onClose: () => void;
   onSaved: (p: LLMProvider) => void;
 }) {
+  const { t } = useTranslation("llm");
   const [form, setForm] = useState<LLMProviderWrite>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -51,7 +53,7 @@ function ProviderModal({
         : await llmService.create(payload);
       onSaved(saved);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Save failed.");
+      setError(err instanceof Error ? err.message : t("providers.errors.save"));
     } finally {
       setSaving(false);
     }
@@ -61,7 +63,7 @@ function ProviderModal({
     <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()} size="md" placement="center">
       <ModalContent>
         <form onSubmit={handleSubmit}>
-          <ModalHeader>{provider ? "Edit Provider" : "Add Provider"}</ModalHeader>
+          <ModalHeader>{provider ? t("providers.modal.editTitle") : t("providers.modal.addTitle")}</ModalHeader>
 
           <ModalBody className="gap-4">
             {error && (
@@ -69,39 +71,39 @@ function ProviderModal({
             )}
 
             <Select
-              label="Client Type"
+              label={t("providers.modal.clientType")}
               size="sm"
               selectedKeys={[form.client_type]}
               onSelectionChange={(keys) => set("client_type", Array.from(keys)[0] as LLMClientType)}
             >
-              <SelectItem key="openai">OpenAI Compatible (/chat/completions)</SelectItem>
-              <SelectItem key="messages">Messages API (/messages)</SelectItem>
+              <SelectItem key="openai">{t("providers.modal.clientOpenai")}</SelectItem>
+              <SelectItem key="messages">{t("providers.modal.clientMessages")}</SelectItem>
             </Select>
 
-            <Input label="Name" size="sm" isRequired value={form.name}
+            <Input label={t("providers.modal.name")} size="sm" isRequired value={form.name}
               onValueChange={(v) => set("name", v)} placeholder="OpenAI" />
 
-            <Input label="Model" size="sm" isRequired value={form.model}
+            <Input label={t("providers.modal.model")} size="sm" isRequired value={form.model}
               onValueChange={(v) => set("model", v)} placeholder="gpt-4o-mini" />
 
-            <Input label="Base URL" size="sm" value={form.base_url}
+            <Input label={t("providers.modal.baseUrl")} size="sm" value={form.base_url}
               onValueChange={(v) => set("base_url", v)} placeholder="https://api.openai.com/v1" />
 
             <Input
-              label="API Key"
+              label={t("providers.modal.apiKey")}
               size="sm"
               type="password"
               isRequired={!provider}
               value={form.api_key}
               onValueChange={(v) => set("api_key", v)}
-              placeholder={provider ? "Leave blank to keep current" : "sk-..."}
-              description={provider ? "Leave blank to keep current key" : undefined}
+              placeholder={provider ? t("providers.modal.apiKeyPlaceholderKeep") : t("providers.modal.apiKeyPlaceholderNew")}
+              description={provider ? t("providers.modal.apiKeyDescription") : undefined}
             />
           </ModalBody>
 
           <ModalFooter>
-            <Button variant="flat" onPress={onClose}>Cancel</Button>
-            <Button type="submit" color="primary" isLoading={saving}>Save</Button>
+            <Button variant="flat" onPress={onClose}>{t("common:actions.cancel")}</Button>
+            <Button type="submit" color="primary" isLoading={saving}>{t("common:actions.save")}</Button>
           </ModalFooter>
         </form>
       </ModalContent>
@@ -110,6 +112,7 @@ function ProviderModal({
 }
 
 export default function LLMProvidersPage() {
+  const { t } = useTranslation("llm");
   const [providers, setProviders] = useState<LLMProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalProvider, setModalProvider] = useState<LLMProvider | "new" | null>(null);
@@ -149,7 +152,7 @@ export default function LLMProvidersPage() {
       const updated = await llmService.activate(id);
       setProviders((prev) => prev.map((p) => ({ ...p, is_active: p.id === updated.id })));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Activate failed.");
+      setError(err instanceof Error ? err.message : t("providers.errors.activate"));
     } finally {
       setActivatingId(null);
     }
@@ -161,21 +164,21 @@ export default function LLMProvidersPage() {
       const result = await llmService.test(id);
       setTestResults((prev) => ({ ...prev, [id]: result }));
     } catch (err: unknown) {
-      setTestResults((prev) => ({ ...prev, [id]: { ok: false, message: err instanceof Error ? err.message : "Test failed." } }));
+      setTestResults((prev) => ({ ...prev, [id]: { ok: false, message: err instanceof Error ? err.message : t("providers.errors.test") } }));
     } finally {
       setTestingId(null);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Delete this provider?")) return;
+    if (!window.confirm(t("providers.confirm.delete"))) return;
     setDeletingId(id);
     setError("");
     try {
       await llmService.delete(id);
       setProviders((prev) => prev.filter((p) => p.id !== id));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Delete failed.");
+      setError(err instanceof Error ? err.message : t("providers.errors.delete"));
     } finally {
       setDeletingId(null);
     }
@@ -185,14 +188,14 @@ export default function LLMProvidersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-default-900">LLM Providers</h1>
-          <p className="text-default-500">{providers.length} provider{providers.length !== 1 ? "s" : ""} configured</p>
+          <h1 className="text-2xl font-bold text-default-900">{t("providers.title")}</h1>
+          <p className="text-default-500">{t("providers.count", { count: providers.length })}</p>
         </div>
         <button
           onClick={() => setModalProvider("new")}
           className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
-          <Plus className="size-4" /> Add Provider
+          <Plus className="size-4" /> {t("providers.add")}
         </button>
       </div>
 
@@ -203,25 +206,25 @@ export default function LLMProvidersPage() {
       <Card className="shadow-sm">
         <CardBody className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-default-400">Loading…</div>
+            <div className="flex items-center justify-center py-16 text-default-400">{t("providers.loading")}</div>
           ) : providers.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-default-400">
               <Bot className="size-8" />
-              <p>No LLM providers yet.</p>
+              <p>{t("providers.empty")}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-b border-default-100 bg-default-50 text-xs font-semibold uppercase tracking-wide text-default-500">
                   <tr>
-                    <th className="px-4 py-3 text-left">Name</th>
-                    <th className="px-4 py-3 text-left">Model</th>
-                    <th className="px-4 py-3 text-left">Base URL</th>
-                    <th className="px-4 py-3 text-left">API Key</th>
-                    <th className="px-4 py-3 text-left">Status</th>
-                    <th className="px-4 py-3 text-left">Test</th>
-                    <th className="px-4 py-3 text-left">Updated</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+                    <th className="px-4 py-3 text-left">{t("providers.table.name")}</th>
+                    <th className="px-4 py-3 text-left">{t("providers.table.model")}</th>
+                    <th className="px-4 py-3 text-left">{t("providers.table.baseUrl")}</th>
+                    <th className="px-4 py-3 text-left">{t("providers.table.apiKey")}</th>
+                    <th className="px-4 py-3 text-left">{t("providers.table.status")}</th>
+                    <th className="px-4 py-3 text-left">{t("providers.table.test")}</th>
+                    <th className="px-4 py-3 text-left">{t("providers.table.updated")}</th>
+                    <th className="px-4 py-3 text-right">{t("providers.table.actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-default-100">
@@ -235,16 +238,16 @@ export default function LLMProvidersPage() {
                       <td className="px-4 py-3 font-mono text-xs text-default-400">{p.api_key}</td>
                       <td className="px-4 py-3">
                         {p.is_active ? (
-                          <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Active</span>
+                          <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">{t("providers.status.active")}</span>
                         ) : (
-                          <span className="rounded-full bg-default-100 px-2.5 py-1 text-xs text-default-500">Inactive</span>
+                          <span className="rounded-full bg-default-100 px-2.5 py-1 text-xs text-default-500">{t("providers.status.inactive")}</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         {testResults[p.id] ? (
                           <span className={`flex items-center gap-1 text-xs ${testResults[p.id].ok ? "text-green-600" : "text-red-500"}`}>
                             {testResults[p.id].ok ? <CheckCircle className="size-3.5" /> : <XCircle className="size-3.5" />}
-                            {testResults[p.id].ok ? "OK" : "Fail"}
+                            {testResults[p.id].ok ? t("providers.test.ok") : t("providers.test.fail")}
                           </span>
                         ) : (
                           <span className="text-xs text-default-300">—</span>
@@ -257,7 +260,7 @@ export default function LLMProvidersPage() {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setModalProvider(p)}
-                            title="Edit"
+                            title={t("providers.tooltip.edit")}
                             className="rounded-lg p-1.5 text-default-400 hover:bg-default-100 hover:text-default-700"
                           >
                             <Pencil className="size-4" />
@@ -265,7 +268,7 @@ export default function LLMProvidersPage() {
                           <button
                             onClick={() => handleTest(p.id)}
                             disabled={testingId === p.id}
-                            title="Test connection"
+                            title={t("providers.tooltip.test")}
                             className="rounded-lg p-1.5 text-default-400 hover:bg-default-100 hover:text-blue-600 disabled:opacity-40"
                           >
                             {testingId === p.id ? <Loader className="size-4 animate-spin" /> : <Zap className="size-4" />}
@@ -274,7 +277,7 @@ export default function LLMProvidersPage() {
                             <button
                               onClick={() => handleActivate(p.id)}
                               disabled={activatingId === p.id}
-                              title="Set as active"
+                              title={t("providers.tooltip.activate")}
                               className="rounded-lg p-1.5 text-default-400 hover:bg-green-50 hover:text-green-600 disabled:opacity-40"
                             >
                               {activatingId === p.id ? <Loader className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}
@@ -283,7 +286,7 @@ export default function LLMProvidersPage() {
                           <button
                             onClick={() => handleDelete(p.id)}
                             disabled={p.is_active || deletingId === p.id}
-                            title={p.is_active ? "Cannot delete active provider" : "Delete"}
+                            title={p.is_active ? t("providers.tooltip.cannotDeleteActive") : t("providers.tooltip.delete")}
                             className="rounded-lg p-1.5 text-default-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30"
                           >
                             {deletingId === p.id ? <Loader className="size-4 animate-spin" /> : <Trash2 className="size-4" />}

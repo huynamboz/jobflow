@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
@@ -19,6 +20,7 @@ import { LIMIT_OPTIONS } from "./_tokens";
 import { Badge, Card, CardBody, CardHead, FieldChip, KeyframeStyle } from "./_primitives";
 
 export default function JDBatchNew() {
+  const { t } = useTranslation("llm");
   const navigate = useNavigate();
   const [step, setStep] = useState<0 | 1>(0);
   const [file, setFile] = useState<File | null>(null);
@@ -48,7 +50,7 @@ export default function JDBatchNew() {
       const prefer = ["title", "description", "seniority_hint", "raw_skills"];
       setSelectedFields(data.fields.filter((x) => prefer.includes(x)));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to read file");
+      setError(e instanceof Error ? e.message : t("batch.new.errors.readFile"));
     } finally {
       setLoading(false);
     }
@@ -72,12 +74,12 @@ export default function JDBatchNew() {
       const batch = await jobService.createBatch(file, selectedFields, effectiveLimit, workers);
       navigate(`/admin/jd-batch/${batch.id}`);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to start batch");
+      setError(e instanceof Error ? e.message : t("batch.new.errors.startBatch"));
       setStarting(false);
     }
   };
 
-  const steps = ["Upload", "Fields & prompt", "Run"];
+  const steps = [t("batch.new.steps.upload"), t("batch.new.steps.fieldsPrompt"), t("batch.new.steps.run")];
 
   return (
     <div className="flex flex-col gap-5">
@@ -87,10 +89,10 @@ export default function JDBatchNew() {
       <div className="flex flex-col sm:flex-row sm:items-end gap-3">
         <div>
           <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] m-0 text-jb-ink">
-            New <span className="italic text-jb-accent font-normal">Batch</span>
+            {t("batch.new.titlePrefix")} <span className="italic text-jb-accent font-normal">{t("batch.new.titleAccent")}</span>
           </h1>
           <p className="mt-1 text-jb-ink3 text-sm m-0">
-            Upload a JSONL file and configure the extraction prompt.
+            {t("batch.new.description")}
           </p>
         </div>
         <div className="sm:ml-auto">
@@ -99,7 +101,7 @@ export default function JDBatchNew() {
             onClick={() => navigate("/admin/jd-batch")}
             className="flex items-center gap-1.5 py-2 px-3.5 rounded-[10px] border border-jb-line bg-jb-surface text-jb-ink2 text-[13px] font-medium"
           >
-            <IconChevronLeft size={14} /> All batches
+            <IconChevronLeft size={14} /> {t("batch.new.allBatches")}
           </button>
         </div>
       </div>
@@ -130,10 +132,10 @@ export default function JDBatchNew() {
           <div className="flex flex-col gap-4">
             <div>
               <h2 className="text-[28px] font-bold tracking-[-0.025em] m-0 text-jb-ink">
-                Upload a <span className="italic text-jb-accent">JSONL</span> file
+                {t("batch.new.uploadStep.headingPrefix")} <span className="italic text-jb-accent">{t("batch.new.uploadStep.headingAccent")}</span> {t("batch.new.uploadStep.headingSuffix")}
               </h2>
               <p className="mt-1 text-jb-ink3 text-sm">
-                One JSON object per line. Each object becomes one LLM extraction job.
+                {t("batch.new.uploadStep.description")}
               </p>
             </div>
 
@@ -159,14 +161,14 @@ export default function JDBatchNew() {
                   <IconUpload size={22} />
                 </div>
                 <div className="text-[18px] font-bold tracking-[-0.01em] mb-1 text-jb-ink">
-                  Drop your .jsonl file here
+                  {t("batch.new.uploadStep.dropTitle")}
                 </div>
                 <p className="m-0 text-jb-ink3 text-[13px]">
-                  or{" "}
+                  {t("batch.new.uploadStep.orBrowsePrefix")}{" "}
                   <span className="text-jb-accent font-semibold underline">
-                    browse from your computer
+                    {t("batch.new.uploadStep.browse")}
                   </span>{" "}
-                  — max 50 MB
+                  {t("batch.new.uploadStep.maxSize")}
                 </p>
               </label>
             ) : (
@@ -176,7 +178,7 @@ export default function JDBatchNew() {
                     {loading ? (
                       <div className="flex items-center gap-3 text-jb-ink3">
                         <IconLoader2 size={20} className="animate-[jb-spin_0.7s_linear_infinite]" />
-                        <span className="text-[13px]">Reading file…</span>
+                        <span className="text-[13px]">{t("batch.new.uploadStep.readingFile")}</span>
                       </div>
                     ) : (
                       <>
@@ -188,7 +190,7 @@ export default function JDBatchNew() {
                           <div className="text-[12.5px] text-jb-ink3 mt-0.5">
                             {(file.size / 1024).toFixed(1)} KB
                             {preview && (
-                              <> · <strong className="text-jb-ink2">{preview.total}</strong> rows detected</>
+                              <> · <strong className="text-jb-ink2">{preview.total}</strong> {t("batch.new.uploadStep.rowsDetected")}</>
                             )}
                           </div>
                         </div>
@@ -197,7 +199,7 @@ export default function JDBatchNew() {
                           onClick={() => { setFile(null); setPreview(null); setSelectedFields([]); }}
                           className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-jb-line bg-jb-surface2 text-jb-ink2 text-[12.5px]"
                         >
-                          <IconX size={14} /> Remove
+                          <IconX size={14} /> {t("batch.new.uploadStep.remove")}
                         </button>
                       </>
                     )}
@@ -207,8 +209,8 @@ export default function JDBatchNew() {
                 {preview && (
                   <Card>
                     <CardHead>
-                      <span className="font-semibold text-[15px]">Preview rows</span>
-                      <Badge status="pending" label={`${preview.total} total`} />
+                      <span className="font-semibold text-[15px]">{t("batch.new.uploadStep.previewRows")}</span>
+                      <Badge status="pending" label={t("batch.new.uploadStep.totalBadge", { count: preview.total })} />
                     </CardHead>
                     <CardBody>
                       {preview.sample.slice(0, 3).map((row, i) => (
@@ -222,12 +224,12 @@ export default function JDBatchNew() {
                               {JSON.stringify(row).slice(0, 80)}…
                             </div>
                           </div>
-                          <Badge status="pending" label="valid" />
+                          <Badge status="pending" label={t("batch.new.uploadStep.valid")} />
                         </div>
                       ))}
                       {preview.total > 3 && (
                         <div className="text-center text-xs text-jb-ink3 mt-2">
-                          + {preview.total - 3} more rows
+                          {t("batch.new.uploadStep.moreRows", { count: preview.total - 3 })}
                         </div>
                       )}
                     </CardBody>
@@ -239,7 +241,7 @@ export default function JDBatchNew() {
                 {preview && (
                   <div className="flex justify-end">
                     <Button color="primary" endContent={<IconChevronRight size={16} />} onPress={() => setStep(1)}>
-                      Continue — pick fields
+                      {t("batch.new.uploadStep.continue")}
                     </Button>
                   </div>
                 )}
@@ -253,10 +255,10 @@ export default function JDBatchNew() {
           <div>
             <div className="mb-6">
               <h2 className="text-[28px] font-bold tracking-[-0.025em] m-0 mb-1 text-jb-ink">
-                Build the <span className="italic text-jb-accent">extraction prompt</span>
+                {t("batch.new.fieldsStep.headingPrefix")} <span className="italic text-jb-accent">{t("batch.new.fieldsStep.headingAccent")}</span>
               </h2>
               <p className="text-jb-ink3 text-sm m-0">
-                Click fields to include them in the prompt sent to the LLM per row.
+                {t("batch.new.fieldsStep.description")}
               </p>
             </div>
 
@@ -264,12 +266,12 @@ export default function JDBatchNew() {
               {/* Left — field picker */}
               <Card>
                 <CardHead>
-                  <span className="font-semibold text-[15px]">Fields from row</span>
+                  <span className="font-semibold text-[15px]">{t("batch.new.fieldsStep.fieldsFromRow")}</span>
                   <span className="text-xs text-jb-ink3">
-                    {selectedFields.length} of {preview.fields.length} selected
+                    {t("batch.new.fieldsStep.selectedOf", { selected: selectedFields.length, total: preview.fields.length })}
                   </span>
                   <div className="ml-auto flex gap-1.5">
-                    {([["All", preview.fields], ["None", []]] as [string, string[]][]).map(([lbl, val]) => (
+                    {([[t("batch.new.fieldsStep.all"), preview.fields], [t("batch.new.fieldsStep.none"), []]] as [string, string[]][]).map(([lbl, val]) => (
                       <button key={lbl} type="button" onClick={() => setSelectedFields(val)}
                         className="py-1 px-2.5 rounded-lg border border-jb-line bg-jb-surface2 text-jb-ink2 text-xs">
                         {lbl}
@@ -290,13 +292,13 @@ export default function JDBatchNew() {
               <div className="flex flex-col gap-4 md:sticky md:top-[90px]">
                 <Card>
                   <CardHead>
-                    <span className="font-semibold text-[15px]">Prompt preview</span>
-                    <span className="text-[11.5px] text-jb-ink3">row #1 — what LLM will see</span>
+                    <span className="font-semibold text-[15px]">{t("batch.new.fieldsStep.promptPreview")}</span>
+                    <span className="text-[11.5px] text-jb-ink3">{t("batch.new.fieldsStep.promptPreviewHint")}</span>
                   </CardHead>
                   <CardBody>
                     {selectedFields.length === 0 ? (
                       <div className="py-6 text-center text-jb-ink4 text-[13px]">
-                        Select at least one field to build the prompt.
+                        {t("batch.new.fieldsStep.selectAtLeastOne")}
                       </div>
                     ) : (
                       <pre className="bg-jb-dark text-jb-dark-text2 rounded-xl px-3.5 py-3 font-mono text-[11.5px] leading-[1.6] max-h-[280px] overflow-auto m-0 whitespace-pre-wrap break-words">
@@ -307,38 +309,38 @@ export default function JDBatchNew() {
                 </Card>
 
                 <Card>
-                  <CardHead><span className="font-semibold text-[15px]">Record limit</span></CardHead>
+                  <CardHead><span className="font-semibold text-[15px]">{t("batch.new.fieldsStep.recordLimit")}</span></CardHead>
                   <CardBody>
                     <div className="flex flex-wrap gap-1.5 mb-3.5">
                       {LIMIT_OPTIONS.map((opt) => (
                         <FieldChip
                           key={String(opt.value)}
-                          label={opt.label}
+                          label={opt.value === null ? t("batch.new.fieldsStep.all") : opt.label}
                           on={limit === opt.value}
                           onClick={() => setLimit(opt.value)}
                         />
                       ))}
-                      <FieldChip label="Custom" on={limit === -1} onClick={() => setLimit(-1)} />
+                      <FieldChip label={t("batch.new.fieldsStep.custom")} on={limit === -1} onClick={() => setLimit(-1)} />
                       {limit === -1 && (
-                        <Input size="sm" type="number" min={1} placeholder="e.g. 200" className="w-28"
+                        <Input size="sm" type="number" min={1} placeholder={t("batch.new.fieldsStep.customPlaceholder")} className="w-28"
                           value={customLimit} onValueChange={setCustomLimit} />
                       )}
                     </div>
                     <p className="text-[12.5px] text-jb-ink3 m-0">
-                      Will process{" "}
+                      {t("batch.new.fieldsStep.willProcessPrefix")}{" "}
                       <strong className="text-jb-ink">
                         {(effectiveLimit == null
                           ? preview.total
                           : Math.min(effectiveLimit, preview.total)
                         ).toLocaleString()}
                       </strong>{" "}
-                      records · ~{Math.round(((effectiveLimit ?? preview.total) * 4) / 60)} min estimated
+                      {t("batch.new.fieldsStep.willProcessSuffix", { min: Math.round(((effectiveLimit ?? preview.total) * 4) / 60) })}
                     </p>
                   </CardBody>
                 </Card>
 
                 <Card>
-                  <CardHead><span className="font-semibold text-[15px]">Parallel workers</span></CardHead>
+                  <CardHead><span className="font-semibold text-[15px]">{t("batch.new.fieldsStep.parallelWorkers")}</span></CardHead>
                   <CardBody>
                     <div className="flex items-center gap-3 mb-3">
                       <button type="button" onClick={() => setWorkers((w) => Math.max(1, w - 1))}
@@ -346,10 +348,10 @@ export default function JDBatchNew() {
                       <span className="text-[22px] font-bold text-jb-ink tabular-nums w-8 text-center">{workers}</span>
                       <button type="button" onClick={() => setWorkers((w) => Math.min(20, w + 1))}
                         className="w-8 h-8 rounded-lg bg-jb-surface2 text-jb-ink2 text-base font-bold flex items-center justify-center border border-jb-line">+</button>
-                      <span className="text-xs text-jb-ink3 ml-1">concurrent LLM calls</span>
+                      <span className="text-xs text-jb-ink3 ml-1">{t("batch.new.fieldsStep.concurrentCalls")}</span>
                     </div>
                     <p className="text-[12px] text-jb-ink3 m-0">
-                      Higher = faster but risks rate limiting. Recommended: 3–5 for most providers.
+                      {t("batch.new.fieldsStep.workersHint")}
                     </p>
                   </CardBody>
                 </Card>
@@ -359,7 +361,7 @@ export default function JDBatchNew() {
                 <div className="flex gap-2 justify-end">
                   <button type="button" onClick={() => setStep(0)}
                     className="py-[9px] px-3.5 rounded-xl border border-jb-line bg-jb-surface2 text-jb-ink2 text-[13px] font-semibold">
-                    Back
+                    {t("batch.new.fieldsStep.back")}
                   </button>
                   <Button
                     color="primary"
@@ -368,7 +370,7 @@ export default function JDBatchNew() {
                     startContent={!starting && <IconSparkles size={16} />}
                     onPress={handleStart}
                   >
-                    {starting ? "Starting…" : `Run · ${(effectiveLimit ?? preview.total).toLocaleString()} rows`}
+                    {starting ? t("batch.new.fieldsStep.starting") : t("batch.new.fieldsStep.run", { count: (effectiveLimit ?? preview.total).toLocaleString() })}
                   </Button>
                 </div>
               </div>

@@ -1,0 +1,137 @@
+{
+  "list": {
+    "titlePrefix": "All",
+    "titleEmphasis": "jobs",
+    "summary": "{{count}} postings · {{platforms}} · {{active}} active, {{inactive}} inactive",
+    "platforms_one": "{{count}} platform",
+    "platforms_other": "{{count}} platforms",
+    "rescrape": "Re-scrape",
+    "exporting": "Exporting…",
+    "export": "Export",
+    "newBatch": "New batch from jobs",
+    "searchPlaceholder": "Search title, company, skill…",
+    "loading": "Loading…",
+    "empty": "No jobs match these filters.",
+    "pageInfo": "Page {{page}} of {{totalPages}} · {{total}} total"
+  },
+  "filter": {
+    "all": "All · {{count}}",
+    "active": "Active · {{count}}",
+    "inactive": "Inactive · {{count}}",
+    "any": "Any",
+    "remote": "Remote",
+    "hybrid": "Hybrid",
+    "onSite": "On-site",
+    "allLevels": "All levels"
+  },
+  "selection": {
+    "selected": "selected",
+    "clear": "Clear",
+    "tag": "Tag…",
+    "export": "Export {{count}}",
+    "extract": "Extract {{count}} jobs"
+  },
+  "table": {
+    "job": "Job",
+    "location": "Location",
+    "posted": "Posted",
+    "salary": "Salary",
+    "status": "Status"
+  },
+  "card": {
+    "deselect": "Deselect",
+    "select": "Select",
+    "applicants_one": "{{count}} applicant",
+    "applicants_other": "{{count}} applicants"
+  },
+  "drawer": {
+    "loading": "Loading…",
+    "jobDetail": "Job detail",
+    "notFound": "Job not found.",
+    "salary": "Salary",
+    "type": "Type",
+    "level": "Level",
+    "posted": "Posted",
+    "skills": "Skills ({{count}})",
+    "source": "Source",
+    "viewOriginal": "View original",
+    "description": "Description",
+    "responsibilities": "Responsibilities",
+    "requirements": "Requirements",
+    "active": "Active",
+    "activeNote": " — this job is currently visible to candidates.",
+    "inactive": "Inactive",
+    "inactiveNote": " — this job is not visible to candidates."
+  },
+  "seniority": {
+    "intern": "Intern",
+    "junior": "Junior",
+    "mid": "Mid",
+    "senior": "Senior",
+    "lead": "Lead",
+    "manager": "Manager",
+    "level": "Level {{level}}"
+  },
+  "jobType": {
+    "fullTime": "Full-time",
+    "partTime": "Part-time",
+    "remote": "Remote",
+    "hybrid": "Hybrid",
+    "onSite": "On-site"
+  },
+  "workMode": {
+    "remote": "Remote",
+    "hybrid": "Hybrid",
+    "onSite": "On-site"
+  },
+  "statusBadge": {
+    "active": "active",
+    "running": "running",
+    "inactive": "inactive"
+  },
+  "salaryPeriod": {
+    "hourly": "/hr",
+    "daily": "/day",
+    "weekly": "/wk",
+    "monthly": "/mo",
+    "annual": "/yr"
+  },
+  "salary": {
+    "atLeast": "≥ {{value}}",
+    "atMost": "≤ {{value}}"
+  },
+  "relativeTime": {
+    "today": "today",
+    "dayAgo": "1d ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "tracking": {
+    "titlePrefix": "Job",
+    "titleEmphasis": "Tracking",
+    "subtitle": "Applied → accepted → in progress → completed. Drive each project through its lifecycle.",
+    "tabs": {
+      "all": "All",
+      "applied": "Applied",
+      "won": "Accepted",
+      "inProgress": "In progress",
+      "completed": "Completed",
+      "lost": "Rejected"
+    },
+    "status": {
+      "applied": "Applied",
+      "won": "Accepted",
+      "inProgress": "In progress",
+      "completed": "Completed",
+      "lost": "Rejected"
+    },
+    "changeStatus": "Change status",
+    "openPosting": "Open posting",
+    "loadError": "Failed to load job tracking",
+    "marked": "Marked {{label}}",
+    "updateFailed": "Update failed",
+    "emptyTitle": "No jobs here yet",
+    "emptyHint": "Apply to jobs from an employee's job browser to start tracking.",
+    "dash": "—",
+    "viewMore": "View more ({{count}} left)"
+  }
+}

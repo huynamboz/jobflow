@@ -1,0 +1,171 @@
+{
+  "page": {
+    "title": "Công cụ gán nhãn",
+    "subtitle": "Gán nhãn cặp CV–việc làm cho huấn luyện ML",
+    "refresh": "Làm mới",
+    "export": "Xuất",
+    "loadingQueue": "Đang tải hàng đợi…",
+    "loadingNextCV": "Đang tải CV tiếp theo…",
+    "allLabeledTitle": "Đã gán nhãn tất cả các cặp!",
+    "allLabeledHint": "Không còn cặp nào đang chờ. Chạy <0>populate_pair_queue</0> để thêm."
+  },
+  "cvPanel": {
+    "cvNumber": "CV #{{id}}",
+    "loadingPdf": "Đang tải…",
+    "pdf": "PDF",
+    "expYears": "{{count}} năm KN",
+    "skills": "Kỹ năng",
+    "summary": "Tóm tắt",
+    "pdfTitle": "CV #{{id}} — PDF",
+    "pdfIframeTitle": "CV #{{id}} PDF",
+    "morePlus": "+{{count}}"
+  },
+  "dimScore": {
+    "bad": "Kém",
+    "ok": "Tạm",
+    "good": "Tốt"
+  },
+  "overall": {
+    "label": "Tổng thể",
+    "notSuitable": "Không phù hợp",
+    "suitable": "Phù hợp",
+    "strongFit": "Rất phù hợp",
+    "suggested": "Đề xuất: {{label}}"
+  },
+  "jobCard": {
+    "jobNumber": "Việc làm #{{id}}",
+    "overlap": "trùng khớp {{percent}}%",
+    "jobSkills": "Kỹ năng việc làm",
+    "common": "{{count}} điểm chung",
+    "dimensions": "Các tiêu chí",
+    "skillFit": "Khớp kỹ năng",
+    "seniorityFit": "Khớp cấp bậc",
+    "experienceFit": "Khớp kinh nghiệm",
+    "domainFit": "Khớp lĩnh vực",
+    "notePlaceholder": "Ghi chú (tuỳ chọn)",
+    "skip": "Bỏ qua",
+    "submit": "Gửi"
+  },
+  "progress": {
+    "labeled": "{{labeled}} / {{total}} đã gán nhãn",
+    "skipped": "Đã bỏ qua: {{count}}",
+    "remaining": "Còn lại: {{count}}"
+  },
+  "batch": {
+    "title": "Gán nhãn",
+    "titleEmphasis": "LLM",
+    "subtitle": "Tự động gán nhãn cặp CV–việc làm bằng LLM cho dữ liệu huấn luyện.",
+    "workers": "Worker",
+    "startBatch": "Bắt đầu lô",
+    "running": "Đang chạy…",
+    "startFailed": "Bắt đầu lô thất bại",
+    "stat": {
+      "pending": "Đang chờ",
+      "labeled": "Đã gán nhãn",
+      "totalPairs": "Tổng số cặp",
+      "labels": "Nhãn",
+      "unitPairs": "cặp",
+      "unitInQueue": "trong hàng đợi",
+      "unitCreated": "đã tạo"
+    },
+    "labelDistribution": "Phân bố nhãn",
+    "noLabelsYet": "Chưa có nhãn nào",
+    "dist": {
+      "notSuitable": "Không phù hợp (0)",
+      "suitable": "Phù hợp (1)",
+      "strongFit": "Rất phù hợp (2)"
+    },
+    "noBatchesTitle": "Chưa có lô nào",
+    "noBatchesHint": "Bắt đầu một lô để tự động gán nhãn các cặp đang chờ.",
+    "card": {
+      "batchNumber": "Lô #{{id}}",
+      "workers": "{{count}} worker",
+      "labeledOf": "{{done}} / {{total}} đã gán nhãn",
+      "done": "Xong",
+      "errors": "Lỗi",
+      "pending": "Đang chờ",
+      "stop": "Dừng"
+    }
+  },
+  "detail": {
+    "allBatches": "Tất cả các lô",
+    "batchNumber": "Lô #{{id}}",
+    "workers": "{{count}} worker",
+    "labeling": "Đang gán nhãn…",
+    "workersLabel": "Worker",
+    "resume": "Tiếp tục",
+    "resuming": "Đang tiếp tục…",
+    "stop": "Dừng",
+    "stopping": "Đang dừng…",
+    "refresh": "Làm mới",
+    "cancelFailed": "Huỷ thất bại.",
+    "resumeFailed": "Tiếp tục thất bại.",
+    "stat": {
+      "progress": "Tiến độ",
+      "labeled": "Đã gán nhãn",
+      "errors": "Lỗi",
+      "pending": "Đang chờ",
+      "clean": "sạch",
+      "failed": "lỗi",
+      "unitPairs": "cặp"
+    },
+    "labelDistribution": "Phân bố nhãn",
+    "labelsInBatch": "{{count}} nhãn trong lô này",
+    "recentLabels": "Nhãn gần đây",
+    "recentSummary": "{{count}} gần nhất · nhấn để xem",
+    "noLabelsYet": "chưa có nhãn nào",
+    "noLabelsYetDist": "Chưa có nhãn nào",
+    "dist": {
+      "notSuitable": "Không phù hợp (0)",
+      "suitable": "Phù hợp (1)",
+      "strongFit": "Rất phù hợp (2)"
+    },
+    "overallLabel": {
+      "notSuitable": "Không phù hợp",
+      "suitable": "Phù hợp",
+      "strongFit": "Rất phù hợp"
+    },
+    "dim": {
+      "skillFit": "Khớp kỹ năng",
+      "seniority": "Cấp bậc",
+      "experience": "Kinh nghiệm",
+      "domain": "Lĩnh vực"
+    },
+    "dimDesc": {
+      "skillFit": ["Khớp <30% kỹ năng", "Khớp 30–70%", "Khớp >70%"],
+      "seniority": ["Cách ≥2 cấp", "Cách 1 cấp", "Đúng / vượt mức"],
+      "experience": ["<50% yêu cầu", "50–90% yêu cầu", "Đạt hoặc vượt"],
+      "domain": ["Khác lĩnh vực", "Lĩnh vực liên quan", "Cùng lĩnh vực"]
+    },
+    "drawer": {
+      "pairNumber": "Cặp #{{id}}",
+      "cv": "CV",
+      "cvExp": "{{count}} năm KN",
+      "skills": "Kỹ năng",
+      "summary": "Tóm tắt",
+      "job": "Việc làm",
+      "seniority": "Cấp bậc:",
+      "exp": "KN:",
+      "requiredSkills": "Kỹ năng yêu cầu",
+      "description": "Mô tả",
+      "scoreBreakdown": "Chi tiết điểm",
+      "roleOther": "khác",
+      "dash": "—"
+    },
+    "table": {
+      "pair": "Cặp",
+      "cvRole": "Vai trò CV",
+      "jobTitle": "Chức danh",
+      "jobRole": "Vai trò việc làm",
+      "skill": "Kỹ năng",
+      "seniority": "Cấp bậc",
+      "exp": "KN",
+      "domain": "Lĩnh vực",
+      "overall": "Tổng thể",
+      "type": "Loại",
+      "time": "Thời gian",
+      "empty": "Chưa có nhãn nào.",
+      "dash": "—"
+    }
+  }
+}

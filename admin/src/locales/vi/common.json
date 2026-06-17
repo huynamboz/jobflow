@@ -1,0 +1,56 @@
+{
+  "language": {
+    "label": "Ngôn ngữ",
+    "vi": "Tiếng Việt",
+    "en": "English"
+  },
+  "actions": {
+    "save": "Lưu",
+    "cancel": "Huỷ",
+    "delete": "Xoá",
+    "edit": "Sửa",
+    "add": "Thêm",
+    "create": "Tạo",
+    "close": "Đóng",
+    "confirm": "Xác nhận",
+    "retry": "Thử lại",
+    "refresh": "Làm mới",
+    "search": "Tìm kiếm",
+    "filter": "Lọc",
+    "upload": "Tải lên",
+    "download": "Tải xuống",
+    "back": "Quay lại",
+    "next": "Tiếp",
+    "previous": "Trước",
+    "view": "Xem",
+    "viewAll": "Xem tất cả",
+    "apply": "Áp dụng",
+    "reset": "Đặt lại",
+    "use": "Dùng",
+    "logout": "Đăng xuất"
+  },
+  "status": {
+    "loading": "Đang tải…",
+    "saving": "Đang lưu…",
+    "success": "Thành công",
+    "error": "Lỗi",
+    "active": "Đang hoạt động",
+    "inactive": "Ngừng hoạt động",
+    "pending": "Đang chờ",
+    "done": "Hoàn tất",
+    "failed": "Thất bại"
+  },
+  "table": {
+    "empty": "Không có dữ liệu",
+    "loading": "Đang tải dữ liệu…",
+    "rowsPerPage": "Số dòng mỗi trang",
+    "of": "trên",
+    "page": "Trang"
+  },
+  "toast": {
+    "saved": "Đã lưu",
+    "deleted": "Đã xoá",
+    "updated": "Đã cập nhật",
+    "genericError": "Đã xảy ra lỗi, vui lòng thử lại"
+  }
+}

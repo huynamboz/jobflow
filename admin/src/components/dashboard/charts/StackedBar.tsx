@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface Series { key: string; color: string; label: string }
@@ -16,10 +17,11 @@ function shortDay(iso: string) {
 }
 
 export default function StackedBar({ data, series, height = 240, ariaLabel }: StackedBarProps) {
+  const { t } = useTranslation("dashboard");
   if (!data.length) {
     return (
-      <div className="flex items-center justify-center py-8 text-sm text-default-400" role="img" aria-label={`${ariaLabel}: no data`}>
-        No data
+      <div className="flex items-center justify-center py-8 text-sm text-default-400" role="img" aria-label={t("chart.noDataAria", { label: ariaLabel })}>
+        {t("chart.noData")}
       </div>
     );
   }

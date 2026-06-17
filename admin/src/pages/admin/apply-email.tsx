@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
 import { mailService } from "@/services/mail.service";
@@ -46,6 +47,7 @@ function draftBody(emp: Employee | null, job: JobDetail | null): string {
 }
 
 export default function ApplyEmailPage() {
+  const { t } = useTranslation("mail");
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const employeeId = Number(params.get("employee"));
@@ -77,10 +79,14 @@ export default function ApplyEmailPage() {
         if (!alive) return;
         setEmp(e);
         setJob(j);
-        setSubject(j ? `Application — ${j.title}${e ? ` (${e.full_name})` : ""}` : "Application");
+        setSubject(j
+          ? (e
+            ? t("compose.applicationSubjectWithName", { title: j.title, name: e.full_name })
+            : t("compose.applicationSubject", { title: j.title }))
+          : t("compose.applicationSubjectFallback"));
         setBodyHTML(draftBody(e, j));
       })
-      .catch(() => alive && addToast({ title: "Failed to load details", color: "danger" }))
+      .catch(() => alive && addToast({ title: t("composeToast.loadFailed"), color: "danger" }))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [employeeId, jobId]);
@@ -96,16 +102,16 @@ export default function ApplyEmailPage() {
 
   // 026: send the application from the employee's linked Gmail, with CV attached.
   const sendFromSystem = async () => {
-    if (!matchId || !to) { addToast({ title: "Recipient required", color: "warning" }); return; }
+    if (!matchId || !to) { addToast({ title: t("composeToast.recipientRequired"), color: "warning" }); return; }
     const body = bodyText.current || bodyHTML.replace(/<[^>]+>/g, " ");
     setSending(true);
     try {
       const r = await mailService.sendApply(matchId, to, subject, body);
-      addToast({ title: "Sent & applied", description: r.cv_attached ? "CV attached. Tracked in Job Tracking." : "Sent (no CV on file). Tracked.", color: "success" });
+      addToast({ title: t("composeToast.sentApplied"), description: r.cv_attached ? t("composeToast.sentWithCv") : t("composeToast.sentNoCv"), color: "success" });
       navigate(-1);
     } catch (e: any) {
-      const msg = e?.response?.data?.error?.message || "Send failed";
-      addToast({ title: "Send failed", description: msg, color: "danger" });
+      const msg = e?.response?.data?.error?.message || t("composeToast.sendFailed");
+      addToast({ title: t("composeToast.sendFailed"), description: msg, color: "danger" });
     } finally {
       setSending(false);
     }
@@ -141,7 +147,7 @@ export default function ApplyEmailPage() {
       }
       bodyText.current = acc;
     } catch {
-      addToast({ title: "Couldn't generate email", description: "Is an LLM provider active?", color: "danger" });
+      addToast({ title: t("composeToast.generateFailed"), description: t("composeToast.generateFailedHint"), color: "danger" });
     } finally {
       setGenerating(false);
     }
@@ -161,9 +167,9 @@ export default function ApplyEmailPage() {
       setMarking(true);
       try {
         await matchService.update(matchId, { status: "applied" });
-        addToast({ title: "Opened Gmail — marked applied", description: "Tracked in Job Tracking.", color: "success" });
+        addToast({ title: t("composeToast.openedGmailApplied"), description: t("composeToast.openedGmailAppliedHint"), color: "success" });
       } catch {
-        addToast({ title: "Opened Gmail (couldn't mark applied)", color: "warning" });
+        addToast({ title: t("composeToast.openedGmailNotApplied"), color: "warning" });
       } finally {
         setMarking(false);
       }
@@ -179,8 +185,8 @@ export default function ApplyEmailPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <Button variant="light" isIconOnly onPress={() => navigate(-1)}><IconArrowLeft size={18} /></Button>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: T.ink, letterSpacing: "-0.02em" }}>Write application email</h1>
-          <p style={{ fontSize: 13, color: T.ink3, margin: 0 }}>Compose, then open it in Gmail to send.</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: T.ink, letterSpacing: "-0.02em" }}>{t("compose.title")}</h1>
+          <p style={{ fontSize: 13, color: T.ink3, margin: 0 }}>{t("compose.subtitle")}</p>
         </div>
       </div>
 
@@ -215,11 +221,11 @@ export default function ApplyEmailPage() {
             <div style={{ fontSize: 12.5, color: T.ink2, display: "flex", flexDirection: "column", gap: 4 }}>
               {job?.company?.name && <span><IconBuilding size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />{job.company.name}</span>}
               {job?.location && <span><IconMapPin size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />{job.location}</span>}
-              {job?.seniority != null && <span><IconBriefcase size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />Seniority {job.seniority}</span>}
+              {job?.seniority != null && <span><IconBriefcase size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />{t("compose.seniority", { level: job.seniority })}</span>}
             </div>
             {job?.source_url && (
               <a href={job.source_url} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12.5, fontWeight: 600, color: T.accent, textDecoration: "none" }}>
-                View posting →
+                {t("compose.viewPosting")}
               </a>
             )}
           </Card>
@@ -227,28 +233,28 @@ export default function ApplyEmailPage() {
 
         {/* right: composer */}
         <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Input size="sm" label="To" placeholder="recruiter@company.com" value={to} onValueChange={setTo} type="email" />
-          <Input size="sm" label="Subject" value={subject} onValueChange={setSubject} />
+          <Input size="sm" label={t("compose.toLabel")} placeholder={t("compose.toPlaceholder")} value={to} onValueChange={setTo} type="email" />
+          <Input size="sm" label={t("compose.subjectLabel")} value={subject} onValueChange={setSubject} />
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: T.ink3 }}>Message</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: T.ink3 }}>{t("compose.message")}</div>
               <Button size="sm" variant="flat" color="primary" startContent={<IconSparkles size={14} />} isLoading={generating} onPress={generateEmail}>
-                {generating ? "Generating…" : "Generate email"}
+                {generating ? t("compose.generating") : t("compose.generateEmail")}
               </Button>
             </div>
-            <QuillEditor ref={editorRef} initialHTML={bodyHTML} placeholder="Write your application email…" onChange={onEditorChange} minHeight={300} />
+            <QuillEditor ref={editorRef} initialHTML={bodyHTML} placeholder={t("compose.editorPlaceholder")} onChange={onEditorChange} minHeight={300} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 12, color: T.ink3 }}>
-              {linked ? `Send from ${linkedAddr} · CV attached` : "Link this employee's email to send from the system"}
+              {linked ? t("compose.sendFromHint", { addr: linkedAddr }) : t("compose.linkToSendHint")}
             </span>
             <div style={{ display: "flex", gap: 8 }}>
-              <Button variant="light" onPress={() => navigate(-1)}>Cancel</Button>
+              <Button variant="light" onPress={() => navigate(-1)}>{t("common:actions.cancel")}</Button>
               <Button variant="flat" startContent={<IconMail size={16} />} isLoading={marking} onPress={openInGmail}>
-                Open in Gmail
+                {t("compose.openInGmail")}
               </Button>
               <Button color="primary" startContent={<IconMail size={16} />} isDisabled={!linked} isLoading={sending} onPress={sendFromSystem}>
-                Send
+                {t("compose.send")}
               </Button>
             </div>
           </div>
@@ -262,21 +268,20 @@ export default function ApplyEmailPage() {
             <span className="grid size-9 place-items-center rounded-xl bg-warning/10 text-warning">
               <IconMailExclamation size={20} stroke={1.75} />
             </span>
-            Chưa liên kết email
+            {t("linkModal.title")}
           </ModalHeader>
           <ModalBody className="text-sm text-default-600">
             <p>
-              Nhân viên <span className="font-semibold text-foreground">{emp?.full_name || "này"}</span> chưa liên kết tài khoản Gmail,
-              nên hệ thống chưa thể gửi đơn ứng tuyển thay họ (đính kèm CV) và theo dõi thư trả lời.
+              {t("linkModal.bodyPrefix")}<span className="font-semibold text-foreground">{emp?.full_name || t("linkModal.thisEmployee")}</span>{t("linkModal.bodySuffix")}
             </p>
             <p className="text-xs text-default-400">
-              Liên kết Gmail (app password) ở trang thông tin nhân viên, sau đó quay lại đây để gửi.
+              {t("linkModal.hint")}
             </p>
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" startContent={<IconArrowLeft size={16} />} onPress={() => navigate(-1)}>Trở lại</Button>
+            <Button variant="light" startContent={<IconArrowLeft size={16} />} onPress={() => navigate(-1)}>{t("linkModal.back")}</Button>
             <Button color="primary" startContent={<IconMail size={16} />}
-              onPress={() => navigate(`/admin/employees/${employeeId}/info`)}>Liên kết email</Button>
+              onPress={() => navigate(`/admin/employees/${employeeId}/info`)}>{t("linkModal.linkEmail")}</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

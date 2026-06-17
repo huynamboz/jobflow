@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@heroui/button";
 import {
@@ -28,6 +29,7 @@ import {
 import { RecordDrawer } from "./_record-drawer";
 
 export default function JDBatchDetail() {
+  const { t } = useTranslation("llm");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const batchId = Number(id);
@@ -99,16 +101,16 @@ export default function JDBatchDetail() {
     : records;
 
   const tabOptions = [
-    { label: `Records · ${total_records}`, value: "records" },
-    { label: "Config", value: "config" },
+    { label: t("batch.detail.tab.records", { count: total_records }), value: "records" },
+    { label: t("batch.detail.tab.config"), value: "config" },
   ];
 
   const filterOptions = [
-    { label: `All · ${total_records}`, value: "" },
-    { label: `Running · ${records.filter((r) => r.status === "processing").length}`, value: "processing" },
-    { label: `Done · ${batch.done_count}`, value: "done" },
-    { label: `Error · ${batch.error_count}`, value: "error" },
-    { label: "Pending", value: "pending" },
+    { label: t("batch.detail.filter.all", { count: total_records }), value: "" },
+    { label: t("batch.detail.filter.running", { count: records.filter((r) => r.status === "processing").length }), value: "processing" },
+    { label: t("batch.detail.filter.done", { count: batch.done_count }), value: "done" },
+    { label: t("batch.detail.filter.error", { count: batch.error_count }), value: "error" },
+    { label: t("batch.detail.filter.pending"), value: "pending" },
   ];
 
   const thCls = "text-left text-[11px] font-semibold text-jb-ink3 uppercase tracking-[0.06em] px-4 py-3 border-b border-jb-line bg-jb-surface2";
@@ -126,11 +128,11 @@ export default function JDBatchDetail() {
             onClick={() => navigate("/admin/jd-batch")}
             className="bg-transparent border-none text-jb-ink3 text-[12.5px] cursor-pointer flex items-center gap-1 p-0 mb-2.5 font-medium"
           >
-            <IconChevronLeft size={13} /> All batches
+            <IconChevronLeft size={13} /> {t("batch.detail.allBatches")}
           </button>
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-[28px] font-bold tracking-[-0.025em] m-0 text-jb-ink">
-              Batch #{batch.id}
+              {t("batch.detail.batch", { id: batch.id })}
             </h2>
             <Badge status={batch.status as BadgeStatus} />
           </div>
@@ -154,7 +156,7 @@ export default function JDBatchDetail() {
           {/* Workers spinner — visible when not running */}
           {!running && (
             <div className="flex items-center gap-1.5 border border-jb-line rounded-[10px] px-2.5 py-1.5 bg-jb-surface">
-              <span className="text-[11px] font-semibold text-jb-ink3 uppercase tracking-wide">Workers</span>
+              <span className="text-[11px] font-semibold text-jb-ink3 uppercase tracking-wide">{t("batch.detail.workers")}</span>
               <button type="button" onClick={() => setWorkers((w) => Math.max(1, w - 1))}
                 className="w-5 h-5 rounded-md bg-jb-surface2 text-jb-ink2 text-xs font-bold flex items-center justify-center border-none leading-none">−</button>
               <span className="text-[13px] font-bold text-jb-ink w-4 text-center tabular-nums">{workers}</span>
@@ -170,7 +172,7 @@ export default function JDBatchDetail() {
               {resuming
                 ? <IconLoader2 size={13} className="animate-[jb-spin_0.7s_linear_infinite]" />
                 : <IconRefresh size={13} />}
-              {resuming ? "Resuming…" : `Resume · ${batch.total - batch.done_count} to retry`}
+              {resuming ? t("batch.detail.resuming") : t("batch.detail.resume", { count: batch.total - batch.done_count })}
             </button>
           )}
           {running && (
@@ -181,20 +183,20 @@ export default function JDBatchDetail() {
               {cancelling
                 ? <IconLoader2 size={13} className="animate-[jb-spin_0.7s_linear_infinite]" />
                 : <IconSquare size={13} />}
-              {cancelling ? "Cancelling…" : "Cancel"}
+              {cancelling ? t("batch.detail.cancelling") : t("batch.detail.cancel")}
             </button>
           )}
           <button
             type="button" onClick={() => load(page, statusFilter)}
             className="flex items-center gap-1.5 py-2 px-3.5 rounded-[10px] border border-jb-line bg-jb-surface text-jb-ink2 text-[13px]"
           >
-            <IconRefresh size={13} /> Refresh
+            <IconRefresh size={13} /> {t("batch.detail.refresh")}
           </button>
           <button
-            type="button" title="Export"
+            type="button" title={t("batch.detail.export")}
             className="flex items-center gap-1.5 py-2 px-3.5 rounded-[10px] border border-jb-line bg-jb-surface text-jb-ink2 text-[13px]"
           >
-            <IconDownload size={13} /> Export
+            <IconDownload size={13} /> {t("batch.detail.export")}
           </button>
         </div>
       </div>
@@ -202,7 +204,7 @@ export default function JDBatchDetail() {
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
-          label="Progress" value={`${pct.toFixed(0)}%`}
+          label={t("batch.detail.stat.progress")} value={`${pct.toFixed(0)}%`}
           accent={running}
           extra={
             <div className="mt-2.5">
@@ -211,24 +213,24 @@ export default function JDBatchDetail() {
           }
         />
         <StatCard
-          label="Completed"
+          label={t("batch.detail.stat.completed")}
           value={<span className="text-jb-success">{batch.done_count}</span>}
-          unit={`/ ${batch.total} rows`}
+          unit={t("batch.detail.stat.completedUnit", { total: batch.total })}
         />
         <StatCard
-          label="Errors"
+          label={t("batch.detail.stat.errors")}
           value={<span className={batch.error_count > 0 ? "text-jb-danger" : "text-jb-ink"}>{batch.error_count}</span>}
-          unit={batch.error_count === 0 ? "clean" : "need retry"}
+          unit={batch.error_count === 0 ? t("batch.detail.stat.errorsClean") : t("batch.detail.stat.errorsNeedRetry")}
         />
-        <StatCard label="Fields" value={batch.fields_config.length} unit="combined per row" />
+        <StatCard label={t("batch.detail.stat.fields")} value={batch.fields_config.length} unit={t("batch.detail.stat.fieldsUnit")} />
       </div>
 
       {/* Prompt fields + live log */}
       <div className={cn("grid gap-4", running ? "sm:grid-cols-[1fr_380px]" : "grid-cols-1")}>
         <Card>
           <CardHead>
-            <span className="font-semibold text-[15px]">Prompt fields</span>
-            <span className="text-[11.5px] text-jb-ink3">{batch.fields_config.length} fields combined per row</span>
+            <span className="font-semibold text-[15px]">{t("batch.detail.promptFields")}</span>
+            <span className="text-[11.5px] text-jb-ink3">{t("batch.detail.promptFieldsHint", { count: batch.fields_config.length })}</span>
           </CardHead>
           <CardBody className="flex flex-wrap gap-1.5">
             {batch.fields_config.map((f) => (
@@ -244,10 +246,10 @@ export default function JDBatchDetail() {
           <Card>
             <CardHead>
               <span className="flex items-center gap-1.5 font-semibold text-[15px]">
-                Live log
+                {t("batch.detail.liveLog")}
                 <span className="w-1.5 h-1.5 rounded-full bg-jb-accent inline-block animate-[jb-pulse_1.4s_infinite]" />
               </span>
-              <span className="ml-auto text-[11px] text-jb-ink4 font-mono">streaming</span>
+              <span className="ml-auto text-[11px] text-jb-ink4 font-mono">{t("batch.detail.streaming")}</span>
             </CardHead>
             <CardBody className="p-3">
               <div className="bg-jb-dark text-jb-dark-text rounded-xl px-3 py-2.5 font-mono text-[11px] leading-[1.65] max-h-[220px] overflow-auto">
@@ -312,7 +314,7 @@ export default function JDBatchDetail() {
                 </span>
                 <input
                   value={search} onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search…"
+                  placeholder={t("batch.detail.search")}
                   className="py-[7px] pr-[10px] pl-[30px] text-[12.5px] rounded-lg border border-jb-line bg-jb-surface outline-none text-jb-ink w-full sm:w-[200px]"
                 />
               </div>
@@ -329,7 +331,7 @@ export default function JDBatchDetail() {
           <>
             {visibleRecords.length === 0 ? (
               <CardBody>
-                <div className="text-center text-jb-ink3 py-5">No records match.</div>
+                <div className="text-center text-jb-ink3 py-5">{t("batch.detail.noRecordsMatch")}</div>
               </CardBody>
             ) : (
               <div className="max-h-[560px] overflow-auto">
@@ -337,10 +339,10 @@ export default function JDBatchDetail() {
                   <thead>
                     <tr>
                       <th className={thCls} style={{ width: 44 }}>#</th>
-                      <th className={thCls}>Title</th>
-                      <th className={thCls}>Company</th>
-                      <th className={thCls}>Location</th>
-                      <th className={thCls} style={{ width: 120 }}>Status</th>
+                      <th className={thCls}>{t("batch.detail.th.title")}</th>
+                      <th className={thCls}>{t("batch.detail.th.company")}</th>
+                      <th className={thCls}>{t("batch.detail.th.location")}</th>
+                      <th className={thCls} style={{ width: 120 }}>{t("batch.detail.th.status")}</th>
                       <th className={cn(thCls, "text-right")} style={{ width: 40 }}></th>
                     </tr>
                   </thead>
@@ -376,7 +378,7 @@ export default function JDBatchDetail() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-jb-line">
-                <span className="text-xs text-jb-ink3">Page {page} of {totalPages}</span>
+                <span className="text-xs text-jb-ink3">{t("batch.detail.pagination", { page, totalPages })}</span>
                 <div className="flex gap-1">
                   <Button isIconOnly size="sm" variant="flat" isDisabled={page === 1} onPress={() => setPage((p) => p - 1)}>
                     <IconChevronLeft size={16} />
@@ -394,7 +396,7 @@ export default function JDBatchDetail() {
           <CardBody className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-jb-ink3 mb-2.5">
-                Fields combined
+                {t("batch.detail.config.fieldsCombined")}
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {batch.fields_config.map((f) => (
@@ -404,17 +406,17 @@ export default function JDBatchDetail() {
                 ))}
               </div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-jb-ink3 mt-[18px] mb-1.5">
-                Batch info
+                {t("batch.detail.config.batchInfo")}
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-[13px]">
                 {([
-                  ["ID", `#${batch.id}`],
-                  ["File", batch.file_path.split("/").pop() ?? "—"],
-                  ["Workers", batch.workers],
-                  ["Total", batch.total],
-                  ["Done", batch.done_count],
-                  ["Errors", batch.error_count],
-                  ["Created", fmtDate(batch.created_at)],
+                  [t("batch.detail.config.id"), `#${batch.id}`],
+                  [t("batch.detail.config.file"), batch.file_path.split("/").pop() ?? "—"],
+                  [t("batch.detail.config.workers"), batch.workers],
+                  [t("batch.detail.config.total"), batch.total],
+                  [t("batch.detail.config.done"), batch.done_count],
+                  [t("batch.detail.config.errors"), batch.error_count],
+                  [t("batch.detail.config.created"), fmtDate(batch.created_at)],
                 ] as [string, string | number][]).map(([k, v]) => (
                   <>
                     <div key={`k-${k}`} className="text-jb-ink3 text-xs">{k}</div>
@@ -427,15 +429,15 @@ export default function JDBatchDetail() {
             </div>
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-jb-ink3 mb-2.5">
-                Status
+                {t("batch.detail.config.status")}
               </div>
               <Badge status={batch.status as BadgeStatus} />
               <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-jb-ink3 mt-[18px] mb-1.5">
-                Progress
+                {t("batch.detail.config.progress")}
               </div>
               <ProgressBar value={batch.done_count} errors={batch.error_count} total={batch.total} running={running} done={batch.status === "done"} />
               <div className="text-xs text-jb-ink3 mt-1.5">
-                {batch.done_count} done · {batch.error_count > 0 ? `${batch.error_count} errors · ` : ""}{batch.total - processed} pending · {pct.toFixed(1)}%
+                {t("batch.detail.config.summaryDone", { done: batch.done_count })} · {batch.error_count > 0 ? t("batch.detail.config.summaryErrors", { count: batch.error_count }) : ""}{t("batch.detail.config.summaryPending", { pending: batch.total - processed, pct: pct.toFixed(1) })}
               </div>
             </div>
           </CardBody>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface Datum { key: string; count: number; label?: string }
@@ -11,10 +12,11 @@ interface BarHProps {
 const fmt = new Intl.NumberFormat();
 
 export default function BarH({ data, height = 260, ariaLabel, color = "#0ea5e9" }: BarHProps) {
+  const { t } = useTranslation("dashboard");
   if (!data.length) {
     return (
-      <div className="flex items-center justify-center py-8 text-sm text-default-400" role="img" aria-label={`${ariaLabel}: no data`}>
-        No data
+      <div className="flex items-center justify-center py-8 text-sm text-default-400" role="img" aria-label={t("chart.noDataAria", { label: ariaLabel })}>
+        {t("chart.noData")}
       </div>
     );
   }

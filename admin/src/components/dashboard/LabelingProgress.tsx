@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { dashboardService } from "@/services/dashboard.service";
 import type { LabelingSnapshot } from "@/types/dashboard.types";
 
@@ -36,6 +38,7 @@ function MiniStat({
 }
 
 export default function LabelingProgress({ refreshKey }: Props) {
+  const { t } = useTranslation("dashboard");
   const { data, loading, error, reload } = useDashboardSection<LabelingSnapshot>(
     () => dashboardService.getLabeling(),
     refreshKey,
@@ -45,23 +48,23 @@ export default function LabelingProgress({ refreshKey }: Props) {
 
   return (
     <SectionCard
-      title="Labeling progress"
-      description="Pair queue and selection breakdown"
+      title={t("labeling.title")}
+      description={t("labeling.description")}
       loading={loading} error={error} empty={empty}
       onRetry={reload}
     >
       {data && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <MiniStat title="Total"   value={data.total_pairs} accent="var(--ink-soft)" />
-            <MiniStat title="Labeled" value={data.labeled}     accent="var(--green)" />
-            <MiniStat title="Skipped" value={data.skipped}     accent="var(--yellow)" />
-            <MiniStat title="Pending" value={data.pending}     accent="var(--blue)" />
+            <MiniStat title={t("labeling.total")}   value={data.total_pairs} accent="var(--ink-soft)" />
+            <MiniStat title={t("labeling.labeled")} value={data.labeled}     accent="var(--green)" />
+            <MiniStat title={t("labeling.skipped")} value={data.skipped}     accent="var(--yellow)" />
+            <MiniStat title={t("labeling.pending")} value={data.pending}     accent="var(--blue)" />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p style={NODE_DESC}>By reason</p>
+              <p style={NODE_DESC}>{t("labeling.byReason")}</p>
               <ul style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
                 {Object.entries(data.by_reason).map(([k, v]) => (
                   <li
@@ -76,7 +79,7 @@ export default function LabelingProgress({ refreshKey }: Props) {
               </ul>
             </div>
             <div>
-              <p style={NODE_DESC}>By split</p>
+              <p style={NODE_DESC}>{t("labeling.bySplit")}</p>
               <ul style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
                 {Object.entries(data.by_split).map(([k, v]) => (
                   <li
