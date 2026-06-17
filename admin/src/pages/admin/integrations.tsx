@@ -4,6 +4,7 @@ import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Chip } from "@heroui/chip";
 import { Spinner } from "@heroui/spinner";
+import { Switch } from "@heroui/switch";
 import { addToast } from "@heroui/toast";
 import {
   Modal,
@@ -29,6 +30,8 @@ import {
 import { Card } from "@/components/ui/card";
 import {
   integrationService,
+  INTEGRATION_EVENTS,
+  type IntegrationEvent,
   type IntegrationState,
   type ZaloQrStatus,
 } from "@/services/integration.service";
@@ -378,6 +381,61 @@ function ZaloLogin() {
   );
 }
 
+/** Per-channel notification toggles — shown once a platform is connected. Saves
+ * each toggle immediately (optimistic) via the events endpoint. */
+function EventToggles({
+  platform,
+  state,
+  onChanged,
+}: {
+  platform: Platform;
+  state: IntegrationState;
+  onChanged: () => Promise<void>;
+}) {
+  const { t } = useTranslation("integrations");
+  const [events, setEvents] = useState<Record<IntegrationEvent, boolean>>(state.events);
+  const [savingKey, setSavingKey] = useState<IntegrationEvent | null>(null);
+
+  const toggle = async (key: IntegrationEvent, value: boolean) => {
+    const prev = events;
+    setEvents({ ...events, [key]: value }); // optimistic
+    setSavingKey(key);
+    try {
+      const updated = await integrationService.setEvents(platform.id, { [key]: value });
+      setEvents(updated.events);
+      await onChanged();
+    } catch (e) {
+      setEvents(prev); // rollback
+      addToast({ title: t("events.saveFailed"), description: errMessage(e, ""), color: "danger" });
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-default-200 p-3">
+      <p className="mb-1 text-small font-medium">{t("events.title")}</p>
+      <p className="mb-3 text-tiny text-default-400">{t("events.subtitle")}</p>
+      <div className="flex flex-col gap-3">
+        {INTEGRATION_EVENTS.map((key) => (
+          <div key={key} className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-small">{t(`events.types.${key}.label`)}</p>
+              <p className="text-tiny text-default-400">{t(`events.types.${key}.desc`)}</p>
+            </div>
+            <Switch
+              size="sm"
+              isSelected={events[key]}
+              isDisabled={savingKey === key}
+              onValueChange={(v) => toggle(key, v)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function IntegrationsPage() {
   const { t } = useTranslation("integrations");
   const [states, setStates] = useState<Record<string, IntegrationState>>({});
@@ -627,6 +685,10 @@ function ConnectModal({
               );
             })}
           </div>
+
+          {isConnected && state && (
+            <EventToggles platform={platform} state={state} onChanged={onChanged} />
+          )}
 
           {state?.status === "error" && state.last_error && (
             <p className="rounded-xl bg-danger-50 p-3 text-small text-danger">

@@ -147,5 +147,24 @@
     "testFailedTitle": "Kiểm tra thất bại",
     "testFailedDesc": "Gửi thất bại.",
     "disconnectedTitle": "{{name}} đã ngắt kết nối"
+  },
+  "events": {
+    "title": "Thông báo",
+    "subtitle": "Chọn loại sự kiện được gửi tới kênh này.",
+    "saveFailed": "Không cập nhật được thông báo",
+    "types": {
+      "mail_reply": {
+        "label": "Có email phản hồi",
+        "desc": "Khi nhà tuyển dụng trả lời email ứng tuyển."
+      },
+      "mail_sent": {
+        "label": "Đã gửi email ứng tuyển",
+        "desc": "Khi gửi email ứng tuyển thay cho nhân viên."
+      },
+      "new_match": {
+        "label": "Job mới phù hợp",
+        "desc": "Bản tin buổi sáng các cặp ứng viên–việc làm điểm cao."
+      }
+    }
   }
 }

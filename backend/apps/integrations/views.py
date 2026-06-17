@@ -11,13 +11,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.employees.permissions import IsHRStaff
+from apps.employees.permissions import IsAdminUserRole
+from apps.integrations.events import DEFAULT_EVENTS, EVENT_KEYS
 from apps.integrations.models import Integration
 from apps.integrations.registry import PLATFORMS, get_platform
 from apps.integrations.serializers import serialize_platform
 from apps.integrations.services.delivery import DeliveryError, deliver
 
-HR = [IsAuthenticated, IsHRStaff]
+# Integrations are a SYSTEM-WIDE admin config (not per-recruiter) → admin only.
+HR = [IsAuthenticated, IsAdminUserRole]
 
 TEST_MESSAGE = "✅ JobFlow — kết nối thành công. Bản tin tuyển dụng buổi sáng sẽ được gửi tới kênh này."
 
@@ -72,6 +74,7 @@ class IntegrationDetailView(APIView):
 
         if row is None:
             row = Integration(platform=platform_id)
+            row.events = dict(DEFAULT_EVENTS)  # new channel → all notifications on
         row.set_config(config)
         row.status = Integration.STATUS_CONNECTED
         row.last_error = ""
@@ -111,6 +114,33 @@ def test_integration(request, platform_id):
     row.last_sent_at = timezone.now()
     row.save(update_fields=["status", "last_error", "last_sent_at"])
     return Response({"ok": True, "last_sent_at": row.last_sent_at})
+
+
+@api_view(["POST"])
+@permission_classes(HR)
+def set_events(request, platform_id):
+    """Update which notifications a connected channel receives.
+    Body: {"events": {"mail_reply": true, "mail_sent": false, "new_match": true}}"""
+    platform = get_platform(platform_id)
+    if not platform:
+        return Response({"success": False, "error": {"code": "UNKNOWN_PLATFORM",
+            "message": f"Unknown platform '{platform_id}'."}}, status=400)
+    row = Integration.objects.filter(platform=platform_id).first()
+    if not row:
+        return Response({"success": False, "error": {"code": "NOT_CONNECTED",
+            "message": "Connect this platform first."}}, status=400)
+
+    incoming = (request.data or {}).get("events", {})
+    if not isinstance(incoming, dict):
+        return Response({"success": False, "error": {"code": "BAD_REQUEST",
+            "message": "events must be an object."}}, status=400)
+    merged = {**(row.events or {})}
+    for k in EVENT_KEYS:
+        if k in incoming:
+            merged[k] = bool(incoming[k])
+    row.events = merged
+    row.save(update_fields=["events"])
+    return Response(serialize_platform(platform, row))
 
 
 # --- Zalo QR login (proxied to the zca-js sidecar) ------------------------------

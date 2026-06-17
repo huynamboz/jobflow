@@ -24,6 +24,8 @@ class Integration(models.Model):
     platform = models.CharField(max_length=20, unique=True)
     # Fernet ciphertext of json.dumps(config). NEVER serialize this column raw.
     config_encrypted = models.TextField()
+    # Per-channel notification toggles: {event_key: bool}. Missing key → ON.
+    events = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_CONNECTED)
     last_error = models.TextField(blank=True, default="")
     last_sent_at = models.DateTimeField(null=True, blank=True)
@@ -42,6 +44,10 @@ class Integration(models.Model):
         if not self.config_encrypted:
             return {}
         return json.loads(crypto.decrypt(self.config_encrypted))
+
+    def event_enabled(self, key: str) -> bool:
+        """Missing key defaults to ON (so legacy rows keep getting everything)."""
+        return bool((self.events or {}).get(key, True))
 
     def __repr__(self) -> str:  # never leak the secret blob
         return f"<Integration {self.platform} [{self.status}]>"

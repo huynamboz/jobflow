@@ -115,6 +115,9 @@ def poll_credential(credential) -> int:
                       + f" — {emp.full_name}",
                 body_preview=(body or "")[:160], link_url=link, employee=emp,
             )
+            # Fan out to subscribed integration channels (best-effort).
+            if not is_bounce:
+                _notify_integrations(emp, body, link)
             created += 1
     finally:
         try:
@@ -124,6 +127,22 @@ def poll_credential(credential) -> int:
     credential.last_polled_at = timezone.now()
     credential.save(update_fields=["last_polled_at"])
     return created
+
+
+def _notify_integrations(emp, body: str, link: str) -> None:
+    """Push a 'mail_reply' notification to subscribed integration channels."""
+    try:
+        from django.conf import settings
+
+        from apps.integrations.events import MAIL_REPLY
+        from apps.integrations.services.digest import notify_event
+
+        base = (settings.FRONTEND_BASE_URL or "").rstrip("/")
+        text = (f"📬 {emp.full_name} vừa có email phản hồi\n"
+                f"{(body or '').strip()[:200]}\n👉 {base}{link}")
+        notify_event(MAIL_REPLY, text, subject="JobFlow — Mail reply")
+    except Exception:  # noqa: BLE001 — never let notify break the poll
+        pass
 
 
 def _plain_body(msg) -> str:

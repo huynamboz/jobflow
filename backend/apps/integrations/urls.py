@@ -10,4 +10,5 @@ urlpatterns = [
     path("zalo/login-qr/status/", views.zalo_login_status, name="integration-zalo-qr-status"),
     path("<str:platform_id>/", views.IntegrationDetailView.as_view(), name="integration-detail"),
     path("<str:platform_id>/test/", views.test_integration, name="integration-test"),
+    path("<str:platform_id>/events/", views.set_events, name="integration-events"),
 ]

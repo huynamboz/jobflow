@@ -3,6 +3,7 @@
 (so it can show a "saved" placeholder)."""
 from __future__ import annotations
 
+from apps.integrations.events import normalize_events
 from apps.integrations.models import Integration
 from apps.integrations.registry import Platform
 
@@ -22,6 +23,8 @@ def serialize_platform(platform: Platform, row: Integration | None) -> dict:
         "last_sent_at": row.last_sent_at if row else None,
         "updated_at": row.updated_at if row else None,
         "config": public_config,
+        # per-channel notification toggles (every event key present)
+        "events": normalize_events(row.events if row else None),
         # which secret fields already hold a value (lets the FE show "•••• saved")
         "secrets_set": sorted(k for k in secret_keys if cfg.get(k)),
     }

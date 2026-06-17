@@ -1,4 +1,5 @@
 import logging
+import os
 import threading
 
 from django.apps import AppConfig
@@ -11,6 +12,11 @@ class MatchingConfig(AppConfig):
     name = "apps.matching"
 
     def ready(self):
+        # Helper processes (mail poller, scheduler) don't serve match requests —
+        # skip the pre-warm so they don't each hold a full ML engine in RAM.
+        # The engine still lazy-loads on demand if such a process ever needs it.
+        if os.environ.get("JOBFLOW_SKIP_ML_WARMUP") == "1":
+            return
         # Pre-warm inference engine in background so first user request is fast
         threading.Thread(target=self._warmup, daemon=True).start()
 

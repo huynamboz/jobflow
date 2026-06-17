@@ -12,7 +12,12 @@ export interface IntegrationState {
   config: Record<string, string>;
   /** Secret field keys that already hold a saved value. */
   secrets_set: string[];
+  /** Per-channel notification toggles (every event key present). */
+  events: Record<IntegrationEvent, boolean>;
 }
+
+export type IntegrationEvent = "mail_reply" | "mail_sent" | "new_match";
+export const INTEGRATION_EVENTS: IntegrationEvent[] = ["mail_reply", "mail_sent", "new_match"];
 
 class IntegrationService {
   async list(): Promise<IntegrationState[]> {
@@ -28,6 +33,12 @@ class IntegrationService {
 
   async disconnect(platform: string): Promise<void> {
     await apiClient.delete(`/admin/integrations/${platform}/`);
+  }
+
+  /** Update which notifications a connected channel receives. */
+  async setEvents(platform: string, events: Partial<Record<IntegrationEvent, boolean>>): Promise<IntegrationState> {
+    const r = await apiClient.post<IntegrationState>(`/admin/integrations/${platform}/events/`, { events });
+    return r.data;
   }
 
   /** Send a real test message through the saved config. */

@@ -109,11 +109,15 @@ def build_digest(top_n: int = 5, new_matches: int | None = None) -> DigestPayloa
     return DigestPayload(subject=f"JobFlow — Bản tin sáng {date_str}", text=text, slack_blocks=blocks)
 
 
-def deliver_to_all(text: str, subject: str = "JobFlow", slack_blocks: list | None = None) -> dict:
-    """Send `text` to all connected integrations. Returns a per-platform result
+def deliver_to_all(text: str, subject: str = "JobFlow", slack_blocks: list | None = None,
+                   event: str | None = None) -> dict:
+    """Send `text` to connected integrations. If `event` is given, only channels
+    that have that notification enabled receive it. Returns a per-platform result
     summary; flags failing integrations as errored (does not raise)."""
     results: dict[str, str] = {}
     for row in Integration.objects.all():
+        if event is not None and not row.event_enabled(event):
+            continue
         try:
             deliver(row.platform, row.get_config(), text, subject=subject, slack_blocks=slack_blocks)
         except DeliveryError as e:
@@ -131,6 +135,16 @@ def deliver_to_all(text: str, subject: str = "JobFlow", slack_blocks: list | Non
 
 
 def deliver_digest(top_n: int = 5, new_matches: int | None = None) -> dict:
-    """Build the morning digest and broadcast it to every connected channel."""
+    """Build the morning digest and broadcast it to every channel subscribed to
+    the 'new_match' notification."""
+    from apps.integrations.events import NEW_MATCH
+
     payload = build_digest(top_n=top_n, new_matches=new_matches)
-    return deliver_to_all(payload.text, subject=payload.subject, slack_blocks=payload.slack_blocks)
+    return deliver_to_all(payload.text, subject=payload.subject,
+                          slack_blocks=payload.slack_blocks, event=NEW_MATCH)
+
+
+def notify_event(event: str, text: str, subject: str = "JobFlow") -> dict:
+    """Broadcast a one-off plain-text notification to channels subscribed to
+    `event`. Best-effort — safe to call from request/poller paths."""
+    return deliver_to_all(text, subject=subject, event=event)

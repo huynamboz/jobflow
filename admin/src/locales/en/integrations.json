@@ -147,5 +147,24 @@
     "testFailedTitle": "Test failed",
     "testFailedDesc": "Delivery failed.",
     "disconnectedTitle": "{{name}} disconnected"
+  },
+  "events": {
+    "title": "Notifications",
+    "subtitle": "Choose which events are sent to this channel.",
+    "saveFailed": "Could not update notifications",
+    "types": {
+      "mail_reply": {
+        "label": "Email reply received",
+        "desc": "When a recruiter replies to an application email."
+      },
+      "mail_sent": {
+        "label": "Application email sent",
+        "desc": "When an application email is sent on behalf of an employee."
+      },
+      "new_match": {
+        "label": "New matching jobs",
+        "desc": "The morning digest of top employee–job matches."
+      }
+    }
   }
 }

@@ -58,9 +58,24 @@ def send_apply_email(*, credential, employee, match, to_addr, subject, body) -> 
         )
         raise
 
-    return EmailLog.objects.create(
+    log = EmailLog.objects.create(
         employee=employee, match=match, direction=EmailLog.OUT,
         from_addr=credential.gmail_address, to_addr=to_addr, subject=subject,
         body_text=body, message_id=message_id, cv_attached=cv_attached,
         status=EmailLog.SENT,
     )
+    _notify_sent(employee, to_addr, subject)
+    return log
+
+
+def _notify_sent(employee, to_addr: str, subject: str) -> None:
+    """Push a 'mail_sent' notification to subscribed integration channels."""
+    try:
+        from apps.integrations.events import MAIL_SENT
+        from apps.integrations.services.digest import notify_event
+
+        text = (f"📤 Đã gửi email ứng tuyển cho {employee.full_name}\n"
+                f"Tới: {to_addr}\nTiêu đề: {subject}")
+        notify_event(MAIL_SENT, text, subject="JobFlow — Mail sent")
+    except Exception:  # noqa: BLE001 — never let notify break sending
+        pass
