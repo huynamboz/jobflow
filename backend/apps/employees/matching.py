@@ -16,7 +16,19 @@ logger = logging.getLogger(__name__)
 
 
 def _jobs_to_dicts(result: Any) -> list[dict]:
-    jobs = result.get("jobs", []) if isinstance(result, dict) else (result or [])
+    if isinstance(result, dict) and "by_platform" in result:
+        # per-platform ranking: flatten each platform's top-K into one list,
+        # dedup by job_id, preserving per-platform order. Each platform keeps its
+        # own top-K so small platforms aren't crowded out of the persisted set.
+        jobs, seen = [], set()
+        for plat_jobs in result["by_platform"].values():
+            for j in plat_jobs:
+                jid = j.get("job_id")
+                if jid is not None and jid not in seen:
+                    seen.add(jid)
+                    jobs.append(j)
+    else:
+        jobs = result.get("jobs", []) if isinstance(result, dict) else (result or [])
     return [
         {
             "job_id": j.get("job_id"),
@@ -36,12 +48,17 @@ def _jobs_to_dicts(result: Any) -> list[dict]:
     ]
 
 
-def rematch_employee(employee: Any, top_k: int = 30) -> list[dict]:
+def rematch_employee(employee: Any, top_k: int = 30, per_platform: bool = False,
+                     per_platform_k: int = 50) -> list[dict]:
     """Re-match using the employee's already-parsed skills/seniority — **no LLM
     call** — through the same GNN pipeline. The CV file's text is re-extracted
     (no LLM) so the CV-node embedding matches the full path; falls back to a
     skills-joined string for employees without a file. Cheap enough to run in
-    bulk / on a schedule when the catalog changes."""
+    bulk / on a schedule when the catalog changes.
+
+    ``per_platform``: rank top-``per_platform_k`` WITHIN each platform separately
+    (so every platform is represented), then flatten for persistence. When False,
+    keeps the original single global top-``top_k`` ranking."""
     try:
         from apps.employees.parsers import extract_text_from_cv
         from apps.matching.services import match_cv_data  # type: ignore
@@ -54,6 +71,8 @@ def rematch_employee(employee: Any, top_k: int = 30) -> list[dict]:
             text=cv_text or None,
             top_k=top_k,
             position=employee.position or "",  # 025: deterministic role source
+            group_by_platform=per_platform,
+            per_platform_k=per_platform_k,
         )
         return _jobs_to_dicts(result)
     except Exception as exc:  # noqa: BLE001

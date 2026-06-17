@@ -28,10 +28,13 @@ class ExactRetriever:
         cv_text_vec: np.ndarray,
         cv_gnn_emb: "torch.Tensor | None",
         k: int,
+        restrict_idxs: "set[int] | None" = None,
     ) -> list[tuple[int, float]]:
         eng = self._engine
         scored: list[tuple[int, float]] = []
         for i, job in enumerate(eng._jobs):
+            if restrict_idxs is not None and i not in restrict_idxs:
+                continue
             score, _comps = eng._score_pair_fast(cv, job, i, cv_text_vec, cv_gnn_emb)
             scored.append((i, float(score)))
         # top-k by composite, descending; tie-break by job_idx for determinism

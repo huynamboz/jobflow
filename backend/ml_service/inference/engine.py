@@ -423,12 +423,26 @@ class InferenceEngine:
             "domain_fit": round(float(domain_fit), 3),
         }
 
-    def match_cv(self, cv: CVData, top_k: int = 10, retrieve_n: int | None = None) -> list[JobMatchResult]:
+    def encode_cv(self, cv: CVData) -> "tuple[np.ndarray, torch.Tensor | None]":
+        """Encode a CV once → (text vec, inductive GNN emb). Lets a caller rank the
+        same CV against several pool slices (per-platform ranking) without paying
+        the GNN inductive encode per slice."""
+        cv_text_vec = self._embed.encode([cv.text])[0]
+        cv_gnn_emb = self._get_cv_gnn_embedding(cv)
+        return cv_text_vec, cv_gnn_emb
+
+    def match_cv(self, cv: CVData, top_k: int = 10, retrieve_n: int | None = None,
+                 restrict_idxs: "set[int] | None" = None,
+                 precomputed: "tuple[np.ndarray, torch.Tensor | None] | None" = None) -> list[JobMatchResult]:
         """Two-stage matching: CV against all Jobs.
 
         Stage 1 (Retrieve): Fast hybrid scoring → top N candidates
         Stage 2 (Rerank):   MLP reranker on feature vectors → final top K
         If reranker not trained, Stage 1 scores are final.
+
+        restrict_idxs: limit ranking to these pool indices (per-platform ranking).
+        precomputed:   reuse a CV encode from ``encode_cv`` (skips re-encoding).
+        Both default to the original full-pool, encode-here behaviour.
         """
         # 025-pagination: stage-2 must see at least top_k candidates, else the
         # tail of the persisted list silently falls back to stage-1 order.
@@ -437,18 +451,20 @@ class InferenceEngine:
 
         cv_skills = set(cv.skills)
 
-        # FIX 2: Encode CV text once for the entire request
-        cv_text_vec: np.ndarray = self._embed.encode([cv.text])[0]
-
-        # FIX 2+3: Get GNN embedding once (thread-safe, no per-request self cache)
-        cv_gnn_emb: torch.Tensor | None = self._get_cv_gnn_embedding(cv)
+        # Encode CV once per request — or reuse a precomputed pair (per-platform
+        # ranking encodes the CV once and reranks each platform's slice).
+        if precomputed is not None:
+            cv_text_vec, cv_gnn_emb = precomputed
+        else:
+            cv_text_vec = self._embed.encode([cv.text])[0]
+            cv_gnn_emb = self._get_cv_gnn_embedding(cv)
 
         # --- Stage 1: retrieve a candidate shortlist, then exact-score ONLY it ---
         # feature 027: the retriever (exact|vector|pgvector) selects a shortlist by
         # a cheap recall signal; the exact composite below runs over the shortlist,
         # not the whole pool. `exact` mode scores all N here = pre-027 behaviour.
         k = max(self._retrieve_k, retrieve_n)
-        shortlist = self._retriever.shortlist(cv, cv_text_vec, cv_gnn_emb, k)
+        shortlist = self._retriever.shortlist(cv, cv_text_vec, cv_gnn_emb, k, restrict_idxs)
 
         stage1_scores: list[tuple[int, float]] = []
         stage1_components: dict[int, dict] = {}  # 025: score-breakdown display

@@ -318,6 +318,10 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
         # requested with ?status=dismissed.
         if self.request.query_params.get("status") != EmployeeJobMatch.Status.DISMISSED:
             qs = qs.exclude(status=EmployeeJobMatch.Status.DISMISSED)
+        # Per-platform browse: ?platform=<slug> restricts to one platform's jobs.
+        platform = self.request.query_params.get("platform")
+        if platform:
+            qs = qs.filter(job__platform__slug=platform)
         return qs
 
     def destroy(self, request, *args, **kwargs):

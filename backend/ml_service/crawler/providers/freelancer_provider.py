@@ -3,7 +3,8 @@
 Free, no auth for active projects. https://www.freelancer.com/api/
 Returns freelance *projects* (fixed/hourly) — treated as remote jobs. There is
 no "company" (projects are posted by individual clients, owner name not exposed
-without auth), so ``company`` is left blank.
+without auth), so ``company`` is set to a fixed "Freelancer client" label rather
+than blank (which would normalize to the shared "Unknown" company).
 """
 
 from __future__ import annotations
@@ -135,7 +136,7 @@ class FreelancerProvider(CrawlProvider):
             source="freelancer",
             source_url=source_url,
             title=title,
-            company="",  # projects have a client, not a company (name not exposed)
+            company="Freelancer client",  # projects have an individual client, not a company (name not exposed by the public API)
             location=country.strip() or "Remote",
             description=description,
             salary_min=salary_min,

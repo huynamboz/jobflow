@@ -338,25 +338,65 @@ def _dedup_by_title_company(enriched: list[dict]) -> list[dict]:
     return out
 
 
-def match_cv_text(cv_text: str, top_k: int = 10) -> dict:
-    """Match CV text against all jobs. Returns {cv_info, jobs}."""
+def _rank_by_platform(engine, cv, per_platform_k: int = 50) -> dict:
+    """Rank the CV WITHIN each platform separately → {platform_name: [jobs]}.
+
+    Encodes the CV once, then reranks each platform's pool slice independently so
+    a small platform (e.g. Remotive, 23 jobs) isn't crowded out of a single global
+    top-K by larger platforms' higher-ranked matches. Each slice goes through the
+    SAME exact composite + reranker + Platt pipeline (model untouched)."""
+    from collections import defaultdict
+
+    from apps.jobs.models import Job
+
+    pool = engine._jobs
+    if not pool:
+        return {}
+    plat_by_id = dict(
+        Job.objects.filter(id__in=[j.job_id for j in pool]).values_list("id", "platform__name")
+    )
+    idxs_by_plat: dict[str, set] = defaultdict(set)
+    for i, jd in enumerate(pool):
+        idxs_by_plat[plat_by_id.get(jd.job_id) or "Unknown"].add(i)
+
+    precomputed = engine.encode_cv(cv)  # GNN inductive encode ONCE, reused per slice
+    out: dict[str, list] = {}
+    for name in sorted(idxs_by_plat):
+        idxs = idxs_by_plat[name]
+        # over-fetch (×2) so the lifecycle filter doesn't shrink a slice below k
+        raw = engine.match_cv(cv, top_k=per_platform_k * 2, restrict_idxs=idxs, precomputed=precomputed)
+        out[name] = _dedup_by_title_company(_enrich(_apply_lifecycle_filter(raw)))[:per_platform_k]
+    return out
+
+
+def match_cv_text(cv_text: str, top_k: int = 10, group_by_platform: bool = False,
+                  per_platform_k: int = 50) -> dict:
+    """Match CV text against all jobs. Returns {cv_info, jobs} — or, with
+    ``group_by_platform``, {cv_info, by_platform: {platform: [jobs]}}."""
     parser = _get_parser()
     cv_data = parser.parse_text(cv_text, cv_id=-1)
     engine = _get_engine()
+    if group_by_platform:
+        return {"cv_info": _cv_info(cv_data), "by_platform": _rank_by_platform(engine, cv_data, per_platform_k)}
     # Over-fetch so the lifecycle filter doesn't shrink the response below top_k.
     raw = engine.match_cv(cv_data, top_k=top_k * 2)
     jobs = _dedup_by_title_company(_enrich(_apply_lifecycle_filter(raw)))[:top_k]
     return {"cv_info": _cv_info(cv_data), "jobs": jobs}
 
 
-def match_cv_file(file_path: str, top_k: int = 10) -> dict:
-    """Parse CV file (PDF/DOCX) and match against all jobs. Returns {cv_info, jobs}."""
+def match_cv_file(file_path: str, top_k: int = 10, group_by_platform: bool = False,
+                  per_platform_k: int = 50) -> dict:
+    """Parse CV file (PDF/DOCX) and match against all jobs. Returns {cv_info, jobs}
+    — or, with ``group_by_platform``, {cv_info, by_platform: {platform: [jobs]}}."""
     parser = _get_parser()
     cv_data = parser.parse_file(file_path)
     if not cv_data.skills:
-        return {"cv_info": _cv_info(cv_data), "jobs": []}
+        empty = {"by_platform": {}} if group_by_platform else {"jobs": []}
+        return {"cv_info": _cv_info(cv_data), **empty}
 
     engine = _get_engine()
+    if group_by_platform:
+        return {"cv_info": _cv_info(cv_data), "by_platform": _rank_by_platform(engine, cv_data, per_platform_k)}
     raw = engine.match_cv(cv_data, top_k=top_k * 2)
     jobs = _dedup_by_title_company(_enrich(_apply_lifecycle_filter(raw)))[:top_k]
     return {"cv_info": _cv_info(cv_data), "jobs": jobs}
@@ -417,6 +457,8 @@ def match_cv_data(
     text: str | None = None,
     top_k: int = 10,
     position: str = "",
+    group_by_platform: bool = False,
+    per_platform_k: int = 50,
 ) -> dict:
     """Match using already-structured CV fields, **skipping the LLM parse**, then
     run the exact same GNN pipeline (``engine.match_cv``) as the full CV path.
@@ -455,6 +497,8 @@ def match_cv_data(
         role_category=infer_role(tuple(canonical), position or ""),
     )
     engine = _get_engine()
+    if group_by_platform:
+        return {"cv_info": _cv_info(cv), "by_platform": _rank_by_platform(engine, cv, per_platform_k)}
     raw = engine.match_cv(cv, top_k=top_k * 2)
     jobs = _dedup_by_title_company(_enrich(_apply_lifecycle_filter(raw)))[:top_k]
     return {"cv_info": _cv_info(cv), "jobs": jobs}

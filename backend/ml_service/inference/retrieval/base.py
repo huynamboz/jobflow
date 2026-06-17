@@ -31,6 +31,7 @@ class Retriever(Protocol):
         cv_text_vec: np.ndarray,            # (384,) MiniLM CV text vector
         cv_gnn_emb: "torch.Tensor | None",  # (D,) inductive CV GNN emb; None in text-only mode
         k: int,
+        restrict_idxs: "set[int] | None" = None,  # if set, only these pool indices are eligible
     ) -> list[tuple[int, float]]:
         """Return [(job_idx, recall_sim)], len ≤ k, descending by recall_sim.
 
@@ -40,5 +41,8 @@ class Retriever(Protocol):
         - bounded by k; fewer only if the pool has fewer jobs.
         - recall_sim orders the shortlist; it does NOT replace the final score.
         - deterministic given the pool (ties broken by job_idx).
+        - restrict_idxs (per-platform ranking): when given, the shortlist is drawn
+          ONLY from those pool indices, so a small platform can't be crowded out by
+          a larger one's globally-higher matches. None = full pool (default).
         """
         ...

@@ -26,6 +26,12 @@ logger = logging.getLogger(__name__)
 # reserve is ever needed. engine.match_cv retrieve_n auto-scales to top_k.
 MATCH_TOP_K = 100
 
+# Per-platform ranking: store the top-K jobs of EACH platform separately (so a
+# small platform like Remotive isn't crowded out of a single global top-K by
+# LinkedIn/Indeed). Total persisted ≈ MATCH_PER_PLATFORM_K × #platforms.
+MATCH_PER_PLATFORM = True
+MATCH_PER_PLATFORM_K = 50
+
 
 def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
     """Upsert match rows. New rows start as ``suggested``; existing rows keep
@@ -101,7 +107,7 @@ def _do_rematch(employee_id: int) -> dict:
         return {"employee_id": employee_id, "skipped": "not_found"}
     if not emp.skills:
         return {"employee_id": employee_id, "skipped": "no_skills"}
-    return _persist_matches(emp, rematch_employee(emp, top_k=MATCH_TOP_K))
+    return _persist_matches(emp, rematch_employee(emp, top_k=MATCH_TOP_K, per_platform=MATCH_PER_PLATFORM, per_platform_k=MATCH_PER_PLATFORM_K))
 
 
 def _do_parse_and_match(employee_id: int) -> dict:
@@ -144,7 +150,7 @@ def _do_parse_and_match(employee_id: int) -> dict:
     # (match_cv_data). The old route synthesized a "Skills: ..." text and
     # LLM-parsed it AGAIN: a second LLM call whose output could drift from the
     # stored fields, making upload-time scores differ from rematch-time scores.
-    return _persist_matches(emp, rematch_employee(emp, top_k=MATCH_TOP_K))
+    return _persist_matches(emp, rematch_employee(emp, top_k=MATCH_TOP_K, per_platform=MATCH_PER_PLATFORM, per_platform_k=MATCH_PER_PLATFORM_K))
 
 
 # ── 027: CV versions ──────────────────────────────────────────────────────────
@@ -205,7 +211,7 @@ def _do_parse_cv_version(cv_id: int) -> dict:
 
     if cv.is_active:
         _apply_version_to_employee(cv.employee, cv)
-        _persist_matches(cv.employee, rematch_employee(cv.employee, top_k=MATCH_TOP_K))
+        _persist_matches(cv.employee, rematch_employee(cv.employee, top_k=MATCH_TOP_K, per_platform=MATCH_PER_PLATFORM, per_platform_k=MATCH_PER_PLATFORM_K))
     return {"cv_id": cv_id, "parsed": bool(parsed)}
 
 
@@ -227,7 +233,7 @@ def activate_cv(cv_id: int, rematch: bool = True) -> dict:
     _apply_version_to_employee(emp, cv)
     if not rematch:
         return {"cv_id": cv_id, "activated": True}
-    result = _persist_matches(emp, rematch_employee(emp, top_k=MATCH_TOP_K))
+    result = _persist_matches(emp, rematch_employee(emp, top_k=MATCH_TOP_K, per_platform=MATCH_PER_PLATFORM, per_platform_k=MATCH_PER_PLATFORM_K))
     return {"cv_id": cv_id, "activated": True, **result}
 
 

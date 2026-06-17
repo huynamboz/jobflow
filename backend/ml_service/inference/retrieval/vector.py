@@ -58,6 +58,7 @@ class VectorRetriever:
         cv_text_vec: np.ndarray,
         cv_gnn_emb: "torch.Tensor | None",
         k: int,
+        restrict_idxs: "set[int] | None" = None,
     ) -> list[tuple[int, float]]:
         eng = self._engine
         n = len(eng._jobs)
@@ -95,9 +96,22 @@ class VectorRetriever:
         recall = (eng._alpha * gnn_term + eng._beta * skill
                   + eng._gamma * sen + eng._delta * domain)
 
-        k_eff = min(max(0, k), n)
+        # per-platform ranking: keep only the restricted indices eligible
+        avail = n
+        if restrict_idxs is not None:
+            keep = np.fromiter((i for i in restrict_idxs if 0 <= i < n), dtype=np.int64)
+            avail = int(keep.size)
+            if avail == 0:
+                return []
+            masked = np.full(n, -np.inf, dtype=recall.dtype)
+            masked[keep] = recall[keep]
+            recall = masked
+
+        k_eff = min(max(0, k), avail)
         if k_eff == 0:
             return []
-        idx = np.arange(n) if k_eff >= n else np.argpartition(-recall, k_eff - 1)[:k_eff]
+        idx = (np.flatnonzero(np.isfinite(recall)) if restrict_idxs is not None and k_eff >= avail
+               else np.arange(n) if k_eff >= n
+               else np.argpartition(-recall, k_eff - 1)[:k_eff])
         order = idx[np.argsort(-recall[idx], kind="stable")]
         return [(int(i), float(recall[i])) for i in order]

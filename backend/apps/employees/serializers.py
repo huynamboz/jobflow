@@ -46,6 +46,7 @@ class EmployeeListSerializer(serializers.ModelSerializer):
 
 class EmployeeDetailSerializer(serializers.ModelSerializer):
     matches_count_by_status = serializers.SerializerMethodField()
+    matches_count_by_platform = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
@@ -54,12 +55,12 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
             "seniority", "experience_years", "skills",
             "cv_file", "parsed_at", "is_parse_failed",
             "notes", "created_by",
-            "matches_count_by_status",
+            "matches_count_by_status", "matches_count_by_platform",
             "created_at", "updated_at",
         )
         read_only_fields = (
             "id", "cv_file", "parsed_at", "is_parse_failed",
-            "created_by", "matches_count_by_status",
+            "created_by", "matches_count_by_status", "matches_count_by_platform",
             "created_at", "updated_at",
         )
 
@@ -68,6 +69,24 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
 
         rows = obj.matches.values("status").annotate(c=Count("id"))
         return {row["status"]: row["c"] for row in rows}
+
+    def get_matches_count_by_platform(self, obj):
+        """Per-platform match counts (excluding dismissed) for the filter chips —
+        [{name, slug, count}], descending by count."""
+        from django.db.models import Count
+
+        rows = (
+            obj.matches.exclude(status="dismissed")
+            .values("job__platform__name", "job__platform__slug")
+            .annotate(c=Count("id"))
+            .order_by("-c")
+        )
+        return [
+            {"name": r["job__platform__name"] or "Unknown",
+             "slug": r["job__platform__slug"] or "",
+             "count": r["c"]}
+            for r in rows
+        ]
 
 
 class EmployeeJobMatchSerializer(serializers.ModelSerializer):
