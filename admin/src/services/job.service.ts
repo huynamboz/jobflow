@@ -1,6 +1,6 @@
 import { apiClient } from "@/lib/api-client";
 import type { ApiSuccess } from "@/types/api.types";
-import type { JDBatch, JDBatchDetail, JobDetail, JobListResponse } from "@/types/job.types";
+import type { AdminPlatform, JDBatch, JDBatchDetail, JobDetail, JobListResponse } from "@/types/job.types";
 
 export interface JobFilters {
   search?: string;
@@ -19,6 +19,11 @@ class JobService {
     });
     const res = await apiClient.get<JobListResponse>(`/admin/jobs/?${params}`);
     return res.data;
+  }
+
+  async listPlatforms(): Promise<AdminPlatform[]> {
+    const res = await apiClient.get<ApiSuccess<AdminPlatform[]>>("/admin/platforms/");
+    return res.data.data;
   }
 
   async getJob(id: number): Promise<JobDetail> {

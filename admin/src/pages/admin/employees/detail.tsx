@@ -90,11 +90,16 @@ function jobPostedLabel(j: JobLite): string {
   return d.toLocaleDateString("vi-VN", { dateStyle: "short" });
 }
 
+const SALARY_PERIOD_SUFFIX: Record<string, string> = {
+  hourly: "/hr", daily: "/day", weekly: "/wk", monthly: "/mo", annual: "/yr",
+};
+
 function fmtSalary(j: JobLite): string {
   const c = j.salary_currency || "$";
   const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`);
-  if (j.salary_min && j.salary_max) return `${c}${k(j.salary_min)}–${c}${k(j.salary_max)}`;
-  if (j.salary_min) return `${c}${k(j.salary_min)}+`;
+  const suffix = j.salary_period ? (SALARY_PERIOD_SUFFIX[j.salary_period] ?? "") : "";
+  if (j.salary_min && j.salary_max) return `${c}${k(j.salary_min)}–${c}${k(j.salary_max)}${suffix}`;
+  if (j.salary_min) return `${c}${k(j.salary_min)}+${suffix}`;
   return "";
 }
 

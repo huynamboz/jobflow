@@ -96,7 +96,7 @@ export function DetailDrawer({
             <div className="space-y-5 p-6">
               {/* Stat grid */}
               <div className="grid grid-cols-4 gap-2.5">
-                <KVStat label="Salary" value={fmtSalary(job.salary_min, job.salary_max, job.salary_currency)} />
+                <KVStat label="Salary" value={fmtSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_period)} />
                 <KVStat label="Type" value={JOB_TYPE_LABEL[job.job_type] ?? job.job_type} />
                 <KVStat label="Level" value={SENIORITY_LABEL[job.seniority] ?? `L${job.seniority}`} />
                 <KVStat label="Posted" value={daysAgo(job.date_posted)} />

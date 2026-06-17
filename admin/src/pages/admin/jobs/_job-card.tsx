@@ -1,7 +1,7 @@
 import { Briefcase, Check, ChevronRight, MapPin } from "lucide-react";
 import type { JobListItem } from "@/types/job.types";
 import {
-  JOB_TYPE_LABEL, PlatformChip, PlatformDot, PlatformLogo,
+  JOB_TYPE_LABEL, PlatformLogo,
   StatusBadge, WORK_MODES, WorkModeBadge,
   daysAgo, fmtSalary,
 } from "./_primitives";
@@ -131,18 +131,17 @@ export function JobCard({
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {fmtSalary(job.salary_min, job.salary_max, job.salary_currency)}
+          {fmtSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_period)}
         </div>
         <StatusBadge kind={statusKind} />
       </div>
 
-      {/* Row 5: source (platform chip + date + applicants) */}
+      {/* Row 5: source (date + applicants) */}
       <div
         className="flex items-center gap-2"
         style={{ font: "400 11px/16px var(--font-node-mono)", color: "var(--muted)" }}
       >
-        {job.platform_name && <PlatformChip name={job.platform_name} logo={job.platform_logo} />}
-        <span>· {daysAgo(job.date_posted)}</span>
+        <span>{daysAgo(job.date_posted)}</span>
         {job.applicant_count != null && (
           <span className="ml-auto">{job.applicant_count} applicants</span>
         )}
@@ -208,26 +207,6 @@ export function JobRow({
       </td>
 
       <td className="px-4 py-3.5">
-        {job.platform_name ? (
-          <span
-            className="inline-flex items-center gap-1.5"
-            style={{
-              background: "var(--c3)",
-              color: "var(--ink-soft)",
-              borderRadius: 999,
-              padding: "3px 8px 3px 3px",
-              font: "500 11.5px/16px var(--font-node-sans)",
-            }}
-          >
-            <PlatformDot name={job.platform_name} logo={job.platform_logo} size="sm" />
-            {job.platform_name}
-          </span>
-        ) : (
-          <span style={{ color: "var(--muted)" }}>—</span>
-        )}
-      </td>
-
-      <td className="px-4 py-3.5">
         <div style={{ font: "400 12.5px/16px var(--font-node-sans)", color: "var(--ink-soft)" }}>
           {job.location || "—"}
         </div>
@@ -243,7 +222,7 @@ export function JobRow({
       </td>
 
       <td className="px-4 py-3.5" style={{ font: "400 12px/16px var(--font-node-mono)", color: "var(--ink)" }}>
-        {fmtSalary(job.salary_min, job.salary_max, job.salary_currency)}
+        {fmtSalary(job.salary_min, job.salary_max, job.salary_currency, job.salary_period)}
       </td>
 
       <td className="px-4 py-3.5">

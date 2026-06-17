@@ -50,7 +50,8 @@ class JobService:
         return {
             "seniority": r.seniority, "role_category": r.role_category, "job_type": r.job_type,
             "experience_min": r.experience_min, "experience_max": r.experience_max,
-            "salary_min": r.salary_min, "salary_max": r.salary_max, "skills": r.skills,
+            "salary_min": r.salary_min, "salary_max": r.salary_max,
+            "salary_type": r.salary_type, "skills": r.skills,
         }
 
     def save_raw_job(self, raw: "RawJob", extracted: dict | None = None,
@@ -105,9 +106,20 @@ class JobService:
         role_category = (extracted.get("role_category") or "other")
         exp_min = extracted.get("experience_min")
         exp_max = extracted.get("experience_max")
-        # Prefer the provider's real salary; fall back to the extracted one.
-        salary_min = int(raw.salary_min or extracted.get("salary_min") or 0)
-        salary_max = int(raw.salary_max or extracted.get("salary_max") or 0)
+        # Prefer the provider's real salary; fall back to the extracted one. The
+        # pay period follows whichever source supplied the number, so the USD-annual
+        # equivalent is computed against the right interval.
+        from apps.jobs.services.salary_normalizer import canonical_period, normalize_salary_range
+        if raw.salary_min or raw.salary_max:
+            salary_min = int(raw.salary_min or 0)
+            salary_max = int(raw.salary_max or 0)
+            salary_period = canonical_period(getattr(raw, "salary_interval", None))
+        else:
+            salary_min = int(extracted.get("salary_min") or 0)
+            salary_max = int(extracted.get("salary_max") or 0)
+            salary_period = canonical_period(extracted.get("salary_type"))
+        usd_annual_min, usd_annual_max = normalize_salary_range(
+            salary_min, salary_max, raw.salary_currency, salary_period)
 
         # job_type: provider value first, else extracted, normalized to a valid choice
         jt_raw = (getattr(raw, "job_type", "") or extracted.get("job_type") or "").lower()
@@ -148,6 +160,9 @@ class JobService:
                 salary_min=salary_min,
                 salary_max=salary_max,
                 salary_currency=raw.salary_currency,
+                salary_period=salary_period,
+                salary_usd_annual_min=usd_annual_min,
+                salary_usd_annual_max=usd_annual_max,
                 experience_min=exp_min,
                 experience_max=exp_max,
                 source_url=raw.source_url,

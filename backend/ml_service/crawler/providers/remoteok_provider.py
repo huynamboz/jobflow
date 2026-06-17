@@ -163,6 +163,7 @@ class RemoteOKProvider(CrawlProvider):
             salary_min=salary_min,
             salary_max=salary_max,
             salary_currency=currency,
+            salary_interval="annual",  # RemoteOK salaries are annual ranges
             date_posted=date_posted,
             raw_skills=tuple(t for t in tags if isinstance(t, str) and t.strip()),
             company_logo_url=logo,

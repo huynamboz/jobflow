@@ -94,6 +94,7 @@ class JobSpyProvider(CrawlProvider):
             salary_min = _safe_float(row.get("min_amount"))
             salary_max = _safe_float(row.get("max_amount"))
             currency = _safe_str(row.get("currency")) or "USD"
+            salary_interval = _safe_str(row.get("interval")) or None  # yearly/monthly/weekly/daily/hourly
 
             date_posted = row.get("date_posted")
             if pd.isna(date_posted):
@@ -125,6 +126,7 @@ class JobSpyProvider(CrawlProvider):
                     salary_min=salary_min,
                     salary_max=salary_max,
                     salary_currency=currency,
+                    salary_interval=salary_interval,
                     date_posted=date_posted,
                     job_type=_safe_str(row.get("job_type")),
                     company_logo_url=_safe_str(row.get("logo_photo_url")),

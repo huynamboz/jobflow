@@ -25,6 +25,7 @@ class RawJob:
     salary_min: float | None = None
     salary_max: float | None = None
     salary_currency: str = "USD"
+    salary_interval: str | None = None  # provider pay period: "yearly"/"monthly"/"hourly"/…
     date_posted: datetime | None = None
     seniority_hint: str | None = None  # raw text like "senior", "entry level"
     raw_skills: tuple[str, ...] = ()  # skills extracted by the provider (if any)

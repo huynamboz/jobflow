@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 import { jobService } from "@/services/job.service";
-import type { JobListItem } from "@/types/job.types";
+import type { AdminPlatform, JobListItem } from "@/types/job.types";
 import { PlatformDot, SENIORITY_LABEL } from "./_primitives";
 import { JobCard, JobRow } from "./_job-card";
 import { DetailDrawer } from "./_job-drawer";
@@ -124,9 +124,10 @@ function AccentBtn({
 
 /* ── Platform filter pill ──────────────────────────────────────────── */
 function ProviderPill({
-  name, count, active, onClick,
+  name, logo, count, active, onClick,
 }: {
   name: string;
+  logo?: string;
   count: number;
   active: boolean;
   onClick: () => void;
@@ -147,7 +148,7 @@ function ProviderPill({
         transition: "background 0.14s, border-color 0.14s, color 0.14s",
       }}
     >
-      <PlatformDot name={name} />
+      <PlatformDot name={name} logo={logo} />
       <span>{name}</span>
       <span
         style={{
@@ -181,45 +182,49 @@ export default function JobsPage() {
   const [exporting, setExporting] = useState(false);
   const [view, setView] = useState<ViewMode>("grid");
   const [platformFilter, setPlatformFilter] = useState("");
+  const [platforms, setPlatforms] = useState<AdminPlatform[]>([]);
 
-  const platforms = useMemo(() => {
-    const map = new Map<string, number>();
-    items.forEach((j) => {
-      if (j.platform_name) map.set(j.platform_name, (map.get(j.platform_name) ?? 0) + 1);
-    });
-    return [...map.entries()].map(([name, count]) => ({ name, count }));
-  }, [items]);
+  // All platforms (server-side list, not derived from the current page).
+  useEffect(() => {
+    jobService.listPlatforms()
+      .then((ps) => setPlatforms(ps.filter((p) => p.job_count > 0)))
+      .catch(console.error);
+  }, []);
 
   const activeCount = items.filter((j) => j.is_active).length;
   const inactiveCount = items.length - activeCount;
 
   const filtered = useMemo(() => {
     let result = items;
-    if (platformFilter) result = result.filter((j) => j.platform_name === platformFilter);
     if (activeFilter === "active") result = result.filter((j) => j.is_active);
     if (activeFilter === "inactive") result = result.filter((j) => !j.is_active);
     return result;
-  }, [items, platformFilter, activeFilter]);
+  }, [items, activeFilter]);
 
-  const load = useCallback((p: number, s: string, sen: string, jt: string) => {
+  const load = useCallback((p: number, s: string, sen: string, jt: string, plat: string) => {
     setLoading(true);
     jobService
-      .listJobs({ search: s, seniority: sen, job_type: jt, page: p, page_size: PAGE_SIZE })
+      .listJobs({ search: s, seniority: sen, job_type: jt, platform: plat, page: p, page_size: PAGE_SIZE })
       .then((res) => { setItems(res.data ?? []); setTotal(res.total ?? 0); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(page, search, seniority, jobType); }, [page, load]);
+  useEffect(() => { load(page, search, seniority, jobType, platformFilter); }, [page, load]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    load(1, search, seniority, jobType);
+    load(1, search, seniority, jobType, platformFilter);
   };
 
   const handleWorkMode = (v: string) => {
-    setJobType(v); setPage(1); load(1, search, seniority, v);
+    setJobType(v); setPage(1); load(1, search, seniority, v, platformFilter);
+  };
+
+  const handlePlatform = (slug: string) => {
+    const next = platformFilter === slug ? "" : slug;
+    setPlatformFilter(next); setPage(1); load(1, search, seniority, jobType, next);
   };
 
   const toggleSel = (id: number) =>
@@ -279,16 +284,17 @@ export default function JobsPage() {
         </div>
       </header>
 
-      {/* ── Provider filter strip ─────────────────────────────── */}
+      {/* ── Provider filter strip (all platforms, server-side filter) ── */}
       {platforms.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-1.5">
           {platforms.map((p) => (
             <ProviderPill
-              key={p.name}
+              key={p.slug}
               name={p.name}
-              count={p.count}
-              active={platformFilter === p.name}
-              onClick={() => setPlatformFilter((prev) => (prev === p.name ? "" : p.name))}
+              logo={p.logo_url}
+              count={p.job_count}
+              active={platformFilter === p.slug}
+              onClick={() => handlePlatform(p.slug)}
             />
           ))}
         </div>
@@ -347,7 +353,7 @@ export default function JobsPage() {
 
         <select
           value={seniority}
-          onChange={(e) => { setSeniority(e.target.value); setPage(1); load(1, search, e.target.value, jobType); }}
+          onChange={(e) => { setSeniority(e.target.value); setPage(1); load(1, search, e.target.value, jobType, platformFilter); }}
           style={{
             height: 38,
             borderRadius: 12,
@@ -519,7 +525,7 @@ export default function JobsPage() {
                       style={{ accentColor: "var(--blue)" }}
                     />
                   </th>
-                  {["Job", "Provider", "Location", "Posted", "Salary", "Status", ""].map((h, i) => (
+                  {["Job", "Location", "Posted", "Salary", "Status", ""].map((h, i) => (
                     <th
                       key={i}
                       className="px-4 py-3"
@@ -530,7 +536,7 @@ export default function JobsPage() {
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                         color: "var(--muted)",
-                        textAlign: (i === 5 || i === 6) ? "right" : "left",
+                        textAlign: (i === 4 || i === 5) ? "right" : "left",
                       }}
                     >
                       {h}

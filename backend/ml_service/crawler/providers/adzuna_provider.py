@@ -129,5 +129,6 @@ class AdzunaProvider(CrawlProvider):
             salary_min=salary_min,
             salary_max=salary_max,
             salary_currency="USD",
+            salary_interval="annual",  # Adzuna salaries are annualized
             date_posted=date_posted,
         )

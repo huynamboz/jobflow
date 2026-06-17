@@ -56,3 +56,12 @@ backend/auth/chromium_profile/
 # Schedule run logs (live tail files)
 backend/logs/runs/
 /specs/013-thesis-report
+
+# Thesis output docs + dataset/source archives (operator-local, not source)
+*.docx
+*.pdf
+*.zip
+/data/
+
+# Sandbox experiment outputs (generated, reproducible from bench_*.py)
+backend/results/

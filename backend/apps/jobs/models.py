@@ -78,6 +78,14 @@ class Job(models.Model):
         ON_SITE = "on-site"
         OTHER = "other"
 
+    class SalaryPeriod(models.TextChoices):
+        HOURLY = "hourly"
+        DAILY = "daily"
+        WEEKLY = "weekly"
+        MONTHLY = "monthly"
+        ANNUAL = "annual"
+        UNKNOWN = "unknown"
+
     # Relations
     platform = models.ForeignKey(Platform, on_delete=models.CASCADE, related_name="jobs", null=True, blank=True)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="jobs", null=True, blank=True)
@@ -89,10 +97,15 @@ class Job(models.Model):
     seniority = models.IntegerField(choices=Seniority.choices, default=Seniority.MID)
     job_type = models.CharField(max_length=20, choices=JobType.choices, default=JobType.OTHER, blank=True)
 
-    # Salary
+    # Salary — raw provider number + its pay period (for honest display), plus a
+    # USD-annual equivalent so postings are comparable across periods/currencies.
     salary_min = models.IntegerField(default=0)
     salary_max = models.IntegerField(default=0)
     salary_currency = models.CharField(max_length=10, default="USD")
+    salary_period = models.CharField(
+        max_length=10, choices=SalaryPeriod.choices, default=SalaryPeriod.UNKNOWN, blank=True)
+    salary_usd_annual_min = models.IntegerField(default=0)
+    salary_usd_annual_max = models.IntegerField(default=0)
 
     # Extracted / enriched fields
     role_category = models.CharField(max_length=20, blank=True, default="other")

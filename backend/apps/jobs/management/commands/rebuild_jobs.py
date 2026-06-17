@@ -39,6 +39,20 @@ logger = logging.getLogger(__name__)
 
 _VIEW_ID_RE = re.compile(r"/(?:jobs/)?view/(\d+)/?")
 
+
+def _salary_fields(result: dict, raw_data: dict) -> dict:
+    """Derive salary columns (raw + period + USD-annual) from an extraction result."""
+    from apps.jobs.services.salary_normalizer import canonical_period, normalize_salary_range
+    smin = int(result.get("salary_min") or 0)
+    smax = int(result.get("salary_max") or 0)
+    currency = (result.get("salary_currency") or "USD")[:10]
+    period = canonical_period(result.get("salary_type") or (raw_data or {}).get("salary_interval"))
+    usd_min, usd_max = normalize_salary_range(smin, smax, currency, period)
+    return dict(
+        salary_min=smin, salary_max=smax, salary_currency=currency,
+        salary_period=period, salary_usd_annual_min=usd_min, salary_usd_annual_max=usd_max,
+    )
+
 WORK_MODES = {"remote", "hybrid", "on-site"}
 EMPLOYMENT_TYPES = {"full-time", "part-time", "contract"}
 VALID_JOB_TYPES = WORK_MODES | EMPLOYMENT_TYPES | {"other"}
@@ -187,12 +201,10 @@ class Command(BaseCommand):
         Job.objects.filter(id=job_id).update(
             seniority=_clamp(result.get("seniority"), 0, 5, 2),
             job_type=job_type,
-            salary_min=int(result.get("salary_min") or 0),
-            salary_max=int(result.get("salary_max") or 0),
-            salary_currency=(result.get("salary_currency") or "USD")[:10],
             role_category=(result.get("role_category") or "other")[:20],
             experience_min=float(exp_min_raw) if exp_min_raw is not None else None,
             experience_max=float(exp_max_raw) if exp_max_raw is not None else None,
+            **_salary_fields(result, raw_data),
         )
         self._replace_skills(job_id, result.get("skills") or [], normalizer, skill_cache)
 
@@ -282,12 +294,10 @@ class Command(BaseCommand):
                     location=location,
                     seniority=_clamp(result.get("seniority"), 0, 5, 2),
                     job_type=job_type,
-                    salary_min=int(result.get("salary_min") or 0),
-                    salary_max=int(result.get("salary_max") or 0),
-                    salary_currency=(result.get("salary_currency") or "USD")[:10],
                     role_category=(result.get("role_category") or "other")[:20],
                     experience_min=float(exp_min_raw) if exp_min_raw is not None else None,
                     experience_max=float(exp_max_raw) if exp_max_raw is not None else None,
+                    **_salary_fields(result, raw),
                     source_url=rec.source_url or "",
                     applicant_count=str(applicant_count)[:100],
                     date_posted=date_posted,

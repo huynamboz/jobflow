@@ -222,17 +222,22 @@ const CURRENCY_SYMBOL: Record<string, string> = {
   USD: "$", SGD: "S$", VND: "₫", EUR: "€", GBP: "£", JPY: "¥", AUD: "A$",
 };
 
-export function fmtSalary(min: number | null, max: number | null, currency = "USD"): string {
+const PERIOD_SUFFIX: Record<string, string> = {
+  hourly: "/hr", daily: "/day", weekly: "/wk", monthly: "/mo", annual: "/yr",
+};
+
+export function fmtSalary(min: number | null, max: number | null, currency = "USD", period?: string): string {
   if (!min && !max) return "—";
   const sym = CURRENCY_SYMBOL[currency] ?? currency + " ";
+  const suffix = period ? (PERIOD_SUFFIX[period] ?? "") : "";
   const fmt = (n: number) => {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
     if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
     return String(n);
   };
-  if (min && max) return `${sym}${fmt(min)}–${sym}${fmt(max)}`;
-  if (min) return `≥ ${sym}${fmt(min)}`;
-  return `≤ ${sym}${fmt(max!)}`;
+  if (min && max) return `${sym}${fmt(min)}–${sym}${fmt(max)}${suffix}`;
+  if (min) return `≥ ${sym}${fmt(min)}${suffix}`;
+  return `≤ ${sym}${fmt(max!)}${suffix}`;
 }
 
 export function daysAgo(d: string | null): string {

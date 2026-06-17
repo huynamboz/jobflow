@@ -20,6 +20,9 @@ export interface JobLite {
   salary_min?: number;
   salary_max?: number;
   salary_currency?: string;
+  salary_period?: string;
+  salary_usd_annual_min?: number;
+  salary_usd_annual_max?: number;
   applicant_count?: string;
   is_active?: boolean;
   date_posted?: string | null;

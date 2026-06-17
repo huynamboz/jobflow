@@ -257,6 +257,9 @@ def _enrich(results) -> list[dict]:
                 "salary_min":      int(job.salary_min or 0),
                 "salary_max":      int(job.salary_max or 0),
                 "salary_currency": job.salary_currency or "USD",
+                "salary_period":   job.salary_period or "unknown",
+                "salary_usd_annual_min": int(job.salary_usd_annual_min or 0),
+                "salary_usd_annual_max": int(job.salary_usd_annual_max or 0),
                 "role_category":   job.role_category or "",
                 "experience_min":  job.experience_min,
                 "experience_max":  job.experience_max,
@@ -272,15 +275,24 @@ def _enrich(results) -> list[dict]:
         title = _clean_title(
             (lj.title if lj else None) or res.get("title") or raw.get("title") or r.title or ""
         )
+        from apps.jobs.services.salary_normalizer import canonical_period, normalize_salary_range
+        _smin = int(res.get("salary_min") or raw.get("salary_min") or 0)
+        _smax = int(res.get("salary_max") or raw.get("salary_max") or 0)
+        _scur = res.get("salary_currency") or "USD"
+        _sper = canonical_period(res.get("salary_type") or raw.get("salary_interval"))
+        _usd_min, _usd_max = normalize_salary_range(_smin, _smax, _scur, _sper)
         enriched.append({
             **common,
             "title":           title,
             "company_name":    res.get("company") or raw.get("company") or "",
             "location":        res.get("location") or raw.get("location") or "",
             "job_type":        res.get("job_type") or raw.get("job_type") or "",
-            "salary_min":      int(res.get("salary_min") or raw.get("salary_min") or 0),
-            "salary_max":      int(res.get("salary_max") or raw.get("salary_max") or 0),
-            "salary_currency": res.get("salary_currency") or "USD",
+            "salary_min":      _smin,
+            "salary_max":      _smax,
+            "salary_currency": _scur,
+            "salary_period":   _sper,
+            "salary_usd_annual_min": _usd_min,
+            "salary_usd_annual_max": _usd_max,
             "role_category":   (lj.role_category if lj else None) or "",
             "experience_min":  (lj.experience_min if lj else None) or res.get("experience_min"),
             "experience_max":  (lj.experience_max if lj else None) or res.get("experience_max"),
@@ -373,14 +385,19 @@ def build_jobdata_from_db(limit: int | None = None):
         skills = tuple(name for name, _ in pairs)
         importances = tuple(imp for _, imp in pairs)
         text = f"{job.title}. {job.description}".strip()
+        # GNN job-node salary feature wants a CONSISTENT scale: the model was
+        # trained on USD-annual salaries, so feed the normalized USD-annual value
+        # (fall back to the raw number when we couldn't normalize it).
+        sal_min = int(job.salary_usd_annual_min or job.salary_min or 0)
+        sal_max = int(job.salary_usd_annual_max or job.salary_max or 0)
         jobs.append(
             JobData(
                 job_id=job.id,
                 seniority=SeniorityLevel(max(0, min(5, int(job.seniority)))),
                 skills=skills,
                 skill_importances=importances,
-                salary_min=int(job.salary_min or 0),
-                salary_max=int(job.salary_max or 0),
+                salary_min=sal_min,
+                salary_max=sal_max,
                 text=text,
                 # 021/A1: without these the experience gate + experience_fit were
                 # silent no-ops on the whole live pool.

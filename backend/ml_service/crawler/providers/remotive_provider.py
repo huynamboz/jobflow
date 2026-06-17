@@ -123,6 +123,7 @@ class RemotiveProvider(CrawlProvider):
             salary_min=salary_min,
             salary_max=salary_max,
             salary_currency="USD",
+            salary_interval="annual",  # Remotive salaries are annual ranges
             date_posted=date_posted,
             raw_skills=tuple(tags) if tags else (),
             company_logo_url=(item.get("company_logo") or "").strip(),

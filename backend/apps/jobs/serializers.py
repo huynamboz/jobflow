@@ -41,6 +41,7 @@ class JobListSerializer(serializers.ModelSerializer):
         fields = (
             "id", "title", "company_name", "platform_name", "platform_logo", "location",
             "seniority", "job_type", "salary_min", "salary_max", "salary_currency",
+            "salary_period", "salary_usd_annual_min", "salary_usd_annual_max",
             "applicant_count", "is_active", "date_posted", "source_url", "created_at",
         )
 
@@ -55,6 +56,7 @@ class JobDetailSerializer(serializers.ModelSerializer):
         fields = (
             "id", "title", "description", "company", "platform", "location",
             "seniority", "job_type", "salary_min", "salary_max", "salary_currency",
+            "salary_period", "salary_usd_annual_min", "salary_usd_annual_max",
             "source_url", "applicant_count", "skills",
             "is_active", "date_posted", "created_at", "updated_at",
         )

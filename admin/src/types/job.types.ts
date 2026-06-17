@@ -19,6 +19,15 @@ export interface JobSkill {
   importance: number;
 }
 
+export interface AdminPlatform {
+  id: number;
+  name: string;
+  slug: string;
+  logo_url?: string;
+  is_active: boolean;
+  job_count: number;
+}
+
 export interface JobListItem {
   id: number;
   title: string;
@@ -31,6 +40,9 @@ export interface JobListItem {
   salary_min: number;
   salary_max: number;
   salary_currency: string;
+  salary_period: string;
+  salary_usd_annual_min: number;
+  salary_usd_annual_max: number;
   applicant_count: string;
   is_active: boolean;
   date_posted: string | null;
@@ -47,6 +59,10 @@ export interface JobDetail {
   job_type: string;
   salary_min: number;
   salary_max: number;
+  salary_currency: string;
+  salary_period: string;
+  salary_usd_annual_min: number;
+  salary_usd_annual_max: number;
   is_active: boolean;
   date_posted: string | null;
   created_at: string;
