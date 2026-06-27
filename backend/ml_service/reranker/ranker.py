@@ -168,63 +168,6 @@ class Reranker:
         )
         return {"accuracy": accuracy, "loss": loss.item(), "samples": len(y)}
 
-    def score(self, cv: CVData, job: JobData, *, gnn_score: float = 0.0) -> float:
-        """Score a single (CV, Job) pair. Returns ranking score in [0, 1].
-
-        Ordinal mode: expected class value (0*p0 + 1*p1 + 2*p2) / 2.
-        Binary mode: sigmoid probability.
-        """
-        if not self._trained or self._model is None:
-            return 0.5
-        X = torch.from_numpy(self._fe.extract(cv, job, gnn_score=gnn_score).reshape(1, -1))
-        self._model.eval()
-        with torch.no_grad():
-            logits = self._model(X)
-            return self._logits_to_score(logits)
-
-    def _logits_to_score(self, logits: torch.Tensor) -> float:
-        """Convert model output logits to a single ranking score [0, 1]."""
-        if self._ordinal:
-            # Expected match quality: (0*p0 + 1*p1 + 2*p2) / 2 → [0, 1]
-            probs = torch.softmax(logits, dim=-1)
-            weights = torch.tensor([0.0, 1.0, 2.0])
-            expected = (probs * weights).sum(dim=-1)
-            return float(expected.squeeze() / 2.0)
-        else:
-            return float(torch.sigmoid(logits).squeeze())
-
-    def score_batch(
-        self,
-        cvs: list[CVData],
-        jobs: list[JobData],
-        cv_indices: list[int],
-        job_indices: list[int],
-        gnn_scores: list[float] | None = None,
-    ) -> np.ndarray:
-        """Score multiple pairs. Returns array of match probabilities.
-
-        Args:
-            gnn_scores: Optional list of GNN decode scores (one per pair).
-                       If None, defaults to 0.0 for each pair.
-        """
-        if not self._trained or self._model is None:
-            return np.full(len(cv_indices), 0.5)
-        X = self._fe.extract_batch(cvs, jobs, cv_indices, job_indices,
-                                   gnn_scores=gnn_scores, stage1_scores=stage1_scores)
-        if len(X) == 0:
-            return np.array([])
-        X_t = torch.from_numpy(X.astype(np.float32))
-        self._model.eval()
-        with torch.no_grad():
-            logits = self._model(X_t)
-            if self._ordinal:
-                probs = torch.softmax(logits, dim=-1)
-                weights = torch.tensor([0.0, 1.0, 2.0])
-                scores = (probs * weights).sum(dim=-1) / 2.0
-            else:
-                scores = torch.sigmoid(logits)
-        return scores.numpy()
-
     def score_batch_with_dims(
         self,
         cvs: list[CVData],
@@ -273,17 +216,6 @@ class Reranker:
                 })
 
         return scores.numpy(), dim_levels
-
-    def feature_importance(self) -> dict[str, float]:
-        """Approximate feature importance from first layer weights."""
-        if not self._trained or self._model is None:
-            return {}
-        first_layer = self._model.trunk[0]
-        weights = first_layer.weight.data.abs().mean(dim=0).numpy()
-        return {
-            name: float(w)
-            for name, w in zip(FeatureExtractor.FEATURE_NAMES, weights)
-        }
 
     def save(self, path: Path | str) -> None:
         path = Path(path)
