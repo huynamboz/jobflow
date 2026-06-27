@@ -1,0 +1,51 @@
+# Demo stack for the 16GB VPS: only db + redis + NPM run in Docker.
+# The Django app runs bare-metal in a venv (torch is too big to image on 16GB).
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: jobflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-jobflow}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-jobflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: jobflow-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - redisdata:/data
+
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: jobflow-npm
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      # Admin UI bound to localhost only — reach it via SSH tunnel
+      # (ssh -L 81:127.0.0.1:81 root@HOST) to avoid a public brute-force surface.
+      - "127.0.0.1:81:81"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - npmdata:/data
+      - npmletsencrypt:/etc/letsencrypt
+
+volumes:
+  pgdata:
+  redisdata:
+  npmdata:
+  npmletsencrypt:

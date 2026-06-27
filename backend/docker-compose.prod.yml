@@ -1,0 +1,70 @@
+# Production stack for the VPS: db + redis + gunicorn web + Nginx Proxy Manager.
+# Usage on the VPS:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: jobflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-jobflow}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-jobflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: jobflow-redis
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jobflow-web:latest
+    container_name: jobflow-web
+    restart: unless-stopped
+    # Demo mode: runserver serves static/admin itself (DEBUG=True). --noreload so
+    # the GNN + embedding model loads once (no doubled RAM from the autoreloader).
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000", "--noreload"]
+    env_file: .env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - media:/app/media
+      - jobpool:/app/checkpoints/job_pool
+    expose:
+      - "8000"
+
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: jobflow-npm
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    volumes:
+      - npmdata:/data
+      - npmletsencrypt:/etc/letsencrypt
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  redisdata:
+  media:
+  jobpool:
+  npmdata:
+  npmletsencrypt:
