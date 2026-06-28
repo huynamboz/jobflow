@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ml_service — Giải thích chi tiết (JobFlow GNN)</title>
+<style>
+  :root{
+    --cream:#faf7f0; --cream-2:#f3ede1; --ink:#2b2924; --ink-soft:#5b574e;
+    --muted:#8a847a; --line:#e3dccd; --line-2:#d3cab6;
+    --teal:#167a7a; --teal-d:#0f5e5e; --teal-50:#e6f1f0;
+    --amber:#b5740d; --amber-50:#fbf2e0; --rose:#b0413e; --rose-50:#f8e8e6;
+    --card:#fffdf8; --shadow:0 1px 2px rgba(60,50,30,.05),0 6px 22px rgba(60,50,30,.06);
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif:Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.68;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:268px 1fr;max-width:1280px;margin:0 auto}
+
+  /* ── Sidebar TOC ───────────────────────────── */
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+    padding:28px 18px 40px 26px;border-right:1px solid var(--line);background:var(--cream-2)}
+  nav.toc .brand{font-family:var(--serif);font-weight:700;font-size:18px;color:var(--teal-d);
+    letter-spacing:-.01em;margin-bottom:2px}
+  nav.toc .sub{font-size:11.5px;color:var(--muted);margin-bottom:20px;letter-spacing:.02em;text-transform:uppercase}
+  nav.toc a{display:block;text-decoration:none;color:var(--ink-soft);font-size:13.2px;
+    padding:5px 10px;border-radius:7px;margin:1px 0;transition:.12s;line-height:1.35}
+  nav.toc a:hover{background:#fff;color:var(--teal-d)}
+  nav.toc a .n{display:inline-block;width:22px;color:var(--teal);font-variant-numeric:tabular-nums;
+    font-weight:700;font-size:12px}
+
+  /* ── Main ──────────────────────────────────── */
+  main{padding:46px 56px 120px;max-width:900px}
+  h1{font-family:var(--serif);font-size:33px;line-height:1.18;letter-spacing:-.02em;
+    margin:0 0 6px;color:var(--ink)}
+  h1 em{font-style:italic;color:var(--teal)}
+  .lead{color:var(--ink-soft);font-size:15px;margin:0 0 26px}
+  h2{font-family:var(--serif);font-size:23px;letter-spacing:-.01em;margin:52px 0 14px;
+    padding-bottom:9px;border-bottom:2px solid var(--line);scroll-margin-top:18px;color:var(--ink)}
+  h2 .badge{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;
+    background:var(--teal);color:#fff;font-family:var(--sans);font-size:14px;font-weight:700;
+    margin-right:11px;vertical-align:2px}
+  h3{font-size:16.5px;font-weight:700;margin:26px 0 8px;color:var(--teal-d)}
+  p{margin:11px 0}
+  a{color:var(--teal-d)}
+  code{font-family:var(--mono);font-size:.87em;background:var(--cream-2);
+    border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:#7a4a17}
+  strong{color:var(--ink);font-weight:700}
+  ul{margin:11px 0;padding-left:22px}
+  li{margin:5px 0}
+  ul ul{margin:4px 0}
+
+  /* hero key-facts */
+  .keyfacts{background:linear-gradient(180deg,#fffdf8,#fbf8f1);border:1px solid var(--line-2);
+    border-left:4px solid var(--teal);border-radius:14px;padding:18px 22px;margin:8px 0 8px;box-shadow:var(--shadow)}
+  .keyfacts h4{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--teal-d)}
+  .keyfacts ul{margin:0;padding-left:18px;font-size:14.5px}
+  .keyfacts .note{font-size:12.8px;color:var(--muted);margin-top:10px;line-height:1.5}
+
+  /* callout */
+  .callout{border-radius:12px;padding:13px 16px 13px 18px;margin:16px 0;font-size:14.4px;
+    border:1px solid var(--line);position:relative}
+  .callout.tip{background:var(--teal-50);border-color:#bfe0dd}
+  .callout.warn{background:var(--amber-50);border-color:#ecd6a6}
+  .callout .k{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;
+    display:block;margin-bottom:3px}
+  .callout.tip .k{color:var(--teal-d)}
+  .callout.warn .k{color:var(--amber)}
+
+  /* tables */
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;background:var(--card);
+    border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow)}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--cream-2);font-size:12px;text-transform:uppercase;letter-spacing:.03em;
+    color:var(--ink-soft);font-weight:700}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#fffaf0}
+  td code{font-size:.84em}
+
+  /* code/ascii block */
+  pre{background:#262017;color:#e9e1cf;border-radius:12px;padding:16px 18px;overflow-x:auto;
+    font-family:var(--mono);font-size:12.5px;line-height:1.55;margin:16px 0;box-shadow:var(--shadow)}
+  pre .c{color:#8f8569}    /* comment */
+  pre .g{color:#7fd1c4}    /* teal token */
+  pre .a{color:#e0b070}    /* amber token */
+
+  /* pipeline flow */
+  .flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:0;align-items:stretch;
+    margin:22px 0;font-size:13px}
+  .flow .col{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 14px 16px;
+    box-shadow:var(--shadow)}
+  .flow .col h5{margin:0 0 9px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--teal-d);
+    text-align:center;padding-bottom:7px;border-bottom:1px dashed var(--line)}
+  .flow .col ol{margin:0;padding-left:18px}
+  .flow .col ul{margin:0;padding-left:16px;list-style:none}
+  .flow .col li{margin:5px 0;line-height:1.4}
+  .flow .arr{display:grid;place-items:center;color:var(--teal);font-size:24px;font-weight:700;padding:0 6px}
+  .flow .tag{font-size:10.5px;color:var(--muted);text-align:center;display:block;margin-top:2px}
+
+  /* hybrid formula card */
+  .formula{background:#262017;border-radius:12px;padding:18px 20px;margin:16px 0;font-family:var(--mono);
+    font-size:13.5px;line-height:2;color:#e9e1cf;box-shadow:var(--shadow)}
+  .formula .t1{color:#7fd1c4} .formula .t2{color:#e0b070} .formula .t3{color:#c79be0} .formula .t4{color:#7fb0e0}
+  .formula .op{color:#8f8569}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+  .chip{font-size:12.5px;border-radius:999px;padding:4px 12px;font-weight:600;border:1px solid}
+  .chip.a{background:var(--teal-50);border-color:#bfe0dd;color:var(--teal-d)}
+  .chip.b{background:var(--amber-50);border-color:#ecd6a6;color:var(--amber)}
+  .chip.c{background:#f1e9f6;border-color:#dcc9e8;color:#7a4a99}
+  .chip.d{background:#e8eef6;border-color:#cbd9ea;color:#3a5d8f}
+
+  /* QA */
+  .qa{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 18px;margin:14px 0;box-shadow:var(--shadow)}
+  .qa details{border-bottom:1px solid var(--line);padding:4px 0}
+  .qa details:last-child{border-bottom:none}
+  .qa summary{cursor:pointer;font-weight:700;color:var(--teal-d);padding:11px 4px;font-size:14.5px;list-style:none}
+  .qa summary::-webkit-details-marker{display:none}
+  .qa summary:before{content:"▸";color:var(--teal);margin-right:9px;font-size:12px;display:inline-block;transition:.15s}
+  .qa details[open] summary:before{transform:rotate(90deg)}
+  .qa .ans{padding:0 4px 13px 22px;font-size:14.3px;color:var(--ink-soft)}
+
+  /* part divider */
+  .partdiv{margin:64px 0 8px;text-align:center}
+  .partdiv .l{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);font-weight:700}
+  .partdiv .t{font-family:var(--serif);font-size:27px;color:var(--ink);margin-top:4px;letter-spacing:-.01em}
+  .partdiv .d{font-size:13.5px;color:var(--muted);margin-top:4px}
+  .partdiv hr{border:none;border-top:2px solid var(--line);margin:14px auto 0;max-width:120px}
+
+  /* horizontal stage pipeline with dim badges */
+  .pipe{display:flex;align-items:stretch;gap:0;margin:20px 0;flex-wrap:wrap}
+  .pipe .st{flex:1;min-width:130px;background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:13px 13px 15px;box-shadow:var(--shadow);text-align:center}
+  .pipe .st .lab{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--teal-d);font-weight:700}
+  .pipe .st .big{font-family:var(--serif);font-size:22px;color:var(--ink);margin:6px 0 2px}
+  .pipe .st .sm{font-size:11.5px;color:var(--muted);line-height:1.35}
+  .pipe .ar{display:grid;place-items:center;color:var(--teal);font-size:22px;font-weight:700;padding:0 4px;min-width:26px}
+
+  /* generic figure caption */
+  figure{margin:18px 0}
+  figure svg{display:block;max-width:100%;height:auto;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;box-shadow:var(--shadow)}
+  figcaption{font-size:12.5px;color:var(--muted);text-align:center;margin-top:8px;font-style:italic}
+
+  /* curriculum timeline bars */
+  .curric{display:flex;margin:18px 0 6px;border-radius:10px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);font-size:12.5px}
+  .curric .seg{padding:13px 12px;color:#fff;text-align:center;line-height:1.3}
+  .curric .s0{background:#6fae8f} .curric .s1{background:#3f9b8e} .curric .s2{background:var(--teal-d)}
+  .curric .seg b{display:block;font-size:17px}
+
+  /* training loop vertical steps */
+  .tl{counter-reset:tl;margin:18px 0}
+  .tl .step{position:relative;padding:9px 0 9px 44px;border-left:2px solid var(--line);margin-left:14px}
+  .tl .step:before{counter-increment:tl;content:counter(tl);position:absolute;left:-15px;top:7px;
+    width:28px;height:28px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;
+    font-size:13px;font-weight:700;font-family:var(--sans)}
+  .tl .step b{color:var(--ink)} .tl .step .m{font-size:13.5px;color:var(--ink-soft)}
+  .tl .step.loss:before{background:var(--amber)} .tl .step.eval:before{background:#3a5d8f}
+
+  /* param table emphasis */
+  table.params td:first-child{font-weight:600;width:42%}
+  table.params td:last-child{font-family:var(--mono);font-size:12.8px;color:#7a4a17}
+
+  .foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+  @media(max-width:920px){
+    .wrap{grid-template-columns:1fr} nav.toc{display:none} main{padding:30px 22px 80px}
+    .flow{grid-template-columns:1fr;gap:8px} .flow .arr{transform:rotate(90deg);padding:2px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc">
+  <div class="brand">JobFlow · ml_service</div>
+  <div class="sub">Tài liệu kiến thức</div>
+  <a href="#tongquan"><span class="n">0</span>Tổng quan pipeline</a>
+  <a href="#cautruc"><span class="n">1</span>Cấu trúc thư mục</a>
+  <a href="#schema"><span class="n">2</span>schema — kiểu dữ liệu</a>
+  <a href="#embedding"><span class="n">3</span>embedding</a>
+  <a href="#builder"><span class="n">4</span>builder — đồ thị & feature</a>
+  <a href="#models"><span class="n">5</span>models — GNN</a>
+  <a href="#training"><span class="n">6</span>training</a>
+  <a href="#reranker"><span class="n">7</span>reranker + calibration</a>
+  <div style="margin:14px 0 4px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);font-weight:700;padding-left:10px">★ Đào sâu mô hình</div>
+  <a href="#deep-arch"><span class="n">M1</span>Forward GNN từng bước</a>
+  <a href="#deep-train"><span class="n">M2</span>Quá trình huấn luyện</a>
+  <a href="#deep-rerank"><span class="n">M3</span>Reranker chi tiết</a>
+  <a href="#deep-params"><span class="n">M4</span>Bảng tham số đầy đủ</a>
+  <div style="margin:10px 0 4px;border-top:1px solid var(--line)"></div>
+  <a href="#engine"><span class="n">8</span>engine phục vụ</a>
+  <a href="#retrieval"><span class="n">9</span>retrieval</a>
+  <a href="#pool"><span class="n">10</span>quản lý kho job</a>
+  <a href="#eval"><span class="n">11</span>evaluation + baselines</a>
+  <a href="#data"><span class="n">12</span>data</a>
+  <a href="#data-pipeline"><span class="n">★</span>tạo data huấn luyện</a>
+  <a href="#periphery"><span class="n">13</span>ngoại vi</a>
+  <a href="#bangtra"><span class="n">14</span>Bảng tra số liệu</a>
+  <a href="#qa"><span class="n">15</span>Câu hỏi phòng vệ</a>
+</nav>
+
+<main>
+  <h1>Lõi học máy <em>ml_service</em> — giải thích để trình bày</h1>
+  <p class="lead">Toàn bộ lõi học máy của hệ thống (<code>backend/ml_service/</code>, ~10.000 dòng).
+  Mọi con số lấy từ <strong>mã nguồn + checkpoint thật</strong> (<code>checkpoints/latest/</code>), không phải mặc định trong code.</p>
+
+  <div class="keyfacts">
+    <h4>Số liệu production then chốt</h4>
+    <ul>
+      <li>GNN: backbone <strong>HeteroGraphSAGE</strong>, <code>hidden=256</code>, <code>num_layers=3</code>, embedding đa ngữ 384 chiều.</li>
+      <li>Node feature: CV <strong>397</strong> · job <strong>397</strong> · skill <strong>385</strong> · seniority <strong>6</strong>.</li>
+      <li>Trọng số hybrid 4 thành phần: <strong>α=0,30 (GNN) · β=0,20 (kỹ năng) · γ=0,10 (cấp bậc) · δ=0,40 (lĩnh vực)</strong>.</li>
+      <li>Calibration Platt: <code>a=7,96</code>, <code>b=−2,45</code>; đủ điều kiện <code>P ≥ 0,50</code>.</li>
+      <li>Pool huấn luyện: 366 CV, 6.251 job · pool phục vụ live: ~8.930 job.</li>
+    </ul>
+    <div class="note">⚠︎ Các giá trị <code>hidden=128/2 lớp</code> và <code>α=0,55/β=0,30/γ=0,15/δ=0</code> trong code chỉ là <strong>mặc định</strong>, bị <strong>ghi đè</strong> bởi <code>metadata.json</code> của checkpoint. Khi trình bày hãy dùng số production ở trên.</div>
+  </div>
+
+  <h2 id="tongquan"><span class="badge">0</span>Bức tranh tổng thể — pipeline 2 giai đoạn</h2>
+  <p>Hệ thống là bộ <strong>gợi ý so khớp CV ↔ job</strong> dựa trên <strong>đồ thị không đồng nhất + GNN</strong>,
+  theo kiến trúc kinh điển <strong>truy hồi → xếp hạng lại</strong> (retrieve → rerank).</p>
+
+  <div class="flow">
+    <div class="col">
+      <h5>Dữ liệu</h5>
+      <ul>
+        <li>Crawler</li><li>CV parser</li><li>generator</li><li>resume_loader</li>
+      </ul>
+      <span class="tag">→ CVData / JobData</span>
+    </div>
+    <div class="arr">→</div>
+    <div class="col">
+      <h5>Huấn luyện (offline)</h5>
+      <ol>
+        <li>Đồ thị (GraphBuilder)</li>
+        <li>GNN HeteroGraphSAGE + BPR</li>
+        <li>Curriculum hard-negative</li>
+        <li>Reranker MLP (5 trục)</li>
+        <li>Calibrator (Platt)</li>
+      </ol>
+      <span class="tag">→ checkpoint</span>
+    </div>
+    <div class="arr">→</div>
+    <div class="col">
+      <h5>Phục vụ (online)</h5>
+      <ol>
+        <li>Inductive encode CV</li>
+        <li>RETRIEVE (shortlist ~1000)</li>
+        <li>Hybrid 4-term score</li>
+        <li>RERANK (MLP 23 feat)</li>
+        <li>Gates + penalties</li>
+        <li>Platt → P(match)</li>
+      </ol>
+      <span class="tag">→ xếp hạng + xác suất</span>
+    </div>
+  </div>
+
+  <ul>
+    <li><strong>Giai đoạn 1 (Retrieve):</strong> từ cả kho job, tính nhanh điểm tương tự → lấy <strong>danh sách rút gọn</strong> (~1000) → chấm điểm tổ hợp đầy đủ trên danh sách đó.</li>
+    <li><strong>Giai đoạn 2 (Rerank):</strong> MLP xếp hạng lại bằng 23 đặc trưng, rồi <strong>hiệu chuẩn Platt</strong> đưa điểm về <strong>xác suất tuyệt đối</strong> so sánh được.</li>
+  </ul>
+
+  <h2 id="cautruc"><span class="badge">1</span>Cấu trúc thư mục <code>ml_service/</code></h2>
+  <table>
+    <thead><tr><th>Thư mục</th><th>Vai trò</th><th>LOC</th></tr></thead>
+    <tbody>
+      <tr><td><code>graph/</code></td><td>Định nghĩa <strong>kiểu dữ liệu</strong> (schema) + <strong>dựng đồ thị</strong> (builder)</td><td>~390</td></tr>
+      <tr><td><code>embedding/</code></td><td>Embedding văn bản (sentence-transformers), 3 nhà cung cấp</td><td>~130</td></tr>
+      <tr><td><code>models/</code></td><td><strong>Kiến trúc GNN</strong> (GraphSAGE/RGCN/GAT) + decoder + BPR loss</td><td>~250</td></tr>
+      <tr><td><code>training/</code></td><td>Vòng huấn luyện: BPR, lấy mẫu âm theo chương trình</td><td>~650</td></tr>
+      <tr><td><code>reranker/</code></td><td>MLP xếp hạng lại (23 đặc trưng, 5 trục) + hiệu chuẩn Platt</td><td>~840</td></tr>
+      <tr><td><code>inference/</code></td><td><strong>Engine phục vụ</strong> (2 giai đoạn), truy hồi, pool, pgvector</td><td>~2.150</td></tr>
+      <tr><td><code>evaluation/</code></td><td>Độ đo (NDCG/Recall/MRR/AUC) + đánh giá theo từng CV</td><td>~650</td></tr>
+      <tr><td><code>baselines/</code></td><td>Baseline so sánh: BM25, cosine, skill-overlap</td><td>~185</td></tr>
+      <tr><td><code>data/</code></td><td>Sinh dữ liệu, nạp resume thật, đồ thị kỹ năng, từ điển kỹ năng</td><td>~1.370</td></tr>
+      <tr><td><code>crawler/</code></td><td>Thu thập job nhiều nguồn (Indeed/LinkedIn/Adzuna…)</td><td>~1.600</td></tr>
+      <tr><td><code>verifier/</code></td><td>Kiểm tra job còn sống + trích ngày đăng (Playwright)</td><td>~1.520</td></tr>
+      <tr><td><code>cv_parser/</code></td><td>Phân tích CV (PDF/DOCX) → dữ liệu có cấu trúc</td><td>~325</td></tr>
+      <tr><td><code>config/</code></td><td>Cấu hình theo biến môi trường (Pydantic Settings)</td><td>~50</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="schema"><span class="badge">2</span><code>graph/schema.py</code> — Các kiểu dữ liệu cốt lõi</h2>
+  <p>Đây là "từ vựng" của cả hệ thống. Mọi nơi trao đổi qua các dataclass này.</p>
+  <p><strong>Loại nút (4):</strong> <code>CV</code>, <code>JOB</code>, <code>SKILL</code>, <code>SENIORITY</code> (cấp bậc).</p>
+  <p><strong>Loại cạnh (đồ thị không đồng nhất):</strong></p>
+  <ul>
+    <li><code>(cv, has_skill, skill)</code> — CV <em>có</em> kỹ năng (trọng số <strong>độ thành thạo 1–5</strong>).</li>
+    <li><code>(job, requires_skill, skill)</code> — job <em>yêu cầu</em> kỹ năng (<strong>mức quan trọng 1–5</strong>).</li>
+    <li><code>(cv/job, has/requires_seniority, seniority)</code>.</li>
+    <li><code>(cv, match, job)</code> / <code>(cv, no_match, job)</code> — <strong>cạnh nhãn</strong> (chỉ khi huấn luyện).</li>
+    <li>Cạnh cấu trúc: <code>skill↔skill (relates_to)</code>, <code>job↔job (similar_to)</code>, <code>cv↔cv (similar_profile)</code>.</li>
+  </ul>
+  <p><strong>Enum:</strong> <code>SeniorityLevel</code> INTERN(0)…MANAGER(5) · <code>SkillCategory</code> TECHNICAL/SOFT/TOOL/DOMAIN · <code>EducationLevel</code> NONE…PHD.</p>
+  <p><strong>Dataclass:</strong> <code>CVData</code> (skills + proficiencies + text + role) · <code>JobData</code> (skills + importances + salary + experience + role) · <code>LabeledPair</code> (label 1/0, split, <code>bucket</code> cho curriculum).</p>
+  <div class="callout tip"><span class="k">Điểm trình bày</span>Dùng <em>đồ thị không đồng nhất</em> vì quan hệ CV–kỹ năng–job không phải một loại cạnh. Kỹ năng là <strong>nút trung gian</strong> để hai CV/job "gặp nhau" qua kỹ năng chung, kể cả khi chưa có nhãn so khớp.</div>
+
+  <h2 id="embedding"><span class="badge">3</span><code>embedding/</code> — Embedding văn bản</h2>
+  <p>Biến văn bản (mô tả CV/job, tên kỹ năng) thành vector số cho GNN.</p>
+  <ul>
+    <li><code>EmbeddingProvider</code>: giao diện <code>encode(texts) → ndarray</code>, thuộc tính <code>dim</code>.</li>
+    <li>3 nhà cung cấp (đều <strong>384 chiều</strong>, chuẩn hoá L2): <code>english</code> (all-MiniLM-L6-v2) · <strong><code>multilingual</code> (paraphrase-multilingual-MiniLM-L12-v2) ← production</strong> · <code>bge-small</code> (BAAI/bge-small-en-v1.5).</li>
+    <li>Cùng 384 chiều → đổi mô hình <strong>không phải dựng lại</strong> kích thước node.</li>
+  </ul>
+  <div class="callout warn"><span class="k">Quan trọng</span><code>.env</code> phải đặt <code>EMBEDDING_PROVIDER=multilingual</code> cho khớp checkpoint (catalog ~7% tiếng Việt). Lệch nhà cung cấp = điểm vô nghĩa (không gian vector khác nhau).</div>
+
+  <h2 id="builder"><span class="badge">4</span><code>graph/builder.py</code> — Dựng đồ thị + đặc trưng node</h2>
+  <p><code>GraphBuilder.build(cvs, jobs, skill_catalog, pairs) → HeteroData</code>. Nơi <strong>văn bản + thuộc tính</strong> biến thành <strong>ma trận đặc trưng node</strong> và <strong>cạnh</strong>.</p>
+  <h3>4.1 Đặc trưng node (số chiều chính xác)</h3>
+  <table>
+    <thead><tr><th>Node</th><th>Chiều</th><th>Thành phần</th></tr></thead>
+    <tbody>
+      <tr><td><strong>CV</strong></td><td><strong>397</strong></td><td>embedding văn bản 384 + kinh nghiệm 1 + học vấn 1 + role one-hot 11</td></tr>
+      <tr><td><strong>Job</strong></td><td><strong>397</strong></td><td>embedding văn bản 384 + lương min 1 + lương max 1 + role one-hot 11</td></tr>
+      <tr><td><strong>Skill</strong></td><td><strong>385</strong></td><td>embedding tên kỹ năng 384 + nhóm kỹ năng 1</td></tr>
+      <tr><td><strong>Seniority</strong></td><td><strong>6</strong></td><td>ma trận đơn vị 6×6 (mỗi cấp một node)</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li><strong>11 role categories:</strong> other, frontend, backend, fullstack, qa, devops, data_ml, mobile, ba, data_eng, design. CV và job <strong>dùng chung</strong> taxonomy → so lĩnh vực được.</li>
+    <li>Lương/kinh nghiệm/học vấn <strong>min-max chuẩn hoá</strong>. <em>(Chính chỗ này feature lương vừa được sửa: nạp USD/năm nhất quán thay vì số thô lẫn period.)</em></li>
+  </ul>
+  <h3>4.2 Các cạnh</h3>
+  <ul>
+    <li><strong>CV/job → skill</strong>: trọng số (thành thạo / mức quan trọng 1–5).</li>
+    <li><strong>skill ↔ skill</strong>: PMI đồng xuất hiện (<code>đếm≥3</code>, ≤10 cạnh/kỹ năng) + ngữ nghĩa (cosine&gt;0,70, ≤5 cạnh mới).</li>
+    <li><strong>job/cv ↔ job/cv</strong>: Jaccard kỹ năng ≥0,3, top-5.</li>
+    <li><strong>Cạnh nhãn</strong>: builder <strong>báo lỗi</strong> nếu một cặp vừa match vừa no_match (ép khử trùng).</li>
+  </ul>
+
+  <h2 id="models"><span class="badge">5</span><code>models/gnn.py</code> — Kiến trúc GNN</h2>
+  <h3>5.1 Bộ mã hoá (encoder)</h3>
+  <ul>
+    <li><strong>HeteroGraphSAGE</strong> (production): mỗi loại node có <strong>phép chiếu tuyến tính</strong> về <code>hidden=256</code>, backbone <strong>GraphSAGE</strong> (tổng hợp <strong>mean</strong>) bọc <code>to_hetero()</code>, <strong>3 lớp</strong>.</li>
+    <li><strong>MLPDecoder</strong>: <code>[z_cv ‖ z_job]</code> (2×256) → Linear(512→256) → ReLU → Linear(256→1).</li>
+    <li><strong>role_head</strong> Linear(256→11): đầu phụ phân loại lĩnh vực, <em>chỉ khi train</em>, ép embedding tách cụm theo nghề.</li>
+    <li>Hai biến thể đối chứng cho ablation: <strong>HeteroRGCN</strong> (trọng số riêng theo loại cạnh) và <strong>HeteroGAT</strong> (attention). <em>Đã thử: không vượt mean-aggregator — xem mục 15.</em></li>
+  </ul>
+  <h3>5.2 Hàm mất mát</h3>
+  <p><strong>BPR</strong> (Bayesian Personalized Ranking): <code>−log σ(pos − neg)</code> — ép cặp <em>phù hợp</em> cao hơn cặp <em>không phù hợp</em>. Học <strong>xếp hạng</strong>, đúng bản chất gợi ý.</p>
+  <div class="callout tip"><span class="k">Điểm trình bày</span>Mô hình <strong>inductive</strong>: job/CV mới được encode bằng cách thêm node tạm vào đồ thị đông cứng rồi encode 1 lần, <strong>không train lại</strong>. Đây là chìa khoá để mở rộng kho job mà trọng số cố định.</div>
+
+  <h2 id="training"><span class="badge">6</span><code>training/trainer.py</code> — Vòng huấn luyện</h2>
+  <ul>
+    <li><strong>Lấy mẫu âm theo chương trình (hard-negative curriculum):</strong> âm "khó" = trùng kỹ năng ≥0,15 <em>và</em> lệch cấp bậc ≤1. Tỉ lệ hard negative tăng dần: epoch&lt;5 → 0%, &lt;20 → 30%, còn lại → 70% (học dễ trước, khó sau).</li>
+    <li><strong>Loss:</strong> BPR + (tuỳ chọn) coherence cạnh kỹ năng + (tuỳ chọn) phụ phân loại role.</li>
+    <li><strong>Dừng sớm:</strong> tín hiệu <code>0,8·val_AUC + 0,2·AUC_lát_cắt_liên_quan</code>, đo theo từng CV rồi macro-average.</li>
+    <li>Đầu ra: mô hình tốt nhất + <code>data_clean</code> (đồ thị đã <strong>gỡ cạnh nhãn</strong> để phục vụ).</li>
+  </ul>
+
+  <h2 id="reranker"><span class="badge">7</span><code>reranker/</code> — Xếp hạng lại + hiệu chuẩn</h2>
+  <h3>7.1 <code>features.py</code> — 23 đặc trưng / cặp (CV, job)</h3>
+  <p>Tương tự văn bản · overlap kỹ năng (Jaccard / có trọng số / ngữ nghĩa) · số kỹ năng quan trọng còn thiếu · khoảng cách + điểm cấp bậc · penalty lĩnh vực · số năm + khoảng cách kinh nghiệm · độ hiếm/đặc thù kỹ năng · tỉ lệ "tool" · <strong>điểm &amp; hạng GNN giai đoạn 1</strong> · cờ must-have / edge-case.</p>
+  <h3>7.2 <code>ranker.py</code> — MLP đa nhiệm</h3>
+  <ul>
+    <li>Thân chung: <code>Linear(23→64) → ReLU → Dropout(0,2) → Linear(64→64) → ReLU → Dropout(0,2)</code>.</li>
+    <li>Đầu chính <code>Linear(64→3)</code> (ordinal: không hợp / hợp / rất hợp); điểm tổng = kỳ vọng <code>(p₁·1+p₂·2)/2 ∈ [0,1]</code>.</li>
+    <li><strong>4 đầu phụ</strong> (chỉ train): <strong>5 trục</strong> — skill_fit, experience_fit, seniority_fit, domain_fit (+ overall).</li>
+  </ul>
+  <h3>7.3 <code>calibration.py</code> — Hiệu chuẩn Platt</h3>
+  <p>Logistic regression 1 biến: <code>P = σ(a·score + b)</code> (production <code>a=7,96, b=−2,45</code>). Đưa điểm thô → <strong>xác suất tuyệt đối</strong> [0,1], so sánh được giữa nhân viên, ổn định qua các lần chạy. <code>trained_with</code> = vân tay reranker → cảnh báo nếu lệch phiên bản.</p>
+  <div class="callout tip"><span class="k">Điểm trình bày</span>Điểm hiển thị = <code>P(match)</code> đã hiệu chuẩn — "xác suất cặp được ground-truth chấm phù hợp". Đủ điều kiện khi <code>P ≥ 0,50</code>. Không phải điểm thô.</div>
+
+  <div class="partdiv">
+    <div class="l">★ Phần II</div>
+    <div class="t">Đào sâu mô hình</div>
+    <div class="d">Kiến trúc · tham số · huấn luyện · reranker — phần thầy sẽ xoáy sâu</div>
+    <hr>
+  </div>
+
+  <!-- ════════════════ M1 — FORWARD GNN ════════════════ -->
+  <h2 id="deep-arch"><span class="badge">M1</span>Luồng forward của GNN — từng bước</h2>
+  <p>Mô hình so khớp gồm <strong>3 tầng nối tiếp</strong>. Cùng một lần encode đồ thị
+  cho ra embedding của <em>mọi</em> node; decoder chỉ lấy cặp (cv, job) cần chấm.</p>
+
+  <div class="pipe">
+    <div class="st">
+      <div class="lab">① Linear projection</div>
+      <div class="big">→ 256</div>
+      <div class="sm">mỗi loại node một <code>Linear</code> riêng đưa về cùng 256 chiều</div>
+    </div>
+    <div class="ar">→</div>
+    <div class="st">
+      <div class="lab">② Message passing</div>
+      <div class="big">×3 lớp</div>
+      <div class="sm">GraphSAGE (mean) bọc <code>to_hetero</code>, 3 lớp → trộn thông tin lân cận</div>
+    </div>
+    <div class="ar">→</div>
+    <div class="st">
+      <div class="lab">③ Giải mã cặp</div>
+      <div class="big">512→256→1</div>
+      <div class="sm">nối <code>[z_cv‖z_job]</code> → MLP → 1 logit khớp</div>
+    </div>
+  </div>
+
+  <h3>Tầng ①: linear projection — vì sao cần?</h3>
+  <p>Các loại node có <strong>số chiều khác nhau</strong> (CV/job 397, skill 385, seniority 6).
+  GNN cần mọi node cùng một không gian, nên mỗi loại có một <code>nn.Linear(dim → 256)</code>
+  riêng (projection). Sau bước này mọi node là vector 256 chiều.</p>
+
+  <h3>Tầng ②: message passing (lan truyền thông tin trên đồ thị)</h3>
+  <p>Đây là phần "thông minh" của GNN. Mỗi node <strong>thu thập thông tin từ các node
+  lân cận</strong>, qua nhiều lớp thì lan ra xa hơn. GraphSAGE dùng aggregation
+  <strong>mean</strong> (lấy trung bình):</p>
+
+  <div class="formula">
+h<span class="op">⁽ˡ⁾</span><sub>v</sub> = ReLU( <span class="t1">W₁·h⁽ˡ⁻¹⁾<sub>v</sub></span>  <span class="op">+</span>  <span class="t2">W₂ · MEAN<sub>u∈N(v)</sub>( h⁽ˡ⁻¹⁾<sub>u</sub> )</span> )
+  <span class="op">// v = node đang xét · N(v) = các lân cận · h = embedding · l = lớp</span>
+  </div>
+
+  <figure>
+  <svg viewBox="0 0 740 300" role="img" aria-label="Sơ đồ lan truyền thông điệp">
+    <defs>
+      <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L7,3 L0,6 Z" fill="#167a7a"/>
+      </marker>
+    </defs>
+    <!-- neighbors -->
+    <g font-family="-apple-system,sans-serif" font-size="12">
+      <rect x="40" y="34" width="120" height="34" rx="9" fill="#e6f1f0" stroke="#bfe0dd"/>
+      <text x="100" y="56" text-anchor="middle" fill="#0f5e5e" font-weight="700">skill: react</text>
+      <rect x="40" y="92" width="120" height="34" rx="9" fill="#e6f1f0" stroke="#bfe0dd"/>
+      <text x="100" y="114" text-anchor="middle" fill="#0f5e5e" font-weight="700">skill: nodejs</text>
+      <rect x="40" y="150" width="120" height="34" rx="9" fill="#e6f1f0" stroke="#bfe0dd"/>
+      <text x="100" y="172" text-anchor="middle" fill="#0f5e5e" font-weight="700">skill: docker</text>
+      <rect x="40" y="208" width="120" height="34" rx="9" fill="#fbf2e0" stroke="#ecd6a6"/>
+      <text x="100" y="230" text-anchor="middle" fill="#b5740d" font-weight="700">seniority: MID</text>
+      <!-- center CV -->
+      <circle cx="380" cy="138" r="48" fill="#167a7a"/>
+      <text x="380" y="134" text-anchor="middle" fill="#fff" font-weight="700" font-size="14">CV</text>
+      <text x="380" y="150" text-anchor="middle" fill="#cfeae8" font-size="10.5">node v</text>
+      <!-- arrows -->
+      <path d="M163,51 C250,60 290,110 333,128" fill="none" stroke="#167a7a" stroke-width="1.6" marker-end="url(#ah)"/>
+      <path d="M163,109 C250,118 295,124 332,132" fill="none" stroke="#167a7a" stroke-width="1.6" marker-end="url(#ah)"/>
+      <path d="M163,167 C250,158 295,152 332,144" fill="none" stroke="#167a7a" stroke-width="1.6" marker-end="url(#ah)"/>
+      <path d="M163,225 C255,205 290,170 333,150" fill="none" stroke="#b5740d" stroke-width="1.6" marker-end="url(#ah)"/>
+      <text x="245" y="100" fill="#8a847a" font-size="11" font-style="italic">MEAN</text>
+      <!-- output -->
+      <path d="M430,138 L505,138" fill="none" stroke="#167a7a" stroke-width="2" marker-end="url(#ah)"/>
+      <rect x="510" y="112" width="190" height="52" rx="11" fill="#fffdf8" stroke="#d3cab6"/>
+      <text x="605" y="134" text-anchor="middle" fill="#2b2924" font-weight="700">embedding 256-d</text>
+      <text x="605" y="152" text-anchor="middle" fill="#8a847a" font-size="11">đã "ngấm" lân cận</text>
+    </g>
+  </svg>
+  <figcaption>Node CV gộp trung bình embedding của các kỹ năng + cấp bậc lân cận → vector 256 chiều. Qua 3 lớp, tín hiệu lan tới cả job/CV chung kỹ năng (2–3 bước).</figcaption>
+  </figure>
+
+  <h3>Tầng ②(b): <code>to_hetero</code> xử lý đồ thị không đồng nhất thế nào?</h3>
+  <p>PyG <code>to_hetero(backbone, metadata, aggr="mean")</code> "nhân bản" backbone GraphSAGE
+  thành <strong>một bộ trọng số riêng cho từng loại cạnh</strong> (has_skill, requires_skill,
+  has_seniority, relates_to…). Mỗi node đích nhận thông điệp theo từng quan hệ, rồi
+  <strong>lấy trung bình giữa các loại quan hệ</strong>. Nhờ vậy "kỹ năng" và "cấp bậc"
+  được lan truyền bằng hai phép biến đổi khác nhau — đúng bản chất không đồng nhất.</p>
+  <div class="callout warn"><span class="k">Lưu ý dễ bị hỏi</span><code>prepare_data_for_gnn</code> gọi <code>ToUndirected()</code> để <strong>thêm cạnh ngược</strong> — nếu không, skill/seniority (chỉ là đích) sẽ không gửi được thông điệp về CV/job. Cạnh nhãn <code>match/no_match</code> bị <strong>gỡ</strong> khỏi đồ thị lúc phục vụ (chỉ dùng làm nhãn khi train, tránh rò rỉ).</div>
+
+  <h3>Tầng ③: decoder chấm điểm cặp</h3>
+  <p>Sau encode, mỗi CV và job là vector 256 chiều. Để chấm một cặp:</p>
+  <div class="formula">
+z = <span class="op">concat(</span><span class="t1">z_cv</span> ‖ <span class="t2">z_job</span><span class="op">)</span>            <span class="op">// 512 chiều</span>
+h = ReLU( Linear<sub>512→256</sub>(z) )
+logit = Linear<sub>256→1</sub>(h)        <span class="op">// 1 số → σ() ra xác suất khớp thô</span>
+  </div>
+  <p>Đây là <code>MLPDecoder</code> — một mạng nhỏ học <em>tương tác</em> giữa hai embedding,
+  mạnh hơn tích vô hướng thuần. <strong>Đầu phụ <code>role_head</code></strong> (Linear 256→11)
+  chỉ chạy khi huấn luyện, ép embedding tách cụm theo 11 lĩnh vực.</p>
+
+  <!-- ════════════════ M2 — TRAINING ════════════════ -->
+  <h2 id="deep-train"><span class="badge">M2</span>Quá trình huấn luyện chi tiết</h2>
+
+  <h3>Hàm mục tiêu: BPR (Bayesian Personalized Ranking)</h3>
+  <p>Bài toán là <strong>xếp hạng</strong>, không phải phân loại tuyệt đối. Với mỗi CV, ta
+  có cặp <em>phù hợp</em> (pos) và cặp <em>không phù hợp</em> (neg); BPR ép điểm pos cao
+  hơn neg một khoảng:</p>
+  <div class="formula">
+L<sub>BPR</sub> = <span class="op">−</span> 𝔼 [ log σ( <span class="t1">s(cv, job⁺)</span> <span class="op">−</span> <span class="t2">s(cv, job⁻)</span> ) ]
+  <span class="op">// s = điểm decoder · σ = sigmoid · đẩy pos − neg → +∞</span>
+  </div>
+  <p>Trực giác: không cần biết "điểm tuyệt đối đúng là bao nhiêu", chỉ cần job phù hợp
+  được xếp <strong>trên</strong> job không phù hợp — đúng cái người dùng cảm nhận.</p>
+
+  <h3>Lấy mẫu âm + chương trình học (curriculum)</h3>
+  <p>Âm được lấy từ <strong>toàn không gian job</strong> (<code>full_space_neg=True</code>),
+  chia hai loại:</p>
+  <ul>
+    <li><strong>Âm dễ</strong>: job ngẫu nhiên, khác hẳn → dễ phân biệt.</li>
+    <li><strong>Âm khó</strong>: cùng lĩnh vực, trùng kỹ năng nhưng vẫn không phù hợp →
+    buộc mô hình học khác biệt <em>tinh vi</em>.</li>
+  </ul>
+  <p>Tỉ lệ hard negative <strong>tăng dần</strong> theo epoch (học bò trước, chạy sau):</p>
+  <div class="curric">
+    <div class="seg s0" style="flex:5"><b>0%</b>epoch 0–4<br>chỉ easy negative</div>
+    <div class="seg s1" style="flex:15"><b>30%</b>epoch 5–19<br>pha hard negative</div>
+    <div class="seg s2" style="flex:30"><b>70%</b>epoch ≥ 20<br>chủ yếu hard negative</div>
+  </div>
+  <figcaption style="text-align:left;margin-bottom:6px">Hàm <code>_curriculum_hard_neg_ratio(epoch)</code>. Positive "liên quan kỹ năng" còn được nhân 3 xác suất chọn làm anchor.</figcaption>
+
+  <h3>Đa nhiệm: thêm tín hiệu giám sát</h3>
+  <p>Ngoài BPR, loss tổng còn cộng (tuỳ chọn):</p>
+  <div class="formula">
+L = <span class="t1">L<sub>BPR</sub></span>
+  <span class="op">+</span> w<sub>role</sub> · ½ ( CE(role_cv, ŷ_cv) <span class="op">+</span> CE(role_job, ŷ_job) )   <span class="op">// phân loại 11 lĩnh vực</span>
+  <span class="op">+</span> w<sub>skill</sub> · (1 − cos) trên cạnh relates_to              <span class="op">// gắn kết kỹ năng liên quan</span>
+  </div>
+  <p>Đầu phụ role ép không gian embedding tách cụm theo nghề — chính cấu trúc mà điểm
+  decode đơn lẻ thiếu (AUC lát-cắt-liên-quan ≈ 0,51 ở v1).</p>
+
+  <h3>Vòng lặp huấn luyện (một epoch)</h3>
+  <div class="tl">
+    <div class="step"><b>Lấy mẫu BPR</b><div class="m">sinh các bộ ba (cv, job⁺, job⁻) theo tỉ lệ hard negative của epoch hiện tại.</div></div>
+    <div class="step"><b>Encode đồ thị 1 lần</b><div class="m"><code>z_dict = model.encode(data)</code> — ra embedding mọi node.</div></div>
+    <div class="step"><b>Decode cặp pos &amp; neg</b><div class="m">lấy <code>z_cv, z_job⁺, z_job⁻</code> → decoder → <code>pos_scores, neg_scores</code>.</div></div>
+    <div class="step loss"><b>Tính loss</b><div class="m"><code>bpr_loss(pos, neg)</code> + (role CE × w) + (skill-rel × w).</div></div>
+    <div class="step loss"><b>Backpropagation</b><div class="m"><code>optimizer.zero_grad(); loss.backward(); optimizer.step()</code> — Adam.</div></div>
+    <div class="step eval"><b>Đánh giá validation</b><div class="m">âm validation <strong>cố định</strong> (tất định) → tính <code>val_bpr, val_auc, val_ndcg@10, slice_auc</code>.</div></div>
+    <div class="step eval"><b>Dừng sớm</b><div class="m">tín hiệu <code>0,8·val_auc + 0,2·slice_auc</code>; lưu trạng thái tốt nhất; hết kiên nhẫn (<code>patience</code>) thì dừng.</div></div>
+  </div>
+
+  <table class="params">
+    <thead><tr><th>Tham số huấn luyện</th><th>Giá trị</th></tr></thead>
+    <tbody>
+      <tr><td>Tối ưu hoá</td><td>Adam</td></tr>
+      <tr><td>Learning rate / weight decay</td><td>1e-3 / 1e-5</td></tr>
+      <tr><td>Hàm mất mát chính</td><td>BPR (−log σ(pos−neg))</td></tr>
+      <tr><td>Nguồn âm</td><td>toàn không gian job (full_space_neg)</td></tr>
+      <tr><td>Lịch hard negative (curriculum)</td><td>0% → 30% → 70%</td></tr>
+      <tr><td>Tín hiệu dừng sớm</td><td>0,8·val_auc + 0,2·slice_auc</td></tr>
+      <tr><td>Đầu phụ (đa nhiệm)</td><td>role 11 lớp (CE) + skill-rel cosine</td></tr>
+      <tr><td>Đồ thị phục vụ</td><td>gỡ cạnh nhãn (data_clean)</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ════════════════ M3 — RERANKER ════════════════ -->
+  <h2 id="deep-rerank"><span class="badge">M3</span>Reranker — chi tiết kiến trúc &amp; huấn luyện</h2>
+  <p>Reranker là <strong>MLP riêng</strong> (không phải GNN), chạy ở giai đoạn 2 trên danh
+  sách rút gọn. Nó nhận <strong>23 đặc trưng tường minh</strong> cho mỗi cặp (CV, job) —
+  trong đó có cả điểm/hạng GNN giai đoạn 1 — nên kết hợp được tín hiệu học sâu với
+  tín hiệu quy tắc.</p>
+
+  <figure>
+  <svg viewBox="0 0 740 270" role="img" aria-label="Kiến trúc reranker MLP">
+    <g font-family="-apple-system,sans-serif" font-size="12">
+      <!-- input -->
+      <rect x="24" y="92" width="120" height="86" rx="11" fill="#fbf2e0" stroke="#ecd6a6"/>
+      <text x="84" y="128" text-anchor="middle" fill="#b5740d" font-weight="700" font-size="22">23</text>
+      <text x="84" y="148" text-anchor="middle" fill="#b5740d" font-size="11">đặc trưng</text>
+      <!-- h1 -->
+      <path d="M148,135 L188,135" stroke="#167a7a" stroke-width="2" marker-end="url(#ah2)"/>
+      <rect x="192" y="100" width="96" height="70" rx="11" fill="#e6f1f0" stroke="#bfe0dd"/>
+      <text x="240" y="130" text-anchor="middle" fill="#0f5e5e" font-weight="700" font-size="18">64</text>
+      <text x="240" y="148" text-anchor="middle" fill="#0f5e5e" font-size="10">ReLU+Drop</text>
+      <!-- h2 -->
+      <path d="M292,135 L332,135" stroke="#167a7a" stroke-width="2" marker-end="url(#ah2)"/>
+      <rect x="336" y="100" width="96" height="70" rx="11" fill="#e6f1f0" stroke="#bfe0dd"/>
+      <text x="384" y="130" text-anchor="middle" fill="#0f5e5e" font-weight="700" font-size="18">64</text>
+      <text x="384" y="148" text-anchor="middle" fill="#0f5e5e" font-size="10">ReLU+Drop</text>
+      <!-- heads -->
+      <path d="M436,135 L476,108" stroke="#167a7a" stroke-width="2" marker-end="url(#ah2)"/>
+      <path d="M436,135 L476,170" stroke="#b5b0a6" stroke-width="1.5" marker-end="url(#ah3)"/>
+      <rect x="480" y="78" width="234" height="40" rx="10" fill="#167a7a"/>
+      <text x="597" y="103" text-anchor="middle" fill="#fff" font-weight="700">Đầu chính → 3 lớp (0/1/2)</text>
+      <rect x="480" y="150" width="234" height="40" rx="10" fill="#fffdf8" stroke="#d3cab6"/>
+      <text x="597" y="167" text-anchor="middle" fill="#5b574e" font-size="11">4 đầu phụ × 3 lớp</text>
+      <text x="597" y="182" text-anchor="middle" fill="#8a847a" font-size="10">skill/exp/seniority/domain · chỉ khi train</text>
+    </g>
+    <defs>
+      <marker id="ah2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#167a7a"/></marker>
+      <marker id="ah3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#b5b0a6"/></marker>
+    </defs>
+  </svg>
+  <figcaption>Thân chung 23→64→64 (ReLU + Dropout 0,2), rồi tách: 1 đầu chính ordinal 3 lớp + 4 đầu phụ 3 lớp cho 5 trục. Lúc phục vụ chỉ dùng đầu chính.</figcaption>
+  </figure>
+
+  <h3>Đầu ra ordinal → điểm [0,1]</h3>
+  <p>Đầu chính phân 3 lớp: <strong>0 = không hợp · 1 = hợp · 2 = rất hợp</strong>. Điểm tổng
+  là <em>kỳ vọng</em> chuẩn hoá:</p>
+  <div class="formula">overall = (p₁·1 + p₂·2) / 2  ∈ [0, 1]</div>
+  <p>Dùng kỳ vọng (thay vì argmax) cho điểm <strong>liên tục, mượt</strong> để xếp hạng tốt hơn.</p>
+
+  <h3>Huấn luyện reranker</h3>
+  <ul>
+    <li>Tối ưu <strong>Adam</strong>, <strong>50 epoch</strong>.</li>
+    <li>Loss chính: <strong>CrossEntropy có trọng số lớp</strong> (cân bằng vì "rất hợp" hiếm).</li>
+    <li><strong>Đa nhiệm</strong>: cộng CE của 4 đầu phụ (5 trục) với <code>aux_weight=0,3</code>
+    → embedding 64 chiều phải giải thích được từng trục, không chỉ điểm tổng.</li>
+    <li>Thứ tự bắt buộc (họ A14): <strong>chốt hybrid weights vào metadata TRƯỚC → train reranker SAU</strong>
+    (reranker lưu <code>trained_with_weights</code>; engine cảnh báo nếu lệch serving weights).</li>
+  </ul>
+
+  <h3>Hiệu chuẩn Platt (sau reranker)</h3>
+  <p>Điểm <code>rank_score</code> (reranker × penalty) chưa phải xác suất. Một logistic regression
+  1 biến học <code>P = σ(a·rank_score + b)</code> (production <code>a=7,96, b=−2,45</code>) trên tập
+  validation → đưa về <strong>xác suất tuyệt đối</strong>, so sánh được giữa nhân viên.
+  Vì sigmoid đơn điệu, thứ tự không đổi — chỉ "định cỡ lại" trục điểm. <code>trained_with</code>
+  (vân tay reranker.pt) gắn calibrator với đúng phiên bản reranker.</p>
+
+  <!-- ════════════════ M4 — PARAMS ════════════════ -->
+  <h2 id="deep-params"><span class="badge">M4</span>Bảng tham số mô hình đầy đủ</h2>
+  <table class="params">
+    <thead><tr><th>Thành phần</th><th>Cấu hình / kích thước</th></tr></thead>
+    <tbody>
+      <tr><td>Backbone GNN</td><td>HeteroGraphSAGE — GraphSAGE(mean) qua to_hetero</td></tr>
+      <tr><td>hidden_channels</td><td>256</td></tr>
+      <tr><td>num_layers</td><td>3</td></tr>
+      <tr><td>dropout</td><td>theo train_config checkpoint</td></tr>
+      <tr><td>Chiếu node (Linear→256)</td><td>cv 397→256 · job 397→256 · skill 385→256 · seniority 6→256</td></tr>
+      <tr><td>Tổng hợp trong/giữa quan hệ</td><td>mean / mean (to_hetero aggr="mean")</td></tr>
+      <tr><td>Decoder</td><td>MLP: Linear(512→256) → ReLU → Linear(256→1)</td></tr>
+      <tr><td>Đầu phụ role (train)</td><td>Linear(256→11)</td></tr>
+      <tr><td>Embedding văn bản</td><td>paraphrase-multilingual-MiniLM-L12-v2, 384-d, chuẩn hoá L2</td></tr>
+      <tr><td>Reranker</td><td>Linear(23→64)→ReLU→Drop(0,2)→Linear(64→64)→ReLU→Drop(0,2)</td></tr>
+      <tr><td>Reranker — đầu ra</td><td>1 đầu chính (3 lớp) + 4 đầu phụ (3 lớp) cho 5 trục</td></tr>
+      <tr><td>Reranker — train</td><td>Adam, 50 epoch, CE có trọng số, aux_weight=0,3</td></tr>
+      <tr><td>Calibrator</td><td>Platt logistic: a=7,96, b=−2,45</td></tr>
+      <tr><td>Trọng số hybrid α/β/γ/δ</td><td>0,30 / 0,20 / 0,10 / 0,40 (từ metadata.json)</td></tr>
+      <tr><td>gnn_score nội bộ</td><td>0,6·σ(decoder) + 0,4·cosine_văn_bản</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="engine"><span class="badge">8</span><code>inference/engine.py</code> — Engine phục vụ (trái tim)</h2>
+  <p><code>match_cv(cv, top_k, retrieve_n)</code> chạy 6 bước:</p>
+  <ol>
+    <li><strong>Encode CV một lần:</strong> <code>cv_text_vec</code> (384) + <code>cv_gnn_emb</code> (inductive, có khoá tuần tự hoá).</li>
+    <li><strong>Giai đoạn 1 — Truy hồi:</strong> <code>retriever.shortlist(…, k=1000)</code> → <code>_score_pair_fast()</code> chấm điểm tổ hợp đầy đủ → lấy <code>retrieve_n</code>.</li>
+    <li><strong>Hybrid 4 thành phần</strong> (xem công thức dưới).</li>
+    <li><strong>Giai đoạn 2 — Rerank:</strong> reranker <code>score_batch_with_dims()</code> xếp lại danh sách.</li>
+    <li><strong>Gates + penalty</strong> (<code>_penalty_product</code>): nhân hệ số phạt + tính 5 trục minh bạch.</li>
+    <li><strong>Hiệu chuẩn + kết quả:</strong> <code>rank_score = (reranker hoặc stage1) × penalty</code> → <code>P = Platt</code> → <code>eligible = P ≥ 0,50</code>, kèm <code>score_breakdown</code> giải thích được.</li>
+  </ol>
+
+  <div class="formula">
+base = <span class="t1">α·gnn</span> <span class="op">+</span> <span class="t2">β·skill</span> <span class="op">+</span> <span class="t3">γ·seniority</span> <span class="op">+</span> <span class="t4">δ·domain</span>      <span class="op">(α=0,30 β=0,20 γ=0,10 δ=0,40)</span>
+  <span class="t1">gnn</span>       = 0,6·σ(decoder) + 0,4·cosine_văn_bản
+  <span class="t2">skill</span>     = overlap kỹ năng có trọng số + thưởng ngữ nghĩa (0,6·PMI)
+  <span class="t3">seniority</span> = max(0, 1 − 0,4·|Δcấp bậc|)
+  <span class="t4">domain</span>    = role_domain_fit ∈ {0; 0,5; 0,7; 1,0}   <span class="op">(SOFT, không lọc cứng)</span>
+score = base × penalty(role) × must_have × edge_case
+  </div>
+  <div class="chips">
+    <span class="chip a">α GNN 0,30</span><span class="chip b">β kỹ năng 0,20</span>
+    <span class="chip c">γ cấp bậc 0,10</span><span class="chip d">δ lĩnh vực 0,40</span>
+  </div>
+
+  <p><strong>Gates (hệ số phạt cứng):</strong></p>
+  <table>
+    <thead><tr><th>Gate</th><th>Điều kiện</th><th>Hệ số</th></tr></thead>
+    <tbody>
+      <tr><td>Domain</td><td>lệch lĩnh vực rõ (role_domain_fit = 0)</td><td><code>×0,40</code></td></tr>
+      <tr><td>Experience</td><td>thiếu năm KN / thừa &gt;3 năm</td><td><code>×0,40</code> / <code>×0,85</code></td></tr>
+      <tr><td>Seniority</td><td>job cao hơn ≥2 bậc / CV cao hơn ≥2 bậc</td><td><code>×0,70</code> / <code>×0,75</code></td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip"><span class="k">Điểm trình bày</span>Mọi điểm thành phần và gate đều là <strong>công thức tường minh</strong> (không hộp đen ngoài GNN + reranker) → tái lập bằng tay khi bảo vệ. Trọng số được tune bằng <code>tune_hybrid_weights</code>.</div>
+
+  <h2 id="retrieval"><span class="badge">9</span><code>inference/retrieval/</code> — Truy hồi hoán đổi được</h2>
+  <p>Giao diện <code>shortlist(cv, cv_text_vec, cv_gnn_emb, k) → [(job_idx, sim)]</code>, chọn qua <code>RETRIEVAL_MODE</code>:</p>
+  <ul>
+    <li><strong>exact</strong> (mặc định, đối chứng A/B): chấm <code>_score_pair_fast</code> trên toàn kho — O(N), giống hệt code cũ.</li>
+    <li><strong>vector</strong> (Stage A): vector hoá điểm recall = <code>α·gnn_proxy + β·skill + γ·sen + δ·domain</code> bằng matmul + <code>argpartition</code> top-k → nhanh hơn nhiều; recall@1000 ≈ 1,0.</li>
+    <li>Điểm cuối (tổ hợp chính xác + reranker + Platt) vẫn chạy trên danh sách rút gọn → chất lượng/hiệu chuẩn không đổi.</li>
+  </ul>
+
+  <h2 id="pool"><span class="badge">10</span>Quản lý kho job (job pool)</h2>
+  <p>Trọng số mô hình <strong>đông cứng</strong>; chỉ <strong>node job được encode lại</strong> khi kho thay đổi.</p>
+  <ul>
+    <li><strong>checkpoint.py</strong>: nạp/lưu <code>model.pt, graph.pt, cvs/jobs.json, metadata.json</code> (chứa hybrid_weights, node_dims, train_config).</li>
+    <li><strong>job_pool_snapshot.py</strong>: snapshot trên đĩa, ghi nguyên tử (temp → đổi tên), server <strong>hot-reload theo mtime</strong>. <code>model_sig</code> lệch → quay về pool checkpoint đông cứng.</li>
+    <li><strong>pgvector_store.py</strong> (Stage B): bảng <code>job_pool_vec(job_id, gnn_emb vector, text_vec vector, role_category, model_fingerprint, content_hash, updated_at)</code>, upsert theo lô 500.</li>
+    <li><strong>pool_diff.py</strong> (Stage C): <code>content_hash = sha256(skills, importances, seniority, text)</code> → rebuild <strong>tăng dần</strong>. <em>(Hash không gồm lương → đổi feature lương phải <code>rebuild_job_pool --full</code>.)</em></li>
+    <li><strong>role_classifier.py</strong>: <code>infer_role()</code> + <code>role_match_penalty ∈ {1,0 / 0,7 / 0,45}</code>.</li>
+  </ul>
+
+  <h2 id="eval"><span class="badge">11</span><code>evaluation/</code> + <code>baselines/</code> — Đo lường</h2>
+  <ul>
+    <li><strong>metrics.py</strong>: <code>ndcg@k, recall@k, precision@k, hit_rate@k, mrr, auc_roc</code>.</li>
+    <li><strong>per_cv_evaluator.py</strong>: xếp hạng đầy đủ <strong>theo từng CV</strong> rồi macro-average (đúng nghĩa "chất lượng gợi ý cho từng người"). Có biến thể 2 giai đoạn (đo recall@retrieve_n = trần giai đoạn 1).</li>
+    <li><strong>baselines/</strong>: BM25 (k1=1,5, b=0,75), Cosine, SkillOverlap (Jaccard) — để chứng minh GNN hơn baseline.</li>
+  </ul>
+
+  <h2 id="data"><span class="badge">12</span><code>data/</code> — Sinh &amp; chuẩn hoá dữ liệu</h2>
+  <ul>
+    <li><strong>generator.py</strong>: sinh CV/job/nhãn tổng hợp; <code>SENIORITY_TO_SALARY_USD</code> cho lương <strong>theo năm, USD</strong> → lý do feature lương serving phải về USD/năm (sửa <em>train/serve skew</em>).</li>
+    <li><strong>resume_loader.py</strong>: nạp resume thật (Kaggle 4.817 + bộ 54k, lọc title IT).</li>
+    <li><strong>skill_taxonomy.py</strong>: từ điển kỹ năng, 8 cụm, template sinh văn bản.</li>
+    <li><strong>skill_normalization.py</strong>: <code>normalize()</code> biến thể → tên chuẩn (<code>skill-alias.json</code>); kỹ năng lạ bị loại.</li>
+    <li><strong>skill_graph.py</strong>: dựng PMI đồng xuất hiện + cạnh ngữ nghĩa + cạnh tương tự.</li>
+  </ul>
+
+  <h2 id="data-pipeline"><span class="badge">★</span>Từ CV/JD đã trích xuất → dữ liệu huấn luyện cuối</h2>
+  <p>Sau khi LLM trích xuất CV/JD thành <code>CVData</code>/<code>JobData</code> (kỹ năng + importance/proficiency,
+  seniority, kinh nghiệm, text, role), dữ liệu đi qua các bước sau để thành <strong>tập huấn luyện</strong>
+  đưa vào model:</p>
+
+  <div class="pipe">
+    <div class="st"><div class="lab">CV/JD trích xuất</div><div class="sm">CVData · JobData</div></div>
+    <div class="ar">→</div>
+    <div class="st"><div class="lab">Chọn cặp khó</div><div class="sm">cặp dễ gây nhầm</div></div>
+    <div class="ar">→</div>
+    <div class="st"><div class="lab">Gán nhãn agent</div><div class="sm">5 trục + pilot gate</div></div>
+    <div class="ar">→</div>
+    <div class="st"><div class="lab">Đồ thị + cặp BPR</div><div class="sm">→ train</div></div>
+  </div>
+
+  <div class="tl">
+    <div class="step"><b>1 · Chuẩn hoá kỹ năng</b><div class="m"><code>SkillNormalizer.normalize()</code> đưa kỹ năng thô → tên chuẩn (<code>skill-alias.json</code>); kỹ năng lạ bị loại. CV và job dùng <strong>chung từ vựng kỹ năng</strong> → mới nối được qua node skill.</div></div>
+    <div class="step"><b>2 · Chọn cặp CV–job KHÓ để gán nhãn (thay vì ngẫu nhiên)</b><div class="m"><code>generate_pairs --buckets</code> (feature 022): nếu ghép CV–job <strong>ngẫu nhiên</strong> thì đa số là cặp "rõ ràng không hợp" (vd lập trình viên ↔ đầu bếp) — chấm nhãn cho chúng tốn công mà model <strong>chẳng học được gì</strong>. Thay vào đó chọn các cặp <strong>dễ gây nhầm</strong>: nhìn vào cũng không chắc hợp hay không (vd "CV biết React, job cần Vue" — hợp không?). Những ca khó này mới dạy model phân biệt tinh tế. Các cặp được gom theo nhóm (bảng dưới) → <code>PairQueue</code>, kèm sẵn split train/val/test.</div></div>
+    <div class="step"><b>3 · Gán nhãn bằng agent — 5 trục</b><div class="m"><code>export_pending_pairs</code> → agent chấm → <code>import_labels</code>. Mỗi cặp được chấm <strong>5 trục</strong> skill / seniority / experience / domain / overall (thang 0–2) → <code>HumanLabel</code>.</div></div>
+    <div class="step eval"><b>4 · Pilot gate + đồng thuận</b><div class="m"><code>audit_labels</code>: chấm một batch <strong>pilot</strong> trước, kiểm phân phối nhãn theo từng bucket có khớp kỳ vọng → mới scale ra toàn bộ. Nhiều agent chấm trùng để đo <strong>agreement ≈ 87%</strong>.</div></div>
+    <div class="step eval"><b>5 · Làm sạch + audit</b><div class="m">Dedup, kiểm <strong>xung đột</strong> (1 cặp không thể vừa match vừa no_match — <code>GraphBuilder</code> raise nếu có), gating chất lượng → <strong>~12.084 nhãn sạch</strong>.</div></div>
+    <div class="step loss"><b>6 · Quy đổi nhãn cho training</b><div class="m">Binary cho BPR: <code>overall ≥ 1 → match (1)</code>, ngược lại <code>no_match (0)</code> (<code>HumanLabel.binary_label</code>). <strong>5 trục giữ nguyên</strong> → nuôi reranker đa nhiệm.</div></div>
+    <div class="step"><b>7 · Dựng đồ thị + cặp BPR</b><div class="m"><code>GraphBuilder</code>: CVData/JobData + <strong>skill graph</strong> (PMI đồng xuất hiện + cạnh ngữ nghĩa) → <code>HeteroData</code> (node 397/385/6 + cạnh). Trainer lấy nhãn → BPR triple, âm <strong>toàn-không-gian</strong> + curriculum hard-negative (0→30→70%).</div></div>
+  </div>
+
+  <p>→ Đưa vào <strong>pretrain → finetune</strong> (GNN) + train reranker (5 trục) + fit calibrator (Platt).
+  Chi tiết ở mục <a href="#training">6 · training</a> &amp; <a href="#deep-train">M2 · quá trình huấn luyện</a>.</p>
+
+  <h3>Các nhóm cặp khó (bucket)</h3>
+  <p>Mỗi nhóm là một kiểu "ca khó" mà model hay chấm sai — cố tình gom lại để gán nhãn cho đủ:</p>
+  <table>
+    <thead><tr><th>Nhóm</th><th>Là kiểu cặp nào</th></tr></thead>
+    <tbody>
+      <tr><td><code>related_skill_positive</code></td><td><strong>Thực ra HỢP</strong> nhưng nhìn dễ tưởng không — hợp qua kỹ năng <em>gần giống</em> (React ↔ Vue), không trùng từ khoá</td></tr>
+      <tr><td><code>cross_domain_hard_neg</code></td><td><strong>KHÔNG hợp</strong> nhưng dễ tưởng hợp — trùng vài kỹ năng nhưng <em>khác nghề</em></td></tr>
+      <tr><td><code>seniority_hard_neg</code></td><td><strong>KHÔNG hợp</strong> vì <em>lệch cấp bậc</em> — dù kỹ năng khớp (vd job cần Senior, CV mới Junior)</td></tr>
+      <tr><td><code>missing_must_have</code></td><td><strong>KHÔNG hợp</strong> vì <em>thiếu kỹ năng bắt buộc</em> của job</td></tr>
+      <tr><td><code>boundary_medium</code></td><td><strong>Mơ hồ</strong> — trùng kỹ năng vừa vừa, hợp hay không đều có lý</td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip"><span class="k">Ý chính</span>Ngân sách gán nhãn có hạn → mỗi nhãn nên "đắt giá" nhất. Một nhãn cho ca KHÓ (model hay sai) dạy được nhiều hơn hẳn một nhãn cho ca hiển nhiên. Nhờ tập trung vào nhóm <em>related_skill_positive</em> mà GNN học được "React gần với Vue" — chứ không chỉ so trùng từ khoá.</div>
+
+  <table class="params">
+    <thead><tr><th>Tham số tạo data</th><th>Giá trị</th></tr></thead>
+    <tbody>
+      <tr><td>Nhãn mỗi cặp</td><td>5 trục (skill/seniority/experience/domain/overall) · thang 0–2</td></tr>
+      <tr><td>Quy đổi binary (BPR)</td><td>overall ≥ 1 → match · &lt; 1 → no_match</td></tr>
+      <tr><td>Chia split (train / val / test)</td><td>70% / 15% / 15% (gán lúc sinh cặp)</td></tr>
+      <tr><td>Pilot gate</td><td>audit phân phối nhãn theo bucket trước khi scale</td></tr>
+      <tr><td>Đồng thuận agent</td><td>~87%</td></tr>
+      <tr><td>Nhãn sạch cuối (v4)</td><td>~12.084</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="periphery"><span class="badge">13</span>Ngoại vi: thu thập, parse CV, kiểm tra job</h2>
+  <ul>
+    <li><strong>crawler/</strong>: <code>CrawlProvider.fetch() → RawJob</code>, factory tự khám phá. Nguồn: JobSpy (Indeed scraping), LinkedIn (Playwright + phiên lưu sẵn), Adzuna/Remotive/RemoteOK/Freelancer (REST). <code>storage.py</code> khử trùng 2 lớp (URL + fingerprint chuẩn hoá) → JSONL. <em>(Nơi feature lương vừa thêm <code>salary_interval</code>.)</em></li>
+    <li><strong>cv_parser/parser.py</strong>: đọc PDF (pdfplumber)/DOCX (python-docx) → tách mục → trích kỹ năng (n-gram + normalizer) → suy cấp bậc/kinh nghiệm/học vấn → <code>CVData</code>.</li>
+    <li><strong>verifier/</strong>: kiểm tra job LinkedIn còn sống + trích <strong>ngày đăng</strong> (JSON-LD → <code>&lt;time&gt;</code> → text tương đối, kẹp ±730 ngày). <code>browser_pool</code> (Playwright persistent), <code>auth_guard</code> (bất biến cookie <code>li_at</code>), ghi DB sau khi đóng browser.</li>
+  </ul>
+
+  <h2 id="bangtra"><span class="badge">14</span>Bảng tra số liệu nhanh (để bảo vệ)</h2>
+  <table>
+    <tbody>
+      <tr><td>Backbone GNN</td><td><strong>HeteroGraphSAGE</strong> (mean), <code>to_hetero</code></td></tr>
+      <tr><td>hidden / lớp</td><td><strong>256 / 3</strong></td></tr>
+      <tr><td>Embedding văn bản</td><td>multilingual MiniLM, <strong>384</strong> chiều</td></tr>
+      <tr><td>Node CV/job/skill/seniority</td><td><strong>397 / 397 / 385 / 6</strong></td></tr>
+      <tr><td>Decoder</td><td>MLP 512→256→1</td></tr>
+      <tr><td>Loss huấn luyện</td><td><strong>BPR</strong> + curriculum hard-negative (0→30→70%)</td></tr>
+      <tr><td>Trọng số hybrid α/β/γ/δ</td><td><strong>0,30 / 0,20 / 0,10 / 0,40</strong></td></tr>
+      <tr><td>gnn_score nội bộ</td><td>0,6·σ(decoder) + 0,4·cosine</td></tr>
+      <tr><td>Reranker</td><td>MLP 23 feat → 64→64→3, 4 đầu phụ (5 trục)</td></tr>
+      <tr><td>Calibration</td><td>Platt <code>a=7,96, b=−2,45</code>; đủ điều kiện <code>P ≥ 0,50</code></td></tr>
+      <tr><td>Gates</td><td>domain 0,40 · exp 0,40/0,85 · seniority 0,70/0,75</td></tr>
+      <tr><td>Truy hồi</td><td>exact (mặc định) / vector; shortlist <code>retrieve_k=1000</code></td></tr>
+      <tr><td>Kho train / serve</td><td>366 CV, 6.251 job / ~8.930 job live</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="qa"><span class="badge">15</span>Câu hỏi phòng vệ thường gặp</h2>
+  <div class="qa">
+    <details open>
+      <summary>Vì sao dùng GNN mà không chỉ cosine văn bản?</summary>
+      <div class="ans">Cosine chỉ thấy <em>tương tự văn bản</em>. GNN lan truyền tín hiệu qua <strong>kỹ năng chung</strong> nên hai CV/job chưa từng có nhãn vẫn liên hệ được; đồng thời học từ <strong>nhãn so khớp</strong> (BPR) thay vì chỉ ngữ nghĩa bề mặt. Baseline BM25/cosine/skill-overlap có sẵn để so.</div>
+    </details>
+    <details>
+      <summary>Mô hình có học lại khi thêm job mới không?</summary>
+      <div class="ans">Không. GNN <strong>inductive</strong> — job/CV mới được encode bằng cách gắn node tạm vào đồ thị đông cứng. Chỉ rebuild <em>embedding job</em>, trọng số giữ nguyên.</div>
+    </details>
+    <details>
+      <summary>Điểm hiển thị nghĩa là gì?</summary>
+      <div class="ans"><code>P(match)</code> <strong>đã hiệu chuẩn Platt</strong> — xác suất cặp được ground-truth chấm phù hợp, <strong>tuyệt đối</strong> và so sánh được giữa nhân viên. Không phải điểm thô.</div>
+    </details>
+    <details>
+      <summary>Vì sao điểm tổ hợp 4 thành phần chứ không để GNN quyết hết?</summary>
+      <div class="ans">GNN decode đơn lẻ trên dữ liệu thưa nhãn yếu (AUC quanh 0,5). Kỹ năng/cấp bậc/lĩnh vực là <strong>công thức tường minh, giải thích được</strong>, bù cho GNN và cho phép kiểm soát (gates) — quan trọng với người dùng HR. Trọng số được tune.</div>
+    </details>
+    <details>
+      <summary>Hệ chống lệch lĩnh vực (frontend ↔ devops) thế nào?</summary>
+      <div class="ans">Hai tầng — <code>domain</code> là thành phần mềm (δ=0,40, lớn nhất) <strong>và</strong> một <strong>gate cứng</strong> nhân 0,40 khi lệch rõ; cộng <code>role_match_penalty</code> {1,0/0,7/0,45}.</div>
+    </details>
+    <details>
+      <summary>Đã cải tiến kiến trúc encoder chưa?</summary>
+      <div class="ans">Đã thử attention (GAT), RGCN, sum, L2, jumping-knowledge, độ sâu, trọng-số-cạnh, DropEdge, contrastive — trên cả bộ công khai (bão hoà) lẫn nội bộ (còn dư địa). <strong>Không hướng nào vượt mean-aggregator ngoài độ lệch chuẩn</strong>; nút thắt là <em>dữ liệu</em> (nhãn phủ ~0,53%), không phải kiến trúc. Chi tiết: <code>specs/028-gnn-attention-aggregation/ablation.md</code>.</div>
+    </details>
+
+    <details>
+      <summary>Vì sao chọn GraphSAGE chứ không phải GAT/RGCN?</summary>
+      <div class="ans">GraphSAGE <strong>inductive</strong> (encode được node mới chưa thấy lúc train) — bắt buộc vì job/CV mới phải mã hoá không cần train lại. GAT/RGCN có sẵn để đối chứng; thực nghiệm cho thấy chúng <strong>không vượt</strong> mean-aggregator trên dữ liệu hiện có, lại nặng hơn. Mean đơn giản, ổn định, đủ tốt → chọn theo nguyên tắc Occam.</div>
+    </details>
+    <details>
+      <summary>"Inductive" khác "transductive" thế nào? Encode CV mới ra sao?</summary>
+      <div class="ans"><strong>Transductive</strong> (vd LightGCN) học một embedding cố định cho từng node → node mới = chịu. <strong>Inductive</strong> học các <em>hàm biến đổi</em> (W của projection + SAGEConv) áp lên đặc trưng node → node mới chỉ cần có đặc trưng là encode được. CV mới: gắn node tạm vào bản sao đồ thị đông cứng, nối cạnh has_skill/has_seniority/similar_profile, chạy <code>encode()</code> 1 lần → lấy embedding, bỏ node tạm. Trọng số không đổi.</div>
+    </details>
+    <details>
+      <summary>3 lớp GNN nghĩa là gì? Vì sao không sâu hơn?</summary>
+      <div class="ans">Mỗi lớp = một bước lan truyền. 3 lớp → một node "thấy" được lân cận trong bán kính 3 bước (vd CV → kỹ năng → job khác → kỹ năng khác). Sâu hơn gây <strong>over-smoothing</strong>: embedding các node bị làm nhoè về nhau, mất phân biệt. Thực nghiệm xác nhận tăng lên 4+ lớp <em>giảm</em> hiệu năng.</div>
+    </details>
+    <details>
+      <summary>Vì sao decoder là MLP chứ không phải tích vô hướng (dot product)?</summary>
+      <div class="ans">Dot product chỉ đo tương tự tuyến tính cùng không gian. MLP <code>[z_cv‖z_job]→256→1</code> học được <strong>tương tác phi tuyến</strong> giữa hai phía (vd "CV mạnh frontend + job cần fullstack" khác "đối xứng"). Linh hoạt hơn, vẫn nhẹ.</div>
+    </details>
+    <details>
+      <summary>Đầu phụ role (role_head) để làm gì? Có dùng lúc dự đoán không?</summary>
+      <div class="ans">Là <strong>multi-task regularizer</strong>: bắt embedding vừa tốt cho so khớp (BPR) vừa phân loại đúng 11 lĩnh vực. Ép không gian tách cụm theo nghề — cấu trúc mà điểm decode đơn lẻ thiếu (AUC lát-cắt ≈ 0,51 ở v1). <strong>Chỉ chạy khi train</strong>; lúc phục vụ engine không gọi.</div>
+    </details>
+    <details>
+      <summary>Vì sao dùng BPR thay vì cross-entropy nhị phân?</summary>
+      <div class="ans">Bài toán là <em>xếp hạng theo từng người</em>, không phải phân loại tuyệt đối. BPR tối ưu trực tiếp thứ tự tương đối (pos &gt; neg) — khớp với độ đo NDCG/Recall và với cách HR dùng (xem top-k). CE nhị phân buộc học ngưỡng tuyệt đối, nhạy với mất cân bằng dương/âm.</div>
+    </details>
+    <details>
+      <summary>"Âm khó" (hard negative) là gì? Vì sao cần curriculum?</summary>
+      <div class="ans">Âm khó = job <strong>cùng lĩnh vực, trùng kỹ năng</strong> nhưng vẫn không phù hợp (lệch cấp bậc/kinh nghiệm). Học chúng buộc mô hình phân biệt tinh vi. Nhưng nếu ép hard negative ngay từ đầu (lúc embedding còn ngẫu nhiên) thì loss nhiễu, khó hội tụ → <strong>curriculum</strong>: epoch 0–4 chỉ easy negative, 5–19 trộn 30%, ≥20 lên 70% (dễ trước, khó sau).</div>
+    </details>
+    <details>
+      <summary>Lấy âm từ "toàn không gian job" có gây nhiễu nhãn không?</summary>
+      <div class="ans">Có rủi ro <em>false negative</em> (job thực ra phù hợp nhưng chưa được gán nhãn). BPR chịu được nhiễu này vì chỉ học thứ tự tương đối, và đa số job ngẫu nhiên thật sự không phù hợp. Âm validation được <strong>cố định</strong> để đo tất định, không nhiễu giữa các epoch.</div>
+    </details>
+    <details>
+      <summary>Tín hiệu dừng sớm vì sao là 0,8·val_auc + 0,2·slice_auc?</summary>
+      <div class="ans"><code>val_auc</code> đo phân biệt pos/neg tổng quát; <code>slice_auc</code> đo riêng lát cắt "positive liên quan kỹ năng" — cái khó nhất mà v1 không học được. Trộn 80/20 để mô hình tốt tổng thể nhưng không bỏ rơi ca khó. <code>warmup_epochs</code> bỏ qua đếm kiên nhẫn trong giai đoạn chuyển curriculum (tránh dừng nhầm lúc loss tạm vọt).</div>
+    </details>
+    <details>
+      <summary>Vì sao phải gỡ cạnh nhãn match/no_match lúc phục vụ?</summary>
+      <div class="ans">Nếu giữ, đồ thị sẽ "rò rỉ" đáp án (CV nối thẳng tới job phù hợp trong lúc train) → mô hình học tắt, không tổng quát. Lúc phục vụ dùng <code>data_clean</code> đã gỡ cạnh nhãn; quan hệ chỉ còn qua kỹ năng/cấp bậc → mới đúng kịch bản thật.</div>
+    </details>
+    <details>
+      <summary>Reranker khác gì GNN? Vì sao cần 2 tầng?</summary>
+      <div class="ans">GNN tốt cho <strong>truy hồi</strong> (recall) trên cả kho — nhanh, vector hoá. Nhưng điểm decode đơn lẻ yếu (AUC quanh 0,5 trên dữ liệu thưa). Reranker là MLP riêng trên <strong>23 đặc trưng tường minh</strong> (gồm cả điểm GNN), chỉ chạy trên ~1000 ứng viên rút gọn → tinh chỉnh thứ tự với chi phí cao mà vẫn rẻ. Đây là mẫu chuẩn "retrieve cheap, rerank rich".</div>
+    </details>
+    <details>
+      <summary>Reranker đa nhiệm 5 trục để làm gì?</summary>
+      <div class="ans">4 đầu phụ (skill/experience/seniority/domain) buộc lớp ẩn 64 chiều phải <strong>giải thích được từng khía cạnh</strong>, không chỉ điểm tổng — vừa regularize, vừa cho ra <em>điểm từng trục</em> hiển thị cho HR ("hợp kỹ năng nhưng thiếu kinh nghiệm"). Trọng số phụ <code>aux_weight=0,3</code>.</div>
+    </details>
+    <details>
+      <summary>Đầu ra ordinal 3 lớp rồi tính kỳ vọng — vì sao không argmax?</summary>
+      <div class="ans">Argmax cho điểm rời rạc {0,1,2} → nhiều job hoà điểm, không xếp hạng được. Kỳ vọng <code>(p₁·1+p₂·2)/2</code> cho điểm <strong>liên tục, mượt</strong> trong [0,1] → phân biệt mịn để xếp top-k.</div>
+    </details>
+    <details>
+      <summary>Calibration Platt là gì? Vì sao cần?</summary>
+      <div class="ans">Điểm rank_score là số tương đối, không phải xác suất — không so sánh được giữa các nhân viên/lần chạy. Platt fit <code>P = σ(a·score+b)</code> trên validation → đưa về <strong>xác suất tuyệt đối</strong> hiệu chuẩn. "Hiệu chuẩn" nghĩa: trong nhóm dự đoán P≈0,7 thì ~70% thực sự phù hợp (sai số ≤ 0,15). Vì sigmoid đơn điệu nên <em>không đổi thứ tự</em>, chỉ định cỡ lại trục điểm.</div>
+    </details>
+    <details>
+      <summary>Trọng số hybrid 0,30/0,20/0,10/0,40 lấy ở đâu?</summary>
+      <div class="ans">Tune bằng <code>tune_hybrid_weights</code> (lưới 4 trọng số), mục tiêu cân bằng: tối đa role-NDCG@10 với ràng buộc label-AUC ≥ 0,85·max và δ ≤ 0,4. Chốt vào <code>metadata.json</code> (nguồn chân lý lúc phục vụ); <code>settings.py</code> chỉ dùng khi train. Lưu ý δ (lĩnh vực) lớn nhất vì lệch lĩnh vực là lỗi nặng nhất với HR.</div>
+    </details>
+    <details>
+      <summary>Vì sao gnn_score lại trộn 0,6·decoder + 0,4·cosine văn bản?</summary>
+      <div class="ans">Decoder GNN bắt tín hiệu quan hệ (qua đồ thị kỹ năng) nhưng yếu trên ca thưa; cosine văn bản bắt tương đồng ngữ nghĩa trực tiếp nhưng nông. Trộn 0,6/0,4 lấy được cả hai, ổn định hơn từng cái riêng. Đây là "an toàn kép" cho thành phần GNN trong điểm hybrid.</div>
+    </details>
+    <details>
+      <summary>Mô hình xử lý CV/job tiếng Việt thế nào?</summary>
+      <div class="ans">Dùng nhúng <strong>đa ngữ</strong> (paraphrase-multilingual-MiniLM-L12-v2, 384-d) — catalog có ~7% tiếng Việt mà mô hình tiếng Anh đọc thành nhiễu. <code>.env</code> phải đặt <code>EMBEDDING_PROVIDER=multilingual</code> khớp checkpoint; lệch = không gian vector khác → điểm vô nghĩa.</div>
+    </details>
+    <details>
+      <summary>Làm sao biết mô hình thật sự hơn baseline?</summary>
+      <div class="ans">Có sẵn baseline <strong>BM25, cosine, skill-overlap</strong> và giao thức đánh giá <strong>theo từng CV</strong> (xếp hạng đầy đủ rồi macro-average) với NDCG/Recall/MRR. Trên bộ công khai resume-JD, HeteroGraphSAGE thắng các baseline; chi tiết bảng số liệu ở chương thực nghiệm của báo cáo.</div>
+    </details>
+    <details>
+      <summary>Hạn chế lớn nhất của mô hình hiện tại?</summary>
+      <div class="ans"><strong>Dữ liệu</strong>: ma trận nhãn chỉ phủ ~0,53% → cận trên hiệu năng bị giới hạn bởi nhãn, không phải kiến trúc (đã chứng minh qua ablation). Decode GNN đơn lẻ yếu trên ca thưa (bù bằng reranker + hybrid). Cold-start CV/job hoàn toàn mới chưa được đo riêng. Hướng đầu tư đúng: gắn nhãn dày hơn, không phải thêm độ phức tạp mô hình.</div>
+    </details>
+  </div>
+
+  <div class="foot">
+    Tệp mã tham chiếu: <code>backend/ml_service/</code> · checkpoint <code>backend/checkpoints/latest/</code>
+    (<code>metadata.json</code> là nguồn chân lý cho trọng số/cấu hình lúc phục vụ). ·
+    Bản markdown gốc: <code>ml_service-giai-thich.md</code>.
+  </div>
+</main>
+</div>
+</body>
+</html>

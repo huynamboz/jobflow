@@ -1,15 +1,15 @@
 <!-- SPECKIT START -->
-Active feature plan: [specs/027-job-retrieval-scaling/plan.md](specs/027-job-retrieval-scaling/plan.md)
+Active feature plan: [specs/029-i18n-frontend/plan.md](specs/029-i18n-frontend/plan.md)
 
 Related artifacts:
-- [spec.md](specs/027-job-retrieval-scaling/spec.md)
-- [research.md](specs/027-job-retrieval-scaling/research.md)
-- [data-model.md](specs/027-job-retrieval-scaling/data-model.md)
-- [contracts/retriever.md](specs/027-job-retrieval-scaling/contracts/retriever.md)
-- [quickstart.md](specs/027-job-retrieval-scaling/quickstart.md)
+- [spec.md](specs/029-i18n-frontend/spec.md)
+- [research.md](specs/029-i18n-frontend/research.md)
+- [data-model.md](specs/029-i18n-frontend/data-model.md)
+- [contracts/i18n-contract.md](specs/029-i18n-frontend/contracts/i18n-contract.md)
+- [quickstart.md](specs/029-i18n-frontend/quickstart.md)
 - Master plan: [docs/codebase-knowledge/10-master-plan.md](docs/codebase-knowledge/10-master-plan.md)
 
-Previous active plan: [specs/026-employee-mail-link/plan.md](specs/026-employee-mail-link/plan.md)
+Previous active plan: [specs/027-job-retrieval-scaling/plan.md](specs/027-job-retrieval-scaling/plan.md)
 
 Previous features (still in this branch's history):
 - [specs/013-thesis-report/plan.md](specs/013-thesis-report/plan.md) (Thesis report — Vietnamese academic doc)
