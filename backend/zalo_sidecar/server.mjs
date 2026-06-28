@@ -13,7 +13,7 @@
  *
  *   PORT=3001 ZALO_SIDECAR_TOKEN=xxx npm start
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import express from "express";
 import { Zalo, ThreadType, LoginQRCallbackEventType as QR } from "zca-js";
 
@@ -123,6 +123,54 @@ app.post("/login-qr/start", (_req, res) => {
 
 app.get("/login-qr/status", (_req, res) => {
   res.json({ ...qr, loggedIn: !!api });
+});
+
+app.post("/logout", (_req, res) => {
+  // Drop the session so a different account can log in via QR.
+  api = null;
+  loginInProgress = false;
+  qr = { state: "idle", image: null, user: null, error: null };
+  try {
+    if (existsSync(CREDS_PATH)) rmSync(CREDS_PATH);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+  console.log("🔓 Zalo session cleared (creds.json removed).");
+  res.json({ ok: true, loggedIn: false });
+});
+
+app.get("/threads", async (_req, res) => {
+  if (!api) return res.status(503).json({ ok: false, error: "Zalo not logged in" });
+  const out = { users: [], groups: [] };
+  // Friends → direct-message threads.
+  try {
+    const friends = (await api.getAllFriends()) || [];
+    out.users = friends.map((u) => ({
+      id: u.userId,
+      name: u.displayName || u.zaloName || u.userId,
+      avatar: u.avatar || "",
+    }));
+  } catch (e) {
+    out.usersError = e?.message || String(e);
+  }
+  // Groups → fetch IDs, then resolve names in one batch.
+  try {
+    const all = await api.getAllGroups();
+    const ids = Object.keys(all?.gridVerMap || {});
+    if (ids.length) {
+      const info = await api.getGroupInfo(ids);
+      const map = info?.gridInfoMap || {};
+      out.groups = ids.map((id) => ({
+        id,
+        name: map[id]?.name || id,
+        avatar: map[id]?.avt || "",
+        members: map[id]?.totalMember || 0,
+      }));
+    }
+  } catch (e) {
+    out.groupsError = e?.message || String(e);
+  }
+  res.json({ ok: true, ...out });
 });
 
 app.post("/send", async (req, res) => {

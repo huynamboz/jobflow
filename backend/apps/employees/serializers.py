@@ -75,15 +75,19 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
         [{name, slug, count}], descending by count."""
         from django.db.models import Count
 
+        from apps.employees.models import EmployeeJobMatch
+
         rows = (
             obj.matches.exclude(status="dismissed")
-            .values("job__platform__name", "job__platform__slug")
+            .exclude(status__in=EmployeeJobMatch.APPLIED_STATUSES)  # match the hide-applied list
+            .values("job__platform__name", "job__platform__slug", "job__platform__logo_url")
             .annotate(c=Count("id"))
             .order_by("-c")
         )
         return [
             {"name": r["job__platform__name"] or "Unknown",
              "slug": r["job__platform__slug"] or "",
+             "logo": r["job__platform__logo_url"] or "",
              "count": r["c"]}
             for r in rows
         ]

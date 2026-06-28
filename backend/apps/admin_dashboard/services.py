@@ -363,3 +363,64 @@ def compute_labeling(now: datetime | None = None) -> dict:
 
 def compute_model(now: datetime | None = None) -> dict:
     return _model_meta()
+
+
+# ─── Jobs overview (job-centric dashboard) ────────────────────────────────
+
+
+def compute_jobs_overview(days: int = 30) -> dict:
+    """Job-centric metrics for the main dashboard: stat cards + chart series.
+
+    stats: total/active/inactive jobs, new today, jobs already applied, and
+    suitable jobs found today (a match scored > 0.80 = >80%). per_day: new jobs
+    created per day over the last ``days`` (default 30). by_provider: job count
+    per platform.
+    """
+    from datetime import timedelta
+
+    from django.db.models.functions import TruncDate
+    from django.utils import timezone as dj_tz
+
+    from apps.employees.models import EmployeeJobMatch
+    from apps.jobs.models import Job
+
+    days = max(1, min(int(days or 30), 90))
+    today = dj_tz.localdate()
+
+    total = Job.objects.count()
+    active = Job.objects.filter(is_active=True).count()
+    inactive = total - active
+    new_today = Job.objects.filter(created_at__date=today).count()
+    applied = (EmployeeJobMatch.objects
+               .filter(status__in=EmployeeJobMatch.APPLIED_STATUSES)
+               .values("job").distinct().count())
+    suitable_today = (EmployeeJobMatch.objects
+                      .filter(created_at__date=today, match_score__gt=0.8)
+                      .values("job").distinct().count())
+
+    # new jobs per day over the window (gap-filled so the chart has every day)
+    since = today - timedelta(days=days - 1)
+    rows = (Job.objects.filter(created_at__date__gte=since)
+            .annotate(d=TruncDate("created_at")).values("d")
+            .annotate(c=Count("id")))
+    by_date = {r["d"]: r["c"] for r in rows}
+    per_day = [
+        {"day": (since + timedelta(days=i)).isoformat(), "count": by_date.get(since + timedelta(days=i), 0)}
+        for i in range(days)
+    ]
+
+    prov = Job.objects.values("platform__name").annotate(c=Count("id")).order_by("-c")
+    by_provider = [{"key": (r["platform__name"] or "Unknown"), "count": r["c"]} for r in prov]
+
+    return {
+        "stats": {
+            "total": total, "active": active, "inactive": inactive,
+            "new_today": new_today, "applied": applied, "suitable_today": suitable_today,
+        },
+        "per_day": per_day,
+        "by_provider": by_provider,
+        "active_inactive": [
+            {"key": "active", "count": active},
+            {"key": "inactive", "count": inactive},
+        ],
+    }

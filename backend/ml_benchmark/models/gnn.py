@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch_geometric.data import HeteroData
-from torch_geometric.nn import GraphSAGE, RGCNConv, to_hetero
+from torch_geometric.nn import GAT, GraphSAGE, RGCNConv, to_hetero
 from torch_geometric.transforms import ToUndirected
 
 
@@ -47,8 +48,12 @@ class HeteroGraphSAGE(nn.Module):
         num_layers: int = 2,
         dropout: float = 0.0,
         node_dims: dict[str, int] | None = None,
+        jk: str | None = None,
+        l2_norm: bool = False,
+        hetero_aggr: str = "mean",
     ) -> None:
         super().__init__()
+        self.l2_norm = l2_norm
         if node_dims is None:
             node_dims = {"cv": 386, "job": 386, "skill": 385, "seniority": 6}
 
@@ -62,13 +67,17 @@ class HeteroGraphSAGE(nn.Module):
             num_layers=num_layers,
             out_channels=hidden_channels,
             dropout=dropout,
+            jk=jk,
         )
-        self.gnn = to_hetero(backbone, metadata, aggr="mean")
+        self.gnn = to_hetero(backbone, metadata, aggr=hetero_aggr)
         self.decoder = MLPDecoder(hidden_channels)
 
     def encode(self, data: HeteroData) -> dict[str, torch.Tensor]:
         x_dict = {ntype: proj(data[ntype].x) for ntype, proj in self.projections.items()}
-        return self.gnn(x_dict, data.edge_index_dict)
+        z = self.gnn(x_dict, data.edge_index_dict)
+        if getattr(self, "l2_norm", False):
+            z = {k: F.normalize(v, p=2, dim=-1) for k, v in z.items()}
+        return z
 
     def decode(self, z_dict: dict[str, torch.Tensor], cv_indices: torch.Tensor, job_indices: torch.Tensor) -> torch.Tensor:
         return self.decoder(z_dict["cv"][cv_indices], z_dict["job"][job_indices])
@@ -87,6 +96,107 @@ class HeteroGraphSAGE(nn.Module):
 
     def forward(self, data: HeteroData, cv_indices: torch.Tensor, job_indices: torch.Tensor) -> torch.Tensor:
         return self.decode(self.encode(data), cv_indices, job_indices)
+
+
+# ---------------------------------------------------------------------------
+# GATv2 backbone (improvement: attention instead of mean aggregator)
+# ---------------------------------------------------------------------------
+
+
+class HeteroGAT(HeteroGraphSAGE):
+    """Cải tiến: thay backbone GraphSAGE (mean aggregator) bằng GATv2 (attention).
+
+    Trọng số từng lân cận TRONG mỗi loại cạnh được HỌC bằng attention thay vì
+    trung bình đều; tổng hợp GIỮA các loại cạnh vẫn là mean. Opt-in qua
+    ``model_type='gat'`` — KHÔNG đổi hành vi mặc định, KHÔNG đụng production.
+    """
+
+    def __init__(
+        self,
+        metadata: tuple[list[str], list[tuple[str, str, str]]],
+        hidden_channels: int = 128,
+        num_layers: int = 2,
+        dropout: float = 0.0,
+        node_dims: dict[str, int] | None = None,
+        heads: int = 4,
+        jk: str | None = None,
+        l2_norm: bool = False,
+        hetero_aggr: str = "mean",
+    ) -> None:
+        super().__init__(metadata, hidden_channels, num_layers, dropout, node_dims,
+                         jk=jk, l2_norm=l2_norm, hetero_aggr=hetero_aggr)
+        backbone = GAT(
+            in_channels=hidden_channels,
+            hidden_channels=hidden_channels,
+            num_layers=num_layers,
+            out_channels=hidden_channels,
+            dropout=dropout,
+            v2=True,
+            heads=heads,
+            jk=jk,
+            add_self_loops=False,  # hetero bipartite edges: self-loops invalid
+        )
+        self.gnn = to_hetero(backbone, metadata, aggr=hetero_aggr)
+
+
+class HeteroEdgeGAT(HeteroGraphSAGE):
+    """Cải tiến: GATv2 dùng TRỌNG SỐ CẠNH (importance kỹ năng / proficiency) trong
+    attention (edge_dim=1). Tận dụng edge_attr đang bị bỏ phí. Các cạnh không có
+    trọng số được điền 1.0. Opt-in qua model_type='egat'.
+    """
+
+    def __init__(
+        self,
+        metadata,
+        hidden_channels: int = 128,
+        num_layers: int = 2,
+        dropout: float = 0.0,
+        node_dims: dict[str, int] | None = None,
+        heads: int = 4,
+        hetero_aggr: str = "mean",
+    ) -> None:
+        super().__init__(metadata, hidden_channels, num_layers, dropout, node_dims, hetero_aggr=hetero_aggr)
+        backbone = GAT(
+            in_channels=hidden_channels, hidden_channels=hidden_channels, num_layers=num_layers,
+            out_channels=hidden_channels, dropout=dropout, v2=True, heads=heads,
+            edge_dim=1, add_self_loops=False,
+        )
+        self.gnn = to_hetero(backbone, metadata, aggr=hetero_aggr)
+
+    def encode(self, data: HeteroData) -> dict[str, torch.Tensor]:
+        x_dict = {ntype: proj(data[ntype].x) for ntype, proj in self.projections.items()}
+        ea_dict = {}
+        for et in data.edge_types:
+            ei = data[et].edge_index
+            ea = getattr(data[et], "edge_attr", None)
+            if ea is None:
+                ea = torch.ones((ei.shape[1], 1), device=ei.device)
+            elif ea.dim() == 1:
+                ea = ea.unsqueeze(-1)
+            ea_dict[et] = ea.float()
+        return self.gnn(x_dict, data.edge_index_dict, ea_dict)
+
+
+def make_model(kind, metadata, hidden_channels, num_layers, dropout, node_dims):
+    """Factory: map a model_type string to a sandbox GNN variant for ablation.
+    Default 'graphsage' = mô hình gốc (mean aggregator). Mọi biến thể đều opt-in.
+    Cú pháp kind: base ∈ {graphsage, gat, gat8} + hậu tố tùy chọn _jk (jumping
+    knowledge), _l2 (chuẩn hóa L2), _sum (tổng hợp giữa các loại cạnh = sum).
+    """
+    if kind == "rgcn":
+        return HeteroRGCN(metadata=metadata, hidden_channels=hidden_channels, num_layers=num_layers)
+    jk = "cat" if "jk" in kind else None
+    l2 = "l2" in kind
+    aggr = "sum" if "sum" in kind else "mean"
+    if kind.startswith("egat"):
+        return HeteroEdgeGAT(metadata=metadata, hidden_channels=hidden_channels, num_layers=num_layers,
+                             dropout=dropout, node_dims=node_dims, heads=4, hetero_aggr=aggr)
+    if kind.startswith("gat"):
+        heads = 8 if "gat8" in kind else 4
+        return HeteroGAT(metadata=metadata, hidden_channels=hidden_channels, num_layers=num_layers,
+                         dropout=dropout, node_dims=node_dims, heads=heads, jk=jk, l2_norm=l2, hetero_aggr=aggr)
+    return HeteroGraphSAGE(metadata=metadata, hidden_channels=hidden_channels, num_layers=num_layers,
+                           dropout=dropout, node_dims=node_dims, jk=jk, l2_norm=l2, hetero_aggr=aggr)
 
 
 # ---------------------------------------------------------------------------

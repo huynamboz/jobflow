@@ -373,10 +373,18 @@ class AdminJobListView(APIView):
             qs = qs.filter(platform__slug=platform)
         if company_id:
             qs = qs.filter(company_id=company_id)
-        if seniority is not None:
+        if seniority:
             qs = qs.filter(seniority=seniority)
         if search:
             qs = qs.filter(title__icontains=search)
+
+        # Facet counts over the base query (all the OTHER filters, but BEFORE the
+        # active/inactive filter) so the All/Active/Inactive chips show GLOBAL totals,
+        # not just the current page.
+        all_count = qs.count()
+        active_count = qs.filter(is_active=True).count()
+        counts = {"all": all_count, "active": active_count, "inactive": all_count - active_count}
+
         if is_active is not None:
             qs = qs.filter(is_active=is_active.lower() == "true")
 
@@ -389,6 +397,7 @@ class AdminJobListView(APIView):
             "success": True,
             "data": JobListSerializer(qs[offset:offset + page_size], many=True).data,
             "total": total,
+            "counts": counts,
             "page": page,
             "page_size": page_size,
         })

@@ -387,7 +387,7 @@ def main():
     test_metrics = evaluate_lstm(
         model, user_ids_t, user_lens_t, job_ids_t, job_lens_t,
         sp.test_pairs, train_pos_by_src, num_users, num_jobs,
-        eval_at_k=(20,), device=device,
+        eval_at_k=(5, 10, 20), device=device,
     )
 
     elapsed = time.time() - t_start

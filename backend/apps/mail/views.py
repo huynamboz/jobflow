@@ -72,11 +72,16 @@ def send_apply(request):
     cred = EmployeeMailCredential.objects.filter(employee=emp, status=EmployeeMailCredential.STATUS_ACTIVE).first()
     if not cred:
         return Response({"success": False, "error": {"code": "NO_CREDENTIAL", "message": "Employee has no linked email account."}}, status=400)
+    # Optional attachment override from the compose screen: a replacement file
+    # (multipart `cv`) or `no_cv` to send without any CV.
+    cv_override = request.FILES.get("cv")
+    attach_cv = str(request.data.get("no_cv", "")).lower() not in ("1", "true", "yes")
     try:
         log = send_apply_email(
             credential=cred, employee=emp, match=match,
             to_addr=request.data.get("to"), subject=request.data.get("subject", ""),
             body=request.data.get("body", ""),
+            cv_override=cv_override, attach_cv=attach_cv,
         )
     except Exception as e:  # noqa: BLE001
         cred.status = EmployeeMailCredential.STATUS_ERROR

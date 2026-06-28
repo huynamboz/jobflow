@@ -56,10 +56,16 @@ class Command(BaseCommand):
         parser.add_argument(
             "--no-auth-check",
             action="store_true",
+            help="Deprecated / no-op — guest (anonymous) verification is now the default.",
+        )
+        parser.add_argument(
+            "--use-auth",
+            action="store_true",
             help=(
-                "Skip the li_at auth-state precondition. Verifier launches "
-                "Chromium with whatever (or no) state file is present and "
-                "relies on LinkedIn's guest layout. Useful for ad-hoc testing."
+                "Opt into the authenticated li_at session. NOT recommended: "
+                "high-volume status checks from a logged-in account get it "
+                "flagged/locked. Default verifies anonymously (guest layout), "
+                "which still detects expired jobs via the redirect signal."
             ),
         )
         parser.add_argument(
@@ -67,13 +73,24 @@ class Command(BaseCommand):
             action="store_true",
             help="Launch Chromium with a visible window. Default is headless.",
         )
+        parser.add_argument(
+            "--min-age-hours",
+            type=float,
+            default=168.0,
+            help=(
+                "Skip jobs verified within the last N hours (never-verified jobs "
+                "are always eligible). Avoids re-checking the same job multiple "
+                "times a day. Default 12; pass 0 to disable."
+            ),
+        )
 
     def handle(self, *args, **opts):
         platform = opts["platform"]
         batch = int(opts["batch"])
         dry_run = bool(opts["dry_run"])
         json_report = bool(opts["json_report"])
-        no_auth_check = bool(opts["no_auth_check"])
+        # Guest (anonymous) is the default; --use-auth opts into the risky li_at path.
+        require_li_at = bool(opts["use_auth"])
         headed = bool(opts["headed"])
 
         if not (_MIN_BATCH <= batch <= _MAX_BATCH):
@@ -83,7 +100,7 @@ class Command(BaseCommand):
 
         try:
             verifier = verifier_factory.get_verifier(
-                platform, require_li_at=not no_auth_check, headless=not headed,
+                platform, require_li_at=require_li_at, headless=not headed,
             )
         except ValueError as e:
             raise CommandError(str(e)) from e
@@ -92,6 +109,7 @@ class Command(BaseCommand):
             verifier_registry={verifier.name: verifier},
             repository=DjangoJobLifecycleRepository(),
             clock=lambda: datetime.now(timezone.utc),
+            min_verified_age_hours=float(opts["min_age_hours"]),
         )
 
         try:

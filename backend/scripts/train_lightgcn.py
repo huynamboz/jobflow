@@ -311,7 +311,7 @@ def main():
     scorer.eval()
     test_metrics = evaluate_lightgcn(
         scorer, edge_index, test_pairs, train_pos_by_src,
-        num_users, num_items, eval_at_k=(20,), device=device,
+        num_users, num_items, eval_at_k=(5, 10, 20), device=device,
     )
 
     elapsed = time.time() - t_start

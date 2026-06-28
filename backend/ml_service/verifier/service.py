@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 
 class LifecycleRepository(Protocol):
     def apply_result(self, job_id: int, result: VerifyResult, *, now: datetime) -> None: ...
-    def find_to_verify(self, *, platform: str, batch: int, now: datetime) -> list[dict]: ...
+    def find_to_verify(self, *, platform: str, batch: int, now: datetime,
+                        min_verified_age_hours: float = 0) -> list[dict]: ...
     def apply_aging(self, *, now: datetime, threshold_days: int = 14) -> int: ...
 
 
@@ -90,11 +91,15 @@ class StatusCheckService:
         repository: LifecycleRepository,
         clock: Callable[[], datetime],
         stale_age_days: int = 14,
+        min_verified_age_hours: float = 0,
     ) -> None:
         self._verifiers = dict(verifier_registry)
         self._repository = repository
         self._clock = clock
         self._stale_age_days = stale_age_days
+        # Skip jobs verified within this window (0 = no minimum). Avoids
+        # re-checking the same job multiple times a day.
+        self._min_verified_age_hours = min_verified_age_hours
 
     # ── Public ───────────────────────────────────────────────────────────
 
@@ -148,7 +153,8 @@ class StatusCheckService:
         # Pick candidates and dispatch by URL.
         try:
             candidates = self._repository.find_to_verify(
-                platform=platform, batch=batch, now=started
+                platform=platform, batch=batch, now=started,
+                min_verified_age_hours=self._min_verified_age_hours,
             )
         except Exception:
             logger.exception("find_to_verify failed; aborting batch")

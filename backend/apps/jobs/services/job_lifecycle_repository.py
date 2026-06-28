@@ -29,7 +29,8 @@ def _compute_backoff_hours(attempts: int) -> int:
 class JobLifecycleRepository(ABC):
     @abstractmethod
     def find_to_verify(
-        self, *, platform: str, batch: int, now: datetime
+        self, *, platform: str, batch: int, now: datetime,
+        min_verified_age_hours: float = 0,
     ) -> list[dict[str, Any]]: ...
 
     @abstractmethod
@@ -56,8 +57,11 @@ class DjangoJobLifecycleRepository(JobLifecycleRepository):
     """
 
     def find_to_verify(
-        self, *, platform: str, batch: int, now: datetime
+        self, *, platform: str, batch: int, now: datetime,
+        min_verified_age_hours: float = 0,
     ) -> list[dict[str, Any]]:
+        from datetime import timedelta
+
         from django.db.models import Q
         from apps.jobs.models import Job
 
@@ -66,6 +70,14 @@ class DjangoJobLifecycleRepository(JobLifecycleRepository):
             .filter(platform__name__iexact=platform)
             .filter(lifecycle__in=[Job.LIFECYCLE_ACTIVE, Job.LIFECYCLE_STALE])
             .filter(Q(verification_backoff_until__isnull=True) | Q(verification_backoff_until__lte=now))
+        )
+        # Min re-verify age: skip jobs verified within the window (never-verified
+        # = last_verified_at NULL is always eligible). 0 = no minimum.
+        if min_verified_age_hours and min_verified_age_hours > 0:
+            cutoff = now - timedelta(hours=min_verified_age_hours)
+            qs = qs.filter(Q(last_verified_at__isnull=True) | Q(last_verified_at__lte=cutoff))
+        qs = (
+            qs
             .extra(select={"_lifecycle_order": "CASE WHEN lifecycle='stale' THEN 0 ELSE 1 END"})
             .extra(order_by=["_lifecycle_order", "last_verified_at"])
             .values("id", "source_url", "lifecycle", "date_posted")[:batch]
@@ -90,6 +102,7 @@ class DjangoJobLifecycleRepository(JobLifecycleRepository):
             job.verification_backoff_until = None
         elif result.status is JobStatus.EXPIRED:
             job.lifecycle = Job.LIFECYCLE_EXPIRED
+            job.is_active = False  # keep legacy flag (pool eligibility) in sync — no expired job should rank
             job.last_verified_at = now
             job.verification_attempts = 0
             job.verification_backoff_until = None
@@ -105,7 +118,7 @@ class DjangoJobLifecycleRepository(JobLifecycleRepository):
             return
 
         job.save(update_fields=[
-            "lifecycle", "last_verified_at",
+            "lifecycle", "is_active", "last_verified_at",
             "verification_attempts", "verification_backoff_until",
         ])
 

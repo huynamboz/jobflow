@@ -1,25 +1,32 @@
-"""CrawlProvider for LinkedIn using Playwright with saved auth state.
+"""CrawlProvider for LinkedIn.
 
-Prerequisites:
+Two crawl modes — guest (default, NO login) and authenticated (opt-in):
+
+* GUEST (default): hits the public ``/jobs-guest`` HTTP endpoints with plain
+  ``requests`` — no cookies, no browser, no login. List endpoint returns 10
+  cards/page; a per-job detail request fills in the full description. Lighter
+  and zero-setup, but more aggressively rate-limited (429) and missing salary /
+  applicant-count for most postings.
+
+* AUTHENTICATED (``auth=True``): the original Playwright flow using a saved
+  login session. Richer fields (full description, salary, applicant count),
+  fewer 429s. Prerequisites:
     1. Run: .venv/bin/python -m ml_service.crawler.providers.linkedin_auth
-    2. Login manually in the browser
-    3. Auth state saved → provider uses it automatically
-
-Crawl strategy:
-    - Load saved auth state (cookies)
-    - Search LinkedIn Jobs with keyword
-    - Scroll job list to load more results
-    - Click each job to get full description
-    - Extract structured fields
+    2. Login manually in the browser → auth state saved → used automatically.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import random
 import re
 import time
+from datetime import datetime
 from pathlib import Path
+
+import requests
+from bs4 import BeautifulSoup
 
 from ml_service.crawler.base import CrawlProvider, RawJob
 from ml_service.crawler.providers.linkedin_auth import load_state_path
@@ -28,6 +35,16 @@ logger = logging.getLogger(__name__)
 
 _SEARCH_URL = "https://www.linkedin.com/jobs/search/?keywords={query}&location={location}&start={offset}"
 _SELECTORS_PATH = Path(__file__).parent / "linkedin_selectors.json"
+
+# Guest (login-free) endpoints.
+_GUEST_LIST_URL = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
+_GUEST_DETAIL_URL = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
+_GUEST_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+_GUEST_HEADERS = {"User-Agent": _GUEST_UA, "Accept-Language": "en-US,en;q=0.9"}
+_GUEST_PAGE = 10  # cards per guest list page (fixed by LinkedIn)
 
 
 def _load_selectors() -> dict:
@@ -58,9 +75,17 @@ class LinkedInProvider(CrawlProvider):
         jobs = provider.fetch("react developer", results_wanted=250)
     """
 
-    def __init__(self, headless: bool = True, save_path: str | None = None) -> None:
+    def __init__(
+        self,
+        headless: bool = True,
+        save_path: str | None = None,
+        auth: bool = False,
+        request_delay: float = 1.5,
+    ) -> None:
         self._headless = headless
         self._save_path = save_path
+        self._auth = auth
+        self._guest_delay = request_delay
         self._sel = _load_selectors()
 
     @property
@@ -68,6 +93,155 @@ class LinkedInProvider(CrawlProvider):
         return "linkedin"
 
     def fetch(
+        self,
+        search_term: str,
+        location: str = "",
+        results_wanted: int = 50,
+        **kwargs,
+    ) -> list[RawJob]:
+        """Dispatch to guest (default, login-free) or authenticated mode."""
+        if self._auth:
+            return self._fetch_authenticated(search_term, location, results_wanted, **kwargs)
+        return self._fetch_guest(search_term, location, results_wanted, **kwargs)
+
+    # ── guest mode (login-free) ────────────────────────────────────────────────
+    def _fetch_guest(
+        self,
+        search_term: str,
+        location: str = "",
+        results_wanted: int = 50,
+        **kwargs,
+    ) -> list[RawJob]:
+        """Crawl via the public ``/jobs-guest`` endpoints — no login, no browser.
+
+        Walks the paginated list endpoint (10 cards/page) then issues one detail
+        request per job for the full description. Backs off on HTTP 429.
+        """
+        geo_id = str(kwargs.get("geo_id") or "")
+        sess = requests.Session()
+        sess.headers.update(_GUEST_HEADERS)
+
+        jobs: list[RawJob] = []
+        seen_ids: set[str] = set()
+        start, empty_pages, max_start = 0, 0, max(results_wanted * 2, 100)
+
+        while len(jobs) < results_wanted and start < max_start:
+            cards, status = self._guest_list_page(sess, search_term, location, geo_id, start)
+            if status == 429:
+                logger.warning("LinkedIn guest 429 at start=%d — backing off", start)
+                time.sleep(self._guest_delay * 4 + random.uniform(0, 2))
+                continue
+            if status != 200 or not cards:
+                empty_pages += 1
+                if empty_pages >= 2:
+                    break
+                start += _GUEST_PAGE
+                continue
+            empty_pages = 0
+            for card in cards:
+                jid = card.get("job_id")
+                if not jid or jid in seen_ids:
+                    continue
+                seen_ids.add(jid)
+                card["description"] = self._guest_detail(sess, jid)
+                jobs.append(self._guest_card_to_rawjob(card))
+                if self._save_path:
+                    self._stream_save(jobs[-1])
+                if len(jobs) >= results_wanted:
+                    break
+            start += _GUEST_PAGE
+            time.sleep(self._guest_delay + random.uniform(0, 0.8))
+
+        logger.info("LinkedIn guest: %d jobs for '%s'", len(jobs), search_term)
+        return jobs
+
+    def _guest_list_page(
+        self, sess: requests.Session, query: str, location: str, geo_id: str, start: int
+    ) -> tuple[list[dict], int]:
+        params = {"keywords": query, "location": location, "start": start}
+        if geo_id:
+            params["geoId"] = geo_id
+        try:
+            r = sess.get(_GUEST_LIST_URL, params=params, timeout=20)
+        except requests.RequestException as e:
+            logger.warning("LinkedIn guest list request failed: %s", e)
+            return [], 0
+        if r.status_code != 200:
+            return [], r.status_code
+        return self._parse_guest_cards(r.text), 200
+
+    @staticmethod
+    def _parse_guest_cards(html_text: str) -> list[dict]:
+        soup = BeautifulSoup(html_text, "html.parser")
+        out: list[dict] = []
+        for li in soup.select("li"):
+            title = li.select_one("h3")
+            company = li.select_one("h4")
+            if not (title and company):
+                continue
+            loc = li.select_one(".job-search-card__location")
+            link = li.select_one("a.base-card__full-link") or li.select_one("a[href*='/jobs/view/']")
+            time_el = li.select_one("time")
+            job_id = None
+            urn = li.select_one("[data-entity-urn]")
+            if urn and urn.get("data-entity-urn"):
+                m = re.search(r"(\d+)$", urn["data-entity-urn"])
+                job_id = m.group(1) if m else None
+            if not job_id and link and link.get("href"):
+                m = re.search(r"/jobs/view/.*?-(\d+)", link["href"])
+                job_id = m.group(1) if m else None
+            out.append({
+                "job_id": job_id,
+                "title": title.get_text(strip=True),
+                "company": company.get_text(strip=True),
+                "location": loc.get_text(strip=True) if loc else "",
+                "url": (link["href"].split("?")[0] if link and link.get("href") else ""),
+                "date_posted": (time_el.get("datetime") if time_el else None),
+            })
+        return out
+
+    def _guest_detail(self, sess: requests.Session, job_id: str) -> str:
+        """Fetch the full description for one job. Empty string on failure/429."""
+        try:
+            r = sess.get(_GUEST_DETAIL_URL.format(job_id=job_id), timeout=20)
+        except requests.RequestException:
+            return ""
+        if r.status_code == 429:
+            time.sleep(self._guest_delay * 4 + random.uniform(0, 2))
+            try:
+                r = sess.get(_GUEST_DETAIL_URL.format(job_id=job_id), timeout=20)
+            except requests.RequestException:
+                return ""
+        if r.status_code != 200:
+            return ""
+        soup = BeautifulSoup(r.text, "html.parser")
+        box = soup.select_one(".show-more-less-html__markup") or soup.select_one(".description__text")
+        return box.get_text(" ", strip=True) if box else ""
+
+    @staticmethod
+    def _guest_card_to_rawjob(card: dict) -> RawJob:
+        date_posted = None
+        if card.get("date_posted"):
+            try:
+                date_posted = datetime.strptime(card["date_posted"], "%Y-%m-%d")
+            except ValueError:
+                date_posted = None
+        url = card.get("url") or (
+            f"https://www.linkedin.com/jobs/view/{card['job_id']}" if card.get("job_id") else ""
+        )
+        return RawJob(
+            source="linkedin",
+            source_url=url,
+            title=card.get("title", ""),
+            company=card.get("company", ""),
+            location=card.get("location", ""),
+            description=card.get("description", ""),
+            date_posted=date_posted,
+            extra={"guest": True},
+        )
+
+    # ── authenticated mode (Playwright, opt-in) ────────────────────────────────
+    def _fetch_authenticated(
         self,
         search_term: str,
         location: str = "",

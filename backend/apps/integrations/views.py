@@ -178,3 +178,21 @@ def zalo_login_start(request):
 def zalo_login_status(request):
     payload, code = _zalo_sidecar("GET", "/login-qr/status")
     return Response(payload, status=code)
+
+
+@api_view(["POST"])
+@permission_classes(HR)
+def zalo_logout(request):
+    """Clear the Zalo session in the sidecar (delete creds) so a different
+    account can log in via QR."""
+    payload, code = _zalo_sidecar("POST", "/logout")
+    return Response(payload, status=code)
+
+
+@api_view(["GET"])
+@permission_classes(HR)
+def zalo_threads(request):
+    """List the logged-in account's friends + groups so the admin can pick a
+    recipient instead of typing a threadId."""
+    payload, code = _zalo_sidecar("GET", "/threads")
+    return Response(payload, status=code)

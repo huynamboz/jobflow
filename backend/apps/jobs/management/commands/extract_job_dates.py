@@ -44,10 +44,15 @@ class Command(BaseCommand):
         parser.add_argument(
             "--no-auth-check",
             action="store_true",
+            help="Deprecated / no-op — guest (anonymous) mode is now the default.",
+        )
+        parser.add_argument(
+            "--use-auth",
+            action="store_true",
             help=(
-                "Skip the li_at auth-state precondition. Extractor launches "
-                "Chromium with whatever (or no) state file is present and "
-                "relies on LinkedIn's guest layout."
+                "Opt into the authenticated li_at session (NOT recommended — "
+                "logged-in high-volume checks get the account locked). Default "
+                "runs anonymously against LinkedIn's guest layout."
             ),
         )
         parser.add_argument(
@@ -71,7 +76,8 @@ class Command(BaseCommand):
         batch = int(opts["batch"])
         dry_run = bool(opts["dry_run"])
         json_report = bool(opts["json_report"])
-        no_auth_check = bool(opts["no_auth_check"])
+        # Guest (anonymous) is the default; --use-auth opts into the risky li_at path.
+        require_li_at = bool(opts["use_auth"])
         with_verify = not bool(opts["no_verify"])
         headed = bool(opts["headed"])
 
@@ -82,19 +88,20 @@ class Command(BaseCommand):
                 f"--batch out of range: {batch} (must be {_MIN_BATCH}..{_MAX_BATCH})"
             )
 
-        state_path = load_state_path()
-        if not state_path and not no_auth_check:
+        # Only load/require the saved session when --use-auth is set; guest needs none.
+        state_path = load_state_path() if require_li_at else None
+        if require_li_at and not state_path:
             self.stderr.write(self.style.ERROR(
-                "Auth state missing or invalid — run "
+                "--use-auth set but auth state missing/invalid — run "
                 "`python -m ml_service.crawler.providers.linkedin_auth` "
-                "(or pass --no-auth-check to try guest-layout mode)"
+                "(or drop --use-auth to run anonymous guest mode)"
             ))
             sys.exit(2)
 
         @contextmanager
         def browser_factory():
             with open_browser_page(
-                state_path, headless=not headed, require_li_at=not no_auth_check,
+                state_path, headless=not headed, require_li_at=require_li_at,
             ) as (page, ctx):
                 yield page, ctx
 

@@ -318,6 +318,10 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
         # requested with ?status=dismissed.
         if self.request.query_params.get("status") != EmployeeJobMatch.Status.DISMISSED:
             qs = qs.exclude(status=EmployeeJobMatch.Status.DISMISSED)
+        # Suggestion browse: ?hide_applied=1 drops jobs already applied to (and
+        # downstream won/lost/…), which live on the job-tracking pipeline instead.
+        if self.request.query_params.get("hide_applied") in ("1", "true", "True"):
+            qs = qs.exclude(status__in=EmployeeJobMatch.APPLIED_STATUSES)
         # Per-platform browse: ?platform=<slug> restricts to one platform's jobs.
         platform = self.request.query_params.get("platform")
         if platform:

@@ -18,9 +18,14 @@ def _new_message_id() -> str:
     return f"<{uuid.uuid4().hex}@jobflow.local>"
 
 
-def send_apply_email(*, credential, employee, match, to_addr, subject, body) -> EmailLog:
+def send_apply_email(*, credential, employee, match, to_addr, subject, body,
+                     cv_override=None, attach_cv=True) -> EmailLog:
     """Send + persist EmailLog(out). Raises on SMTP failure (caller flags cred,
-    does NOT mark the match applied)."""
+    does NOT mark the match applied).
+
+    Attachment: ``cv_override`` (an uploaded file) wins; else the employee's
+    active CV is attached when ``attach_cv`` is True; ``attach_cv=False`` sends
+    with no CV (HR removed it on the compose screen)."""
     msg = EmailMessage()
     message_id = _new_message_id()
     msg["Message-ID"] = message_id
@@ -30,19 +35,32 @@ def send_apply_email(*, credential, employee, match, to_addr, subject, body) -> 
     msg.set_content(body)
 
     cv_attached = False
-    cv = getattr(employee, "cv_file", None)
-    if cv:
+    if cv_override is not None:
+        # HR uploaded a replacement file on the compose screen.
         try:
-            cv.open("rb")
-            data = cv.read()
-            cv.close()
-            ctype, _ = mimetypes.guess_type(cv.name)
-            maintype, subtype = (ctype or "application/octet-stream").split("/", 1)
-            fname = cv.name.split("/")[-1]
+            data = cv_override.read()
+            fname = (getattr(cv_override, "name", "") or "cv.pdf").split("/")[-1]
+            ctype = (getattr(cv_override, "content_type", None)
+                     or mimetypes.guess_type(fname)[0] or "application/octet-stream")
+            maintype, subtype = ctype.split("/", 1)
             msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=fname)
             cv_attached = True
-        except Exception:  # noqa: BLE001 — missing/broken CV → send without it
+        except Exception:  # noqa: BLE001
             cv_attached = False
+    elif attach_cv:
+        cv = getattr(employee, "cv_file", None)
+        if cv:
+            try:
+                cv.open("rb")
+                data = cv.read()
+                cv.close()
+                ctype, _ = mimetypes.guess_type(cv.name)
+                maintype, subtype = (ctype or "application/octet-stream").split("/", 1)
+                fname = cv.name.split("/")[-1]
+                msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=fname)
+                cv_attached = True
+            except Exception:  # noqa: BLE001 — missing/broken CV → send without it
+                cv_attached = False
 
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:

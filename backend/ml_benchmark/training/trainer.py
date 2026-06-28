@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch_geometric.data import HeteroData
 
 from ml_benchmark.baselines.skill_overlap import SkillOverlapScorer
@@ -24,7 +25,7 @@ from ml_benchmark.graph.schema import (
     JobData,
     LabeledPair,
 )
-from ml_benchmark.models.gnn import HeteroGraphSAGE, HeteroRGCN, prepare_data_for_gnn
+from ml_benchmark.models.gnn import HeteroGAT, HeteroGraphSAGE, HeteroRGCN, make_model, prepare_data_for_gnn
 from ml_benchmark.models.losses import bpr_loss
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,9 @@ class TrainConfig:
     hybrid_beta: float = 0.3
     hybrid_gamma: float = 0.1
     seed: int = 42
+    use_node_features: bool = False  # True: KEEP frozen node.x (SBERT/content features) instead of
+                                     # replacing with learnable ID embeddings → content-aware + inductive GNN
+    contrastive_weight: float = 0.0  # SimGCL (Yu 2022): InfoNCE giữa hai view nhiễu của embedding
 
 
 @dataclass
@@ -204,6 +208,20 @@ def _apply_drop_edge(data: HeteroData, rate: float, rng: np.random.RandomState) 
     return data
 
 
+def _simgcl_infonce(z_dict, types, eps: float = 0.1, tau: float = 0.2):
+    """SimGCL (Yu 2022): tạo hai view bằng cách thêm nhiễu vào embedding, rồi
+    InfoNCE (cùng nút = dương, các nút khác = âm). Rẻ — không cần encode lại."""
+    loss = 0.0
+    for nt in types:
+        z = z_dict[nt]
+        z1 = F.normalize(z + eps * F.normalize(torch.rand_like(z), dim=-1), dim=-1)
+        z2 = F.normalize(z + eps * F.normalize(torch.rand_like(z), dim=-1), dim=-1)
+        logits = (z1 @ z2.t()) / tau
+        labels = torch.arange(z.size(0), device=z.device)
+        loss = loss + F.cross_entropy(logits, labels)
+    return loss
+
+
 def _curriculum_hard_neg_ratio(epoch: int) -> float:
     """Curriculum schedule: start easy, ramp up hard negatives over training."""
     if epoch < 5:
@@ -248,25 +266,13 @@ class Trainer:
 
         # Build model
         metadata = data_clean.metadata()
-        if cfg.model_type == "rgcn":
-            model = HeteroRGCN(
-                metadata=metadata,
-                hidden_channels=cfg.hidden_channels,
-                num_layers=cfg.num_layers,
-            )
-        else:
-            node_dims = {
-                ntype: data_clean[ntype].x.shape[1]
-                for ntype in data_clean.node_types
-                if hasattr(data_clean[ntype], "x") and data_clean[ntype].x is not None
-            }
-            model = HeteroGraphSAGE(
-                metadata=metadata,
-                hidden_channels=cfg.hidden_channels,
-                num_layers=cfg.num_layers,
-                dropout=cfg.dropout,
-                node_dims=node_dims,
-            )
+        node_dims = {
+            ntype: data_clean[ntype].x.shape[1]
+            for ntype in data_clean.node_types
+            if hasattr(data_clean[ntype], "x") and data_clean[ntype].x is not None
+        }
+        model = make_model(cfg.model_type, metadata, cfg.hidden_channels,
+                           cfg.num_layers, cfg.dropout, node_dims)
         model = model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
 
@@ -490,25 +496,37 @@ class Trainer:
         # projection layer learns and signal per-user/item is essentially fixed
         # (verified empirically: frozen embeddings give NDCG@20 ≈ 0.006 vs paper 0.22).
         node_embeddings = torch.nn.ModuleDict()
-        for ntype in data_clean.node_types:
-            x = getattr(data_clean[ntype], "x", None)
-            if x is None:
-                continue
-            num_nodes, emb_dim = x.shape
-            emb = torch.nn.Embedding(num_nodes, emb_dim).to(device)
-            torch.nn.init.xavier_uniform_(emb.weight)
-            node_embeddings[ntype] = emb
+        if getattr(cfg, "use_node_features", False):
+            # Content mode: KEEP the frozen node features already on data[ntype].x
+            # (e.g. SBERT text embeddings from the content GraphBuilder). The model's
+            # projection layer learns to map them → hidden. Makes the GNN content-aware
+            # and inductive (cold items get a meaningful embedding from their features).
+            optimizer = torch.optim.Adam(
+                model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay,
+            )
 
-        optimizer = torch.optim.Adam(
-            list(model.parameters()) + list(node_embeddings.parameters()),
-            lr=cfg.lr,
-            weight_decay=cfg.weight_decay,
-        )
+            def _refresh_features():
+                pass  # node features stay = the frozen content vectors
+        else:
+            for ntype in data_clean.node_types:
+                x = getattr(data_clean[ntype], "x", None)
+                if x is None:
+                    continue
+                num_nodes, emb_dim = x.shape
+                emb = torch.nn.Embedding(num_nodes, emb_dim).to(device)
+                torch.nn.init.xavier_uniform_(emb.weight)
+                node_embeddings[ntype] = emb
 
-        # Helper to refresh data.x → embedding.weight before each encode call
-        def _refresh_features():
-            for ntype, emb in node_embeddings.items():
-                data_clean[ntype].x = emb.weight
+            optimizer = torch.optim.Adam(
+                list(model.parameters()) + list(node_embeddings.parameters()),
+                lr=cfg.lr,
+                weight_decay=cfg.weight_decay,
+            )
+
+            # Helper to refresh data.x → embedding.weight before each encode call
+            def _refresh_features():
+                for ntype, emb in node_embeddings.items():
+                    data_clean[ntype].x = emb.weight
 
         _refresh_features()
 
@@ -523,16 +541,21 @@ class Trainer:
         best_state = None
         primary_k = eval_at_k[0]
 
+        de_rng = np.random.default_rng(cfg.seed)
         for epoch in range(cfg.epochs):
             model.train()
             # BPR: 1 random negative per positive (LightGCN convention)
             neg_np = rng.randint(0, num_dst, size=n_train).astype(np.int64)
             neg = torch.from_numpy(neg_np).long().to(device)
 
-            z_dict = model.encode(data_clean)
+            train_data = (_apply_drop_edge(data_clean, cfg.drop_edge_rate, de_rng)
+                          if cfg.drop_edge_rate > 0 else data_clean)
+            z_dict = model.encode(train_data)
             pos_s = model.decode_generic(z_dict, train_src, train_pos, src_type, dst_type)
             neg_s = model.decode_generic(z_dict, train_src, neg, src_type, dst_type)
             loss = bpr_loss(pos_s, neg_s)
+            if cfg.contrastive_weight > 0:
+                loss = loss + cfg.contrastive_weight * _simgcl_infonce(z_dict, (src_type, dst_type))
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

@@ -3,6 +3,7 @@ from django.urls import path
 from apps.admin_dashboard.views import (
     DashboardCatalogView,
     DashboardFreshnessView,
+    DashboardJobsView,
     DashboardKpiView,
     DashboardLabelingView,
     DashboardModelView,
@@ -10,6 +11,7 @@ from apps.admin_dashboard.views import (
 )
 
 urlpatterns = [
+    path("dashboard/jobs/",      DashboardJobsView.as_view(),      name="dashboard-jobs"),
     path("dashboard/kpi/",       DashboardKpiView.as_view(),       name="dashboard-kpi"),
     path("dashboard/catalog/",   DashboardCatalogView.as_view(),   name="dashboard-catalog"),
     path("dashboard/freshness/", DashboardFreshnessView.as_view(), name="dashboard-freshness"),

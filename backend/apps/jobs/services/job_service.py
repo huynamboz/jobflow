@@ -222,7 +222,9 @@ class JobService:
         """Query all active jobs and convert to JobData list."""
         from ml_service.graph.schema import JobData
 
-        jobs = Job.objects.filter(is_active=True).prefetch_related("job_skills__skill")
+        jobs = (Job.objects.filter(is_active=True)
+                .exclude(lifecycle=Job.LIFECYCLE_EXPIRED)
+                .prefetch_related("job_skills__skill"))
         result = []
         for job in jobs:
             skills = tuple(js.skill.canonical_name for js in job.job_skills.all())

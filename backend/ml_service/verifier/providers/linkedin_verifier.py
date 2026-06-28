@@ -1,14 +1,24 @@
 """LinkedIn job-status verifier.
 
-Reuses the saved auth state from ``ml_service.crawler.providers.linkedin_auth``.
+GUEST MODE BY DEFAULT (``require_li_at=False``): verifies job pages WITHOUT a
+logged-in session. Using a real ``li_at`` session for high-volume status checks
+gets the operator's LinkedIn account flagged/locked; LinkedIn still serves the
+public guest job layout to anonymous visitors, and — crucially — still redirects
+deleted/closed job IDs to a search page with ``trk=expired_jd_redirect``, which is
+the strongest expiry signal. So guest checks reliably catch EXPIRED jobs (the ones
+we must drop from the pool) with zero account risk. Pass ``require_li_at=True`` to
+opt back into the authenticated path.
+
 One browser context per batch — see ``browser_pool.open_browser_page``.
 
 Detection priority (research.md decision 5, extended after live debugging):
-    1. Final URL matches ``auth_check.expired_url_patterns`` → SESSION_EXPIRED
-    2. Final URL matches ``expired_url_patterns`` (e.g., LinkedIn's
-       ``trk=expired_jd_redirect``) → EXPIRED
+    1. Final URL matches ``auth_check.expired_url_patterns`` (login/authwall) →
+       SESSION_EXPIRED — in guest mode this just means LinkedIn gated the page;
+       the lifecycle repo treats it as a NO-OP, so a job is never mislabeled.
+    2. Final URL matches ``expired_url_patterns`` (``trk=expired_jd_redirect``) → EXPIRED
     3. Any ``expired_markers`` selector matches → EXPIRED
-    4. Any ``active_markers`` selector matches → ACTIVE
+    4. Any ``active_markers`` selector matches (guest layout covered:
+       ``.top-card-layout__title``, ``section.description``, …) → ACTIVE
     5. Otherwise → UNKNOWN
 """
 
@@ -67,7 +77,7 @@ class LinkedInVerifier(JobStatusVerifier):
         headless: bool = False,
         storage_state_path: str | None = None,
         selectors: dict | None = None,
-        require_li_at: bool = True,
+        require_li_at: bool = False,  # default GUEST — auth checks get the account locked
     ) -> None:
         self._delay_s = delay_s
         self._jitter_s = jitter_s
@@ -98,13 +108,17 @@ class LinkedInVerifier(JobStatusVerifier):
         if not urls:
             return []
 
-        state_path = self._storage_state_path or load_state_path()
-        if not state_path and self._require_li_at:
-            msg = (
-                "LinkedIn auth state not found. Run: "
-                "python -m ml_service.crawler.providers.linkedin_auth"
-            )
-            return [VerifyResult(JobStatus.SESSION_EXPIRED, reason=msg) for _ in urls]
+        if self._require_li_at:
+            state_path = self._storage_state_path or load_state_path()
+            if not state_path:
+                msg = (
+                    "LinkedIn auth state not found. Run: "
+                    "python -m ml_service.crawler.providers.linkedin_auth"
+                )
+                return [VerifyResult(JobStatus.SESSION_EXPIRED, reason=msg) for _ in urls]
+        else:
+            # GUEST mode (default): no li_at, fresh empty profile → no account at risk.
+            state_path = None
 
         selectors = self._selectors or _load_selectors()
         results: list[VerifyResult] = []

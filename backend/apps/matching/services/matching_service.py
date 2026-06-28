@@ -413,7 +413,11 @@ def build_jobdata_from_db(limit: int | None = None):
     from apps.jobs.models import Job
     from ml_service.graph.schema import JobData, SeniorityLevel
 
-    qs = Job.objects.filter(is_active=True).prefetch_related("job_skills__skill").order_by("id")
+    # Exclude lifecycle=expired explicitly so a verified-dead job never ranks even
+    # if the legacy is_active flag drifts out of sync.
+    qs = (Job.objects.filter(is_active=True)
+          .exclude(lifecycle=Job.LIFECYCLE_EXPIRED)
+          .prefetch_related("job_skills__skill").order_by("id"))
     if limit:
         qs = qs[:limit]
 

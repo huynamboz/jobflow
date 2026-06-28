@@ -130,7 +130,7 @@ class Command(BaseCommand):
         parser.add_argument("--engine", choices=["llm", "agent"], default="agent",
                             help="llm = LLMService API (default, headless/cron). "
                                  "agent = drive interactive claude (poc_tell_claude.sh; subscription, dev only)")
-        parser.add_argument("--workers", type=int, default=4,
+        parser.add_argument("--workers", type=int, default=10,
                             help="llm: parallel LLM calls · agent: subagents per wave (12-16 good for big files)")
         parser.add_argument("--retries", type=int, default=2, help="[llm] Retries on timeout/empty result per job")
         parser.add_argument("--desc-chars", type=int, default=6000, help="Truncate description per job (token cost)")

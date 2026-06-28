@@ -117,6 +117,10 @@ class EmployeeJobMatch(models.Model):
         # re-ranking, and retained as a negative label for future training.
         DISMISSED = "dismissed", "Not a fit"
 
+    # Statuses meaning an application was already sent — hidden from the suggestion
+    # browse on the employee detail (they live on the job-tracking pipeline instead).
+    APPLIED_STATUSES = ("applied", "won", "in_progress", "completed", "lost")
+
     employee = models.ForeignKey(
         Employee, on_delete=models.CASCADE, related_name="matches"
     )

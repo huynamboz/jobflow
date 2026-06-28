@@ -117,7 +117,7 @@ def main():
         dst_type="job",
         num_src=sp.num_users,
         num_dst=sp.num_jobs,
-        eval_at_k=(20,),
+        eval_at_k=(5, 10, 20),
     )
 
     elapsed = time.time() - t_start

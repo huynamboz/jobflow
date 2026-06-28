@@ -23,7 +23,8 @@ from ml_service.crawler.storage import _raw_job_to_dict
 _print_lock = threading.Lock()
 
 # Providers excluded from the "all"/daily default sweep:
-#   linkedin — needs login + Playwright (heavy, rate-limited) → use crawl_linkedin
+#   linkedin — serial browser/HTTP crawl, rate-limited → use crawl_linkedin
+#              (guest/login-free by default; --auth for the Playwright session)
 #   adzuna   — needs an API key (ADZUNA_APP_ID / ADZUNA_APP_KEY)
 # Reach either explicitly via --providers / --provider.
 DEFAULT_EXCLUDED = {"linkedin", "adzuna"}

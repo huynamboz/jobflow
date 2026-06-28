@@ -38,6 +38,20 @@ class LLMClientProtocol(Protocol):
 # OpenAI-compatible implementation (works with OpenAI, Anthropic, Gemini, Ollama…)
 # ---------------------------------------------------------------------------
 
+def _openai_param_kwargs(model: str, temperature: float, max_tokens: int) -> dict:
+    """Per-model param compatibility for the OpenAI Chat Completions API.
+
+    OpenAI reasoning models (o1/o3/o4*) and the GPT-5 family reject the classic
+    ``max_tokens`` parameter (require ``max_completion_tokens``) and only accept
+    the default temperature. Classic chat models keep ``max_tokens`` +
+    ``temperature``.
+    """
+    m = (model or "").lower()
+    if m.startswith(("o1", "o3", "o4")) or m.startswith("gpt-5"):
+        return {"max_completion_tokens": max_tokens}
+    return {"max_tokens": max_tokens, "temperature": temperature}
+
+
 class OpenAICompatibleClient:
     """Concrete LLM client for any OpenAI-compatible API."""
 
@@ -59,9 +73,8 @@ class OpenAICompatibleClient:
         create_kwargs = dict(
             model=self._model,
             messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
             stream=True,
+            **_openai_param_kwargs(self._model, temperature, max_tokens),
             **kwargs,
         )
         if json_schema:
@@ -89,9 +102,8 @@ class OpenAICompatibleClient:
         stream = self._client.chat.completions.create(
             model=self._model,
             messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
             stream=True,
+            **_openai_param_kwargs(self._model, temperature, max_tokens),
             **kwargs,
         )
         for chunk in stream:

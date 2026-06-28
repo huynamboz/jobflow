@@ -20,6 +20,17 @@ class DashboardKpiView(APIView):
         return _envelope(services.compute_kpi())
 
 
+class DashboardJobsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            days = int(request.query_params.get("days", 30))
+        except (TypeError, ValueError):
+            days = 30
+        return _envelope(services.compute_jobs_overview(days=days))
+
+
 class DashboardCatalogView(APIView):
     permission_classes = [IsAuthenticated]
 
