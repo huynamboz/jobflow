@@ -78,6 +78,7 @@ export interface JobListResponse {
   success: boolean;
   data: JobListItem[];
   total: number;
+  counts?: { all: number; active: number; inactive: number };
   page: number;
   page_size: number;
 }

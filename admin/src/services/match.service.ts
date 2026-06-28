@@ -7,6 +7,7 @@ interface ListParams {
   status?: MatchStatus;
   statuses?: string; // comma-separated, e.g. "applied,won,lost"
   platform?: string; // platform slug — per-platform ranking browse
+  hide_applied?: boolean; // drop already-applied jobs from the suggestion browse
   assigned_to?: number;
   page?: number;
   page_size?: number;

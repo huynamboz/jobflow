@@ -34,6 +34,7 @@ import {
   type IntegrationEvent,
   type IntegrationState,
   type ZaloQrStatus,
+  type ZaloThread,
 } from "@/services/integration.service";
 
 /* ------------------------------------------------------------------ *
@@ -265,11 +266,18 @@ function BrandLogo({ platform, size }: { platform: Platform; size: number }) {
 
 /** Zalo QR-login panel — drives the zca-js sidecar session from the UI so HR
  * never has to run the backend CLI. Polls the sidecar status while a QR is live. */
-function ZaloLogin() {
+function ZaloLogin({ onLoggedInChange }: { onLoggedInChange?: (v: boolean) => void }) {
   const { t } = useTranslation("integrations");
   const [status, setStatus] = useState<ZaloQrStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Tell the modal whether a Zalo session is active (drives the recipient picker).
+  useEffect(() => {
+    onLoggedInChange?.(!!status?.loggedIn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status?.loggedIn]);
 
   const stopPolling = () => {
     if (timer.current) {
@@ -325,6 +333,20 @@ function ZaloLogin() {
     }
   };
 
+  const logout = async () => {
+    setLoggingOut(true);
+    try {
+      await integrationService.zaloLogout();
+      stopPolling();
+      setStatus({ state: "idle", image: null, user: null, error: null, loggedIn: false });
+      addToast({ title: t("zaloLogin.loggedOutToast"), color: "default" });
+    } catch (e) {
+      addToast({ title: t("zaloLogin.logoutErrorTitle"), description: errMessage(e, ""), color: "danger" });
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   const loggedIn = status?.loggedIn;
   const st = status?.state;
   const showQr = st === "waiting_scan" && status?.image;
@@ -337,9 +359,21 @@ function ZaloLogin() {
           <span className="text-small font-medium">{t("zaloLogin.sessionTitle")}</span>
         </div>
         {loggedIn ? (
-          <Chip size="sm" color="success" variant="flat" startContent={<IconCheck size={13} />}>
-            {t("zaloLogin.loggedIn")}
-          </Chip>
+          <div className="flex items-center gap-2">
+            <Chip size="sm" color="success" variant="flat" startContent={<IconCheck size={13} />}>
+              {t("zaloLogin.loggedIn")}
+            </Chip>
+            <Button
+              size="sm"
+              radius="full"
+              variant="light"
+              color="danger"
+              isLoading={loggingOut}
+              onPress={logout}
+            >
+              {t("zaloLogin.logout")}
+            </Button>
+          </div>
         ) : (
           <Button size="sm" radius="full" variant="flat" isLoading={busy} onPress={start}>
             {st && ["waiting_scan", "scanned", "starting"].includes(st)
@@ -376,6 +410,127 @@ function ZaloLogin() {
       )}
       {!loggedIn && st === "error" && status?.error && (
         <p className="mt-2 text-tiny text-danger">{status.error}</p>
+      )}
+    </div>
+  );
+}
+
+/** After Zalo login, lists the account's friends + groups so the admin can pick
+ * a recipient instead of typing a threadId. Sets recipient + thread_type. */
+function ZaloRecipientPicker({
+  recipient,
+  onPick,
+}: {
+  recipient: string;
+  onPick: (id: string, type: "user" | "group", name: string) => void;
+}) {
+  const { t } = useTranslation("integrations");
+  const [data, setData] = useState<{ users: ZaloThread[]; groups: ZaloThread[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await integrationService.zaloThreads();
+      setData({ users: r.users || [], groups: r.groups || [] });
+    } catch (e) {
+      setError(errMessage(e, t("zaloPicker.loadError")));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const norm = (s: string) => s.toLowerCase();
+  const match = (it: ZaloThread) => !q || norm(it.name).includes(norm(q)) || it.id.includes(q);
+  const groups = (data?.groups ?? []).filter(match);
+  const users = (data?.users ?? []).filter(match);
+
+  const Row = ({ it, type }: { it: ZaloThread; type: "user" | "group" }) => {
+    const selected = it.id === recipient;
+    return (
+      <button
+        type="button"
+        onClick={() => onPick(it.id, type, it.name)}
+        className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
+          selected ? "bg-primary-50" : "hover:bg-default-100"
+        }`}
+      >
+        {it.avatar ? (
+          <img alt="" src={it.avatar} width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
+        ) : (
+          <div className="grid h-7 w-7 place-items-center rounded-full bg-default-200 text-tiny">
+            {it.name.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-small">{it.name}</p>
+          {type === "group" && (
+            <p className="text-tiny text-default-400">{t("zaloPicker.members", { count: it.members ?? 0 })}</p>
+          )}
+        </div>
+        {selected && <IconCheck size={15} className="text-primary" />}
+      </button>
+    );
+  };
+
+  return (
+    <div className="rounded-xl border border-default-200 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-small font-medium">{t("zaloPicker.title")}</span>
+        <Button size="sm" variant="light" radius="full" isLoading={loading} onPress={load}>
+          {t("zaloPicker.refresh")}
+        </Button>
+      </div>
+
+      {error ? (
+        <p className="text-tiny text-danger">{error}</p>
+      ) : (
+        <>
+          <Input
+            size="sm"
+            placeholder={t("zaloPicker.search")}
+            value={q}
+            onValueChange={setQ}
+            className="mb-2"
+            isClearable
+            onClear={() => setQ("")}
+          />
+          {loading ? (
+            <div className="flex justify-center py-4">
+              <Spinner size="sm" />
+            </div>
+          ) : (
+            <div className="flex max-h-56 flex-col gap-0.5 overflow-auto">
+              {groups.length > 0 && (
+                <p className="px-2 pb-0.5 pt-1 text-tiny font-semibold uppercase text-default-400">
+                  {t("zaloPicker.groups")}
+                </p>
+              )}
+              {groups.map((g) => (
+                <Row key={`g-${g.id}`} it={g} type="group" />
+              ))}
+              {users.length > 0 && (
+                <p className="px-2 pb-0.5 pt-1 text-tiny font-semibold uppercase text-default-400">
+                  {t("zaloPicker.friends")}
+                </p>
+              )}
+              {users.map((u) => (
+                <Row key={`u-${u.id}`} it={u} type="user" />
+              ))}
+              {groups.length === 0 && users.length === 0 && (
+                <p className="px-2 py-3 text-center text-tiny text-default-400">{t("zaloPicker.empty")}</p>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -559,6 +714,7 @@ function ConnectModal({
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [zaloLoggedIn, setZaloLoggedIn] = useState(false);
 
   const isConnected = !!state?.connected;
   const secretsSet = state?.secrets_set ?? [];
@@ -656,7 +812,16 @@ function ConnectModal({
             {t(`platforms.${platform.id}.guide`)}
           </p>
 
-          {platform.id === "zalo" && <ZaloLogin />}
+          {platform.id === "zalo" && <ZaloLogin onLoggedInChange={setZaloLoggedIn} />}
+          {platform.id === "zalo" && zaloLoggedIn && (
+            <ZaloRecipientPicker
+              recipient={values.recipient ?? ""}
+              onPick={(id, type, name) => {
+                setValues((prev) => ({ ...prev, recipient: id, thread_type: type }));
+                addToast({ title: t("zaloPicker.picked", { name }), color: "success" });
+              }}
+            />
+          )}
 
           <div className="flex flex-col gap-3">
             {platform.fields.map((f) => {

@@ -42,9 +42,27 @@ class MailService {
   async unlink(employee: number): Promise<void> {
     await apiClient.delete(`/admin/mail/credentials/${employee}/`);
   }
-  async sendApply(match: number, to: string, subject: string, body: string) {
+  async sendApply(
+    match: number, to: string, subject: string, body: string,
+    opts?: { cvFile?: File | null; noCv?: boolean },
+  ) {
+    type Resp = { ok: boolean; email_log: number; match_status: string; cv_attached: boolean };
+    // multipart only when HR replaced or removed the attachment; else plain JSON.
+    if (opts?.cvFile || opts?.noCv) {
+      const fd = new FormData();
+      fd.append("match", String(match));
+      fd.append("to", to);
+      fd.append("subject", subject);
+      fd.append("body", body);
+      if (opts.cvFile) fd.append("cv", opts.cvFile);
+      if (opts.noCv) fd.append("no_cv", "true");
+      const r = await apiClient.post("/admin/mail/send-apply/", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return r.data as Resp;
+    }
     const r = await apiClient.post("/admin/mail/send-apply/", { match, to, subject, body });
-    return r.data as { ok: boolean; email_log: number; match_status: string; cv_attached: boolean };
+    return r.data as Resp;
   }
   async thread(match: number): Promise<MailLog[]> {
     const r = await apiClient.get<MailLog[]>("/admin/mail/thread/", { params: { match } });

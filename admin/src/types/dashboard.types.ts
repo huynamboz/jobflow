@@ -112,3 +112,17 @@ export interface LabelingSnapshot {
 }
 
 export type ModelSnapshot = ModelMeta;
+
+export interface JobsOverview {
+  stats: {
+    total: number;
+    active: number;
+    inactive: number;
+    new_today: number;
+    applied: number;
+    suitable_today: number;
+  };
+  per_day: { day: string; count: number }[];
+  by_provider: { key: string; count: number }[];
+  active_inactive: { key: string; count: number }[];
+}

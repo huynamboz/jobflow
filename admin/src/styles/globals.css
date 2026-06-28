@@ -177,6 +177,16 @@ html, body {
   --card-radius: 16px;
 }
 
+/* Placeholders — HeroUI's `placeholder:text-foreground-500` resolves to an unset
+ * token under this theme (foreground is a flat color, so no foreground-500 scale),
+ * so placeholders fell back to the value ink (looked as dark as typed text). Force
+ * a muted slate so placeholder reads as a hint, not a value. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--c6) !important;   /* slate-500 */
+  opacity: 1 !important;
+}
+
 /* Quill editor — match the howard card surface */
 .jf-quill .ql-toolbar.ql-snow,
 .jf-quill .ql-container.ql-snow { border-color: var(--card-border); }

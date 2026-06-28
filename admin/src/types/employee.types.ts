@@ -12,7 +12,7 @@ export interface Employee {
   parsed_at: string | null;
   match_count?: number;
   matches_count_by_status?: Record<string, number>;
-  matches_count_by_platform?: { name: string; slug: string; count: number }[];
+  matches_count_by_platform?: { name: string; slug: string; logo?: string; count: number }[];
   notes: string;
   created_by?: number | null;
   created_at: string;

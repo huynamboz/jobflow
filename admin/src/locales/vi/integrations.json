@@ -125,7 +125,21 @@
     "declined": "Đăng nhập bị từ chối trên điện thoại — thử lại.",
     "loggedInToast": "Zalo đã đăng nhập",
     "startErrorTitle": "Không bắt đầu được đăng nhập Zalo",
-    "startErrorDesc": "Sidecar chưa chạy?"
+    "startErrorDesc": "Sidecar chưa chạy?",
+    "logout": "Đăng xuất",
+    "loggedOutToast": "Đã xoá phiên Zalo — có thể đăng nhập tài khoản khác.",
+    "logoutErrorTitle": "Không đăng xuất được"
+  },
+  "zaloPicker": {
+    "title": "Chọn người/nhóm nhận",
+    "search": "Tìm bạn bè hoặc nhóm…",
+    "groups": "Nhóm",
+    "friends": "Bạn bè",
+    "members": "{{count}} thành viên",
+    "refresh": "Tải lại",
+    "empty": "Không tìm thấy hội thoại.",
+    "loadError": "Không tải được danh sách hội thoại.",
+    "picked": "Đã chọn người nhận: {{name}}"
   },
   "modal": {
     "connectTitle": "Kết nối {{name}}",

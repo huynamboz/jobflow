@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCcw } from "lucide-react";
 
+import JobsOverview from "@/components/dashboard/JobsOverview";
 import StaffingDashboard from "@/components/dashboard/StaffingDashboard";
 import MailRepliesBlock from "@/components/dashboard/MailRepliesBlock";
 
@@ -54,6 +55,7 @@ export default function DashboardPage() {
         </button>
       </header>
 
+      <JobsOverview refreshKey={refreshKey} />
       <MailRepliesBlock refreshKey={refreshKey} />
       <StaffingDashboard refreshKey={refreshKey} />
     </div>

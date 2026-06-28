@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -193,40 +193,48 @@ export default function JobsPage() {
       .catch(console.error);
   }, []);
 
-  const activeCount = items.filter((j) => j.is_active).length;
-  const inactiveCount = items.length - activeCount;
+  // Global facet counts (whole catalog matching the OTHER filters), from the
+  // server — not the current page. The active/inactive filter is server-side.
+  const [counts, setCounts] = useState({ all: 0, active: 0, inactive: 0 });
+  const filtered = items;
 
-  const filtered = useMemo(() => {
-    let result = items;
-    if (activeFilter === "active") result = result.filter((j) => j.is_active);
-    if (activeFilter === "inactive") result = result.filter((j) => !j.is_active);
-    return result;
-  }, [items, activeFilter]);
+  const load = useCallback(
+    (p: number, s: string, sen: string, jt: string, plat: string, act: string) => {
+      setLoading(true);
+      jobService
+        .listJobs({
+          search: s, seniority: sen, job_type: jt, platform: plat,
+          ...(act ? { is_active: act === "active" ? "true" : "false" } : {}),
+          page: p, page_size: PAGE_SIZE,
+        })
+        .then((res) => {
+          setItems(res.data ?? []);
+          setTotal(res.total ?? 0);
+          if (res.counts) setCounts(res.counts);
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }, []);
 
-  const load = useCallback((p: number, s: string, sen: string, jt: string, plat: string) => {
-    setLoading(true);
-    jobService
-      .listJobs({ search: s, seniority: sen, job_type: jt, platform: plat, page: p, page_size: PAGE_SIZE })
-      .then((res) => { setItems(res.data ?? []); setTotal(res.total ?? 0); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { load(page, search, seniority, jobType, platformFilter); }, [page, load]);
+  useEffect(() => { load(page, search, seniority, jobType, platformFilter, activeFilter); }, [page, load]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    load(1, search, seniority, jobType, platformFilter);
+    load(1, search, seniority, jobType, platformFilter, activeFilter);
   };
 
   const handleWorkMode = (v: string) => {
-    setJobType(v); setPage(1); load(1, search, seniority, v, platformFilter);
+    setJobType(v); setPage(1); load(1, search, seniority, v, platformFilter, activeFilter);
+  };
+
+  const handleActive = (v: string) => {
+    setActiveFilter(v); setPage(1); load(1, search, seniority, jobType, platformFilter, v);
   };
 
   const handlePlatform = (slug: string) => {
     const next = platformFilter === slug ? "" : slug;
-    setPlatformFilter(next); setPage(1); load(1, search, seniority, jobType, next);
+    setPlatformFilter(next); setPage(1); load(1, search, seniority, jobType, next, activeFilter);
   };
 
   const toggleSel = (id: number) =>
@@ -250,14 +258,7 @@ export default function JobsPage() {
             }}
           >
             {t("list.titlePrefix")}{" "}
-            <em
-              style={{
-                fontFamily: "Georgia, serif",
-                fontStyle: "italic",
-                fontWeight: 400,
-                color: "var(--blue)",
-              }}
-            >
+            <em style={{ fontStyle: "normal", color: "var(--blue)" }}>
               {t("list.titleEmphasis")}
             </em>
           </h1>
@@ -266,13 +267,15 @@ export default function JobsPage() {
             style={{ font: "400 13px/18px var(--font-node-sans)", color: "var(--muted)" }}
           >
             {t("list.summary", {
-              count: total.toLocaleString(),
+              count: counts.all.toLocaleString(),
               platforms: t("list.platforms", { count: platforms.length }),
-              active: activeCount,
-              inactive: inactiveCount,
+              active: counts.active,
+              inactive: counts.inactive,
             })}
           </div>
         </div>
+        {/* Hidden per request: Re-scrape / Export / New batch from jobs */}
+        {false && (
         <div className="flex items-center gap-2">
           <GhostBtn icon={<RefreshCw className="size-[13px]" />}>{t("list.rescrape")}</GhostBtn>
           <GhostBtn
@@ -289,6 +292,7 @@ export default function JobsPage() {
             {t("list.newBatch")}
           </AccentBtn>
         </div>
+        )}
       </header>
 
       {/* ── Provider filter strip (all platforms, server-side filter) ── */}
@@ -339,11 +343,11 @@ export default function JobsPage() {
 
         <Seg
           value={activeFilter}
-          onChange={setActiveFilter}
+          onChange={handleActive}
           options={[
-            { value: "", label: t("filter.all", { count: total }) },
-            { value: "active", label: t("filter.active", { count: activeCount }) },
-            { value: "inactive", label: t("filter.inactive", { count: inactiveCount }) },
+            { value: "", label: t("filter.all", { count: counts.all }) },
+            { value: "active", label: t("filter.active", { count: counts.active }) },
+            { value: "inactive", label: t("filter.inactive", { count: counts.inactive }) },
           ]}
         />
 
@@ -360,7 +364,7 @@ export default function JobsPage() {
 
         <select
           value={seniority}
-          onChange={(e) => { setSeniority(e.target.value); setPage(1); load(1, search, e.target.value, jobType, platformFilter); }}
+          onChange={(e) => { setSeniority(e.target.value); setPage(1); load(1, search, e.target.value, jobType, platformFilter, activeFilter); }}
           style={{
             height: 38,
             borderRadius: 12,

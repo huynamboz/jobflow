@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { addToast } from "@heroui/toast";
@@ -7,7 +7,7 @@ import { mailService } from "@/services/mail.service";
 import { Input } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/modal";
-import { IconArrowLeft, IconBriefcase, IconBuilding, IconMail, IconMailExclamation, IconMapPin, IconSparkles, IconUser } from "@tabler/icons-react";
+import { IconArrowLeft, IconBriefcase, IconBuilding, IconEye, IconFileText, IconMail, IconMailExclamation, IconMapPin, IconPaperclip, IconSparkles, IconTrash, IconUpload, IconUser } from "@tabler/icons-react";
 
 import { Card } from "@/components/ui/card";
 import { QuillEditor, type QuillHandle } from "@/components/quill-editor";
@@ -69,6 +69,29 @@ export default function ApplyEmailPage() {
   const [generating, setGenerating] = useState(false);
   const editorRef = useRef<QuillHandle>(null);
 
+  // Attachment: HR can preview, remove, or replace the CV that gets attached.
+  const [customCv, setCustomCv] = useState<File | null>(null);
+  const [cvRemoved, setCvRemoved] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const customCvUrl = useMemo(() => (customCv ? URL.createObjectURL(customCv) : ""), [customCv]);
+  useEffect(() => () => { if (customCvUrl) URL.revokeObjectURL(customCvUrl); }, [customCvUrl]);
+
+  // Effective attachment: uploaded file wins, else the employee's active CV
+  // (unless HR removed it).
+  const empCvName = emp?.cv_file ? decodeURIComponent(emp.cv_file.split("/").pop() || "CV.pdf") : "";
+  const attachName = customCv ? customCv.name : (cvRemoved ? "" : empCvName);
+  const attachUrl = customCv ? customCvUrl : (cvRemoved ? "" : (emp?.cv_file || ""));
+  const hasAttachment = !!attachName;
+
+  const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) { setCustomCv(f); setCvRemoved(false); }
+    e.target.value = "";
+  };
+  const removeAttachment = () => { setCustomCv(null); setCvRemoved(true); };
+
   useEffect(() => {
     let alive = true;
     Promise.all([
@@ -106,7 +129,10 @@ export default function ApplyEmailPage() {
     const body = bodyText.current || bodyHTML.replace(/<[^>]+>/g, " ");
     setSending(true);
     try {
-      const r = await mailService.sendApply(matchId, to, subject, body);
+      const r = await mailService.sendApply(matchId, to, subject, body, {
+        cvFile: customCv,
+        noCv: cvRemoved && !customCv,
+      });
       addToast({ title: t("composeToast.sentApplied"), description: r.cv_attached ? t("composeToast.sentWithCv") : t("composeToast.sentNoCv"), color: "success" });
       navigate(-1);
     } catch (e: any) {
@@ -233,8 +259,45 @@ export default function ApplyEmailPage() {
 
         {/* right: composer */}
         <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Gửi từ — the linked Gmail the email is sent from */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 12, background: T.surface2, border: `1px solid ${T.line}` }}>
+            <IconMail size={15} style={{ color: T.ink4, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: T.ink3 }}>{t("compose.fromLabel")}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: linked ? T.ink : T.ink4 }}>
+              {linkedAddr || t("compose.fromNotLinked")}
+            </span>
+          </div>
+
           <Input size="sm" label={t("compose.toLabel")} placeholder={t("compose.toPlaceholder")} value={to} onValueChange={setTo} type="email" />
           <Input size="sm" label={t("compose.subjectLabel")} value={subject} onValueChange={setSubject} />
+
+          {/* Attachment — preview / remove / replace the CV PDF */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: T.ink3, marginBottom: 6 }}>{t("compose.attachmentLabel")}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {hasAttachment ? (
+                <button type="button" onClick={() => setPreviewOpen(true)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 12, border: `1px solid ${T.line}`, background: T.surface, cursor: "pointer", maxWidth: "100%" }}>
+                  <span style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", background: "#fde8e8", color: "#dc2626", flexShrink: 0 }}>
+                    <IconFileText size={16} />
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{attachName}</span>
+                  <IconEye size={15} style={{ color: T.accent, flexShrink: 0 }} />
+                </button>
+              ) : (
+                <span style={{ fontSize: 12.5, color: T.ink4, fontStyle: "italic" }}>{t("compose.attachmentNone")}</span>
+              )}
+              {hasAttachment && (
+                <Button size="sm" variant="light" color="danger" isIconOnly onPress={removeAttachment} title={t("compose.attachmentRemove")}>
+                  <IconTrash size={15} />
+                </Button>
+              )}
+              <Button size="sm" variant="flat" startContent={<IconUpload size={14} />} onPress={() => fileInputRef.current?.click()}>
+                {hasAttachment ? t("compose.attachmentReplace") : t("compose.attachmentUpload")}
+              </Button>
+              <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" hidden onChange={onPickFile} />
+            </div>
+          </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: T.ink3 }}>{t("compose.message")}</div>
@@ -282,6 +345,33 @@ export default function ApplyEmailPage() {
             <Button variant="light" startContent={<IconArrowLeft size={16} />} onPress={() => navigate(-1)}>{t("linkModal.back")}</Button>
             <Button color="primary" startContent={<IconMail size={16} />}
               onPress={() => navigate(`/admin/employees/${employeeId}/info`)}>{t("linkModal.linkEmail")}</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Attachment preview — large PDF viewer */}
+      <Modal isOpen={previewOpen} onOpenChange={setPreviewOpen} size="5xl" scrollBehavior="inside">
+        <ModalContent>
+          <ModalHeader className="flex items-center gap-2">
+            <IconPaperclip size={18} className="text-default-500" />
+            <span className="truncate">{attachName}</span>
+          </ModalHeader>
+          <ModalBody className="p-0">
+            {attachUrl
+              ? <iframe src={attachUrl} title={attachName} className="h-[78vh] w-full border-0" />
+              : <div className="grid h-[40vh] place-items-center text-default-400">{t("compose.attachmentNone")}</div>}
+          </ModalBody>
+          <ModalFooter>
+            <Button size="sm" variant="flat" startContent={<IconUpload size={14} />} onPress={() => fileInputRef.current?.click()}>
+              {t("compose.attachmentReplace")}
+            </Button>
+            {hasAttachment && (
+              <Button size="sm" variant="light" color="danger" startContent={<IconTrash size={14} />}
+                onPress={() => { removeAttachment(); setPreviewOpen(false); }}>
+                {t("compose.attachmentRemove")}
+              </Button>
+            )}
+            <Button size="sm" color="primary" onPress={() => setPreviewOpen(false)}>{t("common:actions.close")}</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

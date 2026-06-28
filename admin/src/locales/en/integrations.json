@@ -125,7 +125,21 @@
     "declined": "Login was declined on the phone — try again.",
     "loggedInToast": "Zalo logged in",
     "startErrorTitle": "Could not start Zalo login",
-    "startErrorDesc": "Is the sidecar running?"
+    "startErrorDesc": "Is the sidecar running?",
+    "logout": "Log out",
+    "loggedOutToast": "Zalo session cleared — you can log in with another account.",
+    "logoutErrorTitle": "Could not log out"
+  },
+  "zaloPicker": {
+    "title": "Choose a recipient",
+    "search": "Search friends or groups…",
+    "groups": "Groups",
+    "friends": "Friends",
+    "members": "{{count}} members",
+    "refresh": "Refresh",
+    "empty": "No conversations found.",
+    "loadError": "Could not load conversations.",
+    "picked": "Recipient set: {{name}}"
   },
   "modal": {
     "connectTitle": "Connect {{name}}",

@@ -61,7 +61,8 @@
     "sortScore": "Điểm match",
     "sortNewest": "Job mới nhất",
     "viewMore": "Xem thêm {{shown}} · còn {{left}}",
-    "allShown": "Đã hiển thị tất cả {{count}} việc"
+    "allShown": "Đã hiển thị tất cả {{count}} việc",
+    "pageOf": "Trang {{page}}/{{total}}"
   },
   "tabs": {
     "all": "Tất cả",

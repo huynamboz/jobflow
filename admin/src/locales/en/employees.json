@@ -61,7 +61,8 @@
     "sortScore": "Match score",
     "sortNewest": "Newest job",
     "viewMore": "View {{shown}} more · {{left}} left",
-    "allShown": "All {{count}} jobs shown"
+    "allShown": "All {{count}} jobs shown",
+    "pageOf": "Page {{page}}/{{total}}"
   },
   "tabs": {
     "all": "All",

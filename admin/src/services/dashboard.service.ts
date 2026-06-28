@@ -2,6 +2,7 @@ import { apiClient } from "@/lib/api-client";
 import type {
   CatalogComposition,
   FreshnessActivity,
+  JobsOverview,
   KpiSnapshot,
   LabelingSnapshot,
   ModelSnapshot,
@@ -11,6 +12,11 @@ import type {
 const BASE = "/admin/dashboard";
 
 class DashboardService {
+  async getJobsOverview(days = 30): Promise<JobsOverview> {
+    const r = await apiClient.get(`${BASE}/jobs/`, { params: { days } });
+    return r.data.data;
+  }
+
   async getKpi(): Promise<KpiSnapshot> {
     const r = await apiClient.get(`${BASE}/kpi/`);
     return r.data.data;

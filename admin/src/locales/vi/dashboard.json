@@ -168,6 +168,26 @@
     "bodyFromVenv": "từ venv của backend. Xem",
     "dismiss": "Bỏ qua"
   },
+  "jobsOverview": {
+    "loading": "Đang tải…",
+    "statNewToday": "Job mới hôm nay",
+    "statApplied": "Job đã apply",
+    "statSuitable": "Job phù hợp hôm nay ( > 80đ )",
+    "statActive": "Job đang hoạt động",
+    "ofTotal": "/ {{total}} tổng",
+    "growthTitle": "Job tăng theo ngày",
+    "growthHint": "Số job mới mỗi ngày · {{count}} ngày gần nhất",
+    "rangeDays": "{{count}} ngày",
+    "statusTitle": "Trạng thái job",
+    "statusHint": "{{count}} job trong kho",
+    "statusActive": "Đang hoạt động",
+    "statusInactive": "Tắt / hết hạn",
+    "providerTitle": "Job theo nền tảng",
+    "providerHint": "Số job mỗi nguồn crawl",
+    "ariaGrowth": "Job mới theo ngày",
+    "ariaStatus": "Job đang hoạt động và tắt",
+    "ariaProvider": "Job theo nền tảng"
+  },
   "chart": {
     "noData": "Không có dữ liệu",
     "noDataAria": "{{label}}: không có dữ liệu",

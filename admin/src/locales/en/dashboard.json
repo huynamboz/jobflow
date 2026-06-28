@@ -168,6 +168,26 @@
     "bodyFromVenv": "from the backend venv. See",
     "dismiss": "Dismiss"
   },
+  "jobsOverview": {
+    "loading": "Loading…",
+    "statNewToday": "New jobs today",
+    "statApplied": "Jobs applied",
+    "statSuitable": "Good matches today ( > 80 )",
+    "statActive": "Active jobs",
+    "ofTotal": "/ {{total}} total",
+    "growthTitle": "Jobs added per day",
+    "growthHint": "New jobs per day · last {{count}} days",
+    "rangeDays": "{{count}} days",
+    "statusTitle": "Job status",
+    "statusHint": "{{count}} jobs in catalog",
+    "statusActive": "Active",
+    "statusInactive": "Inactive / expired",
+    "providerTitle": "Jobs by platform",
+    "providerHint": "Job count per crawl source",
+    "ariaGrowth": "New jobs per day",
+    "ariaStatus": "Active vs inactive jobs",
+    "ariaProvider": "Jobs by platform"
+  },
   "chart": {
     "noData": "No data",
     "noDataAria": "{{label}}: no data",

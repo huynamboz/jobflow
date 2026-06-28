@@ -7,6 +7,7 @@ export interface JobFilters {
   platform?: string;
   seniority?: string;
   job_type?: string;
+  is_active?: string; // "true" | "false" — active/inactive filter (server-side)
   page?: number;
   page_size?: number;
 }

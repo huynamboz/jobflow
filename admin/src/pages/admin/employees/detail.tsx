@@ -18,6 +18,8 @@ import {
   IconBuilding,
   IconCalendar,
   IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
   IconExternalLink,
   IconMail,
   IconMapPin,
@@ -66,7 +68,6 @@ const STATUS_META: Record<MatchStatus, { key: string; bg: string; color: string 
   dismissed: { key: "dismissed", bg: T.surface3, color: T.ink4 },
 };
 
-const TAB_KEYS: (MatchStatus | "all")[] = ["all", "suggested", "pursuing", "applied", "won", "lost"];
 
 function initials(name: string): string {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -503,9 +504,8 @@ export default function EmployeeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
-  const [tab, setTab] = useState<MatchStatus | "all">("all");
+  const [tab] = useState<MatchStatus | "all">("all"); // status filter removed from UI; list shows all
   const [sortBy, setSortBy] = useState<"score" | "newest">("score");
   const [platformFilter, setPlatformFilter] = useState<string>(""); // platform slug; "" = all
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -516,12 +516,12 @@ export default function EmployeeDetailPage() {
   const listParams = useCallback(
     (pg: number) => ({
       employee: empId,
-      ...(tab !== "all" ? { status: tab } : {}),
       ...(platformFilter ? { platform: platformFilter } : {}),
+      hide_applied: true, // already-applied jobs live on the job-tracking pipeline
       ordering: sortBy === "newest" ? "-job__created_at" : "-match_score",
       page: pg, page_size: PAGE_SIZE,
     }),
-    [empId, tab, sortBy, platformFilter],
+    [empId, sortBy, platformFilter],
   );
 
   const reload = useCallback(async () => {
@@ -533,7 +533,6 @@ export default function EmployeeDetailPage() {
       ]);
       setEmployee(emp);
       setMatches(m.results);
-      setHasMore(!!m.next);
       setTotal(m.count ?? m.results.length);
       setPage(1);
     } catch {
@@ -545,22 +544,21 @@ export default function EmployeeDetailPage() {
 
   useEffect(() => { void reload(); }, [reload]);
 
-  const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
+  // Pagination: each page REPLACES the list (not append).
+  const goToPage = useCallback(async (p: number) => {
+    if (loadingMore) return;
     setLoadingMore(true);
     try {
-      const next = page + 1;
-      const m = await matchService.list(listParams(next));
-      setMatches((prev) => [...prev, ...m.results]);
-      setHasMore(!!m.next);
+      const m = await matchService.list(listParams(p));
+      setMatches(m.results);
       setTotal(m.count ?? 0);
-      setPage(next);
+      setPage(p);
     } catch {
       addToast({ title: t("detail.loadMoreFailed"), color: "danger" });
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasMore, page, listParams]);
+  }, [loadingMore, listParams]);
 
   // 026: deep-link from a notification (?match=) selects that match if present;
   // else default to the top match.
@@ -639,26 +637,47 @@ export default function EmployeeDetailPage() {
         </div>
       </div>
 
-      {/* tabs */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {TAB_KEYS.map((key) => {
-          const counts = employee.matches_count_by_status ?? {};
-          const count = key === "all"
-            ? Object.entries(counts).filter(([k]) => k !== "dismissed").reduce((a, [, v]) => a + v, 0)
-            : (counts[key] ?? 0);
-          const active = tab === key;
-          return (
-            <button key={key} type="button" onClick={() => setTab(key)}
+      {/* one row: platform filter (left) + sort (right) */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        {(employee.matches_count_by_platform?.filter((p) => p.slug).length ?? 0) > 1 && (
+          <>
+            <span style={{ fontSize: 11.5, color: T.ink4 }}>{t("detail.platformLabel")}</span>
+            <button type="button" onClick={() => setPlatformFilter("")}
               style={{
-                padding: "6px 12px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-                border: `1px solid ${active ? T.accent : T.line}`,
-                background: active ? T.accent : T.surface, color: active ? "#fff" : T.ink2,
+                padding: "5px 11px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                border: `1px solid ${platformFilter === "" ? T.accent : T.line}`,
+                background: platformFilter === "" ? T.accent : T.surface, color: platformFilter === "" ? "#fff" : T.ink2,
               }}>
-              {t(`tabs.${key}`)} <span style={{ opacity: 0.7 }}>{count}</span>
+              {t("detail.platformAll")}
             </button>
-          );
-        })}
-        {/* 025: sort — theo điểm match hoặc theo ngày job vào hệ thống */}
+            {employee.matches_count_by_platform!.filter((p) => p.slug).map((p) => {
+              const active = platformFilter === p.slug;
+              return (
+                <button key={p.slug} type="button"
+                  onClick={() => setPlatformFilter((prev) => (prev === p.slug ? "" : p.slug))}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "5px 11px 5px 7px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    border: `1px solid ${active ? T.accent : T.line}`,
+                    background: active ? T.accent : T.surface, color: active ? "#fff" : T.ink2,
+                  }}>
+                  {p.logo && (
+                    <img
+                      src={p.logo}
+                      alt=""
+                      width={15}
+                      height={15}
+                      style={{ borderRadius: 3, objectFit: "contain", background: "#fff" }}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    />
+                  )}
+                  {p.name} <span style={{ opacity: 0.7 }}>{p.count}</span>
+                </button>
+              );
+            })}
+          </>
+        )}
+        {/* sort — pushed to the right */}
         <span style={{ marginLeft: "auto", display: "inline-flex", gap: 4, alignItems: "center" }}>
           <span style={{ fontSize: 11.5, color: T.ink4 }}>{t("detail.sortLabel")}</span>
           {([["score", t("detail.sortScore")], ["newest", t("detail.sortNewest")]] as const).map(([key, label]) => (
@@ -675,36 +694,6 @@ export default function EmployeeDetailPage() {
         </span>
       </div>
 
-      {/* per-platform ranking: filter the list to one platform's top-K */}
-      {(employee.matches_count_by_platform?.filter((p) => p.slug).length ?? 0) > 1 && (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: 11.5, color: T.ink4 }}>{t("detail.platformLabel")}</span>
-          <button type="button" onClick={() => setPlatformFilter("")}
-            style={{
-              padding: "5px 11px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
-              border: `1px solid ${platformFilter === "" ? T.accent : T.line}`,
-              background: platformFilter === "" ? T.accent : T.surface, color: platformFilter === "" ? "#fff" : T.ink2,
-            }}>
-            {t("detail.platformAll")}
-          </button>
-          {employee.matches_count_by_platform!.filter((p) => p.slug).map((p) => {
-            const active = platformFilter === p.slug;
-            return (
-              <button key={p.slug} type="button"
-                onClick={() => setPlatformFilter((prev) => (prev === p.slug ? "" : p.slug))}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  padding: "5px 11px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                  border: `1px solid ${active ? T.accent : T.line}`,
-                  background: active ? T.accent : T.surface, color: active ? "#fff" : T.ink2,
-                }}>
-                {p.name} <span style={{ opacity: 0.7 }}>{p.count}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* LinkedIn-style browser */}
       {matches.length === 0 ? (
         <Card style={{ display: "grid", placeItems: "center", height: 240, color: T.ink3 }}>
@@ -716,31 +705,61 @@ export default function EmployeeDetailPage() {
         </Card>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 380px) 1fr", gap: 14, alignItems: "stretch", height: "calc(100vh - 220px)" }}>
-          {/* left list — explicit "View more" button (no auto-scroll load) */}
+          {/* left list — page-based pagination */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0, overflow: "auto", paddingRight: 4 }}>
             {matches.map((m) => (
               <JobListItem key={m.id} match={m} selected={m.id === selectedId} onSelect={() => setSelectedId(m.id)} />
             ))}
-            {hasMore ? (
-              <Button
-                size="sm"
-                color="primary"
-                fullWidth
-                className="mt-1 shrink-0"
-                isLoading={loadingMore}
-                onPress={() => void loadMore()}
-              >
-                {loadingMore
-                  ? t("detail.loading")
-                  : t("detail.viewMore", { shown: Math.min(PAGE_SIZE, Math.max(0, total - matches.length)), left: Math.max(0, total - matches.length) })}
-              </Button>
-            ) : (
-              matches.length > 0 && (
-                <div style={{ padding: "8px 4px", textAlign: "center", fontSize: 12, color: T.ink4 }}>
-                  {t("detail.allShown", { count: total })}
+            {total > PAGE_SIZE && (() => {
+              const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+              const WINDOW = 5;
+              let start = Math.max(1, page - Math.floor(WINDOW / 2));
+              const end = Math.min(totalPages, start + WINDOW - 1);
+              start = Math.max(1, end - WINDOW + 1);
+              const nums: number[] = [];
+              for (let i = start; i <= end; i++) nums.push(i);
+
+              const numBtn = (p: number) => {
+                const active = p === page;
+                return (
+                  <button key={p} type="button" disabled={loadingMore || active}
+                    onClick={() => void goToPage(p)}
+                    style={{
+                      minWidth: 28, height: 28, padding: "0 6px", borderRadius: 8, cursor: active ? "default" : "pointer",
+                      fontSize: 12.5, fontWeight: 600, fontVariantNumeric: "tabular-nums",
+                      border: `1px solid ${active ? T.accent : T.line}`,
+                      background: active ? T.accent : T.surface, color: active ? "#fff" : T.ink2,
+                    }}>
+                    {p}
+                  </button>
+                );
+              };
+              const arrow = (dir: -1 | 1, disabled: boolean) => (
+                <button type="button" disabled={disabled || loadingMore} onClick={() => void goToPage(page + dir)}
+                  aria-label={dir < 0 ? "Prev" : "Next"}
+                  style={{
+                    width: 28, height: 28, borderRadius: 8, display: "grid", placeItems: "center",
+                    cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.4 : 1,
+                    border: `1px solid ${T.line}`, background: T.surface, color: T.ink2,
+                  }}>
+                  {dir < 0 ? <IconChevronLeft size={15} /> : <IconChevronRight size={15} />}
+                </button>
+              );
+              const ell = (k: string) => (
+                <span key={k} style={{ minWidth: 18, textAlign: "center", color: T.ink4, fontSize: 12.5 }}>…</span>
+              );
+              return (
+                <div className="shrink-0" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 4, padding: "10px 4px" }}>
+                  {arrow(-1, page <= 1)}
+                  {start > 1 && numBtn(1)}
+                  {start > 2 && ell("l")}
+                  {nums.map(numBtn)}
+                  {end < totalPages - 1 && ell("r")}
+                  {end < totalPages && numBtn(totalPages)}
+                  {arrow(1, page >= totalPages)}
                 </div>
-              )
-            )}
+              );
+            })()}
           </div>
           {/* right detail */}
           <Card padding={0} style={{ height: "100%", overflow: "auto" }}>

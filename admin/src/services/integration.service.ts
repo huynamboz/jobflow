@@ -56,6 +56,30 @@ class IntegrationService {
     const r = await apiClient.get<ZaloQrStatus>("/admin/integrations/zalo/login-qr/status/");
     return r.data;
   }
+  /** Clear the Zalo session (delete creds) so another account can log in. */
+  async zaloLogout(): Promise<{ ok: boolean; loggedIn: boolean }> {
+    const r = await apiClient.post("/admin/integrations/zalo/logout/", {});
+    return r.data as { ok: boolean; loggedIn: boolean };
+  }
+  /** Friends + groups of the logged-in Zalo account, for recipient picking. */
+  async zaloThreads(): Promise<ZaloThreads> {
+    const r = await apiClient.get<ZaloThreads>("/admin/integrations/zalo/threads/");
+    return r.data;
+  }
+}
+
+export interface ZaloThread {
+  id: string;
+  name: string;
+  avatar: string;
+  members?: number;
+}
+export interface ZaloThreads {
+  ok: boolean;
+  users: ZaloThread[];
+  groups: ZaloThread[];
+  usersError?: string;
+  groupsError?: string;
 }
 
 export type ZaloQrState =
