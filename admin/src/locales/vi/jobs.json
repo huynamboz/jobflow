@@ -133,16 +133,17 @@
     "emptyHint": "Nộp đơn từ trình duyệt việc làm của nhân viên để bắt đầu theo dõi.",
     "dash": "—",
     "viewMore": "Xem thêm ({{count}} còn lại)",
-    "searchPlaceholder": "Tìm đơn ứng tuyển…",
-    "columnEmpty": "Chưa có đơn",
+    "filter": "Lọc",
+    "addApplication": "Thêm đơn",
+    "addCard": "Thêm thẻ",
     "moveTo": "Chuyển sang {{label}}",
     "reopen": "Mở lại",
     "viewEmployee": "Xem nhân viên",
     "summary": {
-      "total": "Tổng theo dõi",
+      "total": "Tổng đã nộp",
       "inProgress": "Đang xử lý",
-      "accepted": "Được nhận",
-      "completed": "Hoàn tất"
+      "offers": "Lời mời",
+      "responseRate": "Tỉ lệ phản hồi"
     },
     "time": {
       "today": "hôm nay",

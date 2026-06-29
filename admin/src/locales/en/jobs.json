@@ -133,16 +133,17 @@
     "emptyHint": "Apply to jobs from an employee's job browser to start tracking.",
     "dash": "—",
     "viewMore": "View more ({{count}} left)",
-    "searchPlaceholder": "Search applications…",
-    "columnEmpty": "No applications",
+    "filter": "Filter",
+    "addApplication": "Add application",
+    "addCard": "Add card",
     "moveTo": "Move to {{label}}",
     "reopen": "Reopen",
     "viewEmployee": "View employee",
     "summary": {
-      "total": "Total tracked",
+      "total": "Total applied",
       "inProgress": "In progress",
-      "accepted": "Accepted",
-      "completed": "Completed"
+      "offers": "Offers",
+      "responseRate": "Response rate"
     },
     "time": {
       "today": "today",
