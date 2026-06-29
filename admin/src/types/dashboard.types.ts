@@ -123,6 +123,6 @@ export interface JobsOverview {
     suitable_today: number;
   };
   per_day: { day: string; count: number }[];
-  by_provider: { key: string; count: number }[];
+  by_provider: { key: string; count: number; logo_url?: string }[];
   active_inactive: { key: string; count: number }[];
 }

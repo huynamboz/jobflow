@@ -409,8 +409,16 @@ def compute_jobs_overview(days: int = 30) -> dict:
         for i in range(days)
     ]
 
-    prov = Job.objects.values("platform__name").annotate(c=Count("id")).order_by("-c")
-    by_provider = [{"key": (r["platform__name"] or "Unknown"), "count": r["c"]} for r in prov]
+    prov = (Job.objects.values("platform__name", "platform__logo_url")
+            .annotate(c=Count("id")).order_by("-c"))
+    by_provider = [
+        {
+            "key": (r["platform__name"] or "Unknown"),
+            "count": r["c"],
+            "logo_url": r["platform__logo_url"] or "",
+        }
+        for r in prov
+    ]
 
     return {
         "stats": {

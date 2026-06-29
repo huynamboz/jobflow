@@ -34,6 +34,7 @@ import JobTrackingPage from "@/pages/admin/job-tracking";
 import ApplyEmailPage from "@/pages/admin/apply-email";
 import SettingsPage from "@/pages/admin/settings";
 import IntegrationsPage from "@/pages/admin/integrations";
+import StyleguidePage from "@/pages/admin/styleguide";
 
 function App() {
   return (
@@ -74,6 +75,7 @@ function App() {
         <Route path="apply-email" element={<ApplyEmailPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="integrations" element={<IntegrationsPage />} />
+        <Route path="styleguide" element={<StyleguidePage />} />
       </Route>
 
       <Route element={<PublicRoute />}>

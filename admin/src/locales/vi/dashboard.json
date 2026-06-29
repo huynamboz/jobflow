@@ -3,6 +3,30 @@
     "title": "Bảng điều khiển",
     "subtitle": "Những việc nhóm bạn cần xử lý hôm nay."
   },
+  "matchOverview": {
+    "title": "Tổng quan ghép cặp",
+    "liveStatus": "Trình thu thập đang chạy · kho việc cập nhật",
+    "heroEyebrow": "AI GHÉP CẶP · HÔM NAY",
+    "heroBody": "Số cặp ứng viên–việc phù hợp tìm được hôm nay, cùng {{jobs}} việc mới và {{applied}} đơn đã gửi.",
+    "reviewMatches": "Xem tất cả ghép cặp",
+    "jobsInCatalog": "Việc trong kho",
+    "activeShare": "Tỷ lệ còn hiệu lực",
+    "activeShareHint": "{{active}} còn hiệu lực trên {{total}} việc trong kho",
+    "inProgress": "{{count}} đang xử lý",
+    "applicationsSent": "Đơn đã gửi",
+    "lost": "{{count}} bị từ chối",
+    "acceptedThisWeek": "Được nhận tuần này",
+    "topMatchesTitle": "Nhân viên có ghép cặp mới",
+    "topMatchesHint": "Việc phù hợp mới cần xem",
+    "seeAll": "Xem tất cả",
+    "noMatches": "Hiện chưa có ghép cặp mới.",
+    "newMatchesSub": "việc phù hợp mới cần xem",
+    "newCount": "{{count}} mới",
+    "crawlSourcesTitle": "Nguồn thu thập",
+    "crawlSourcesHint": "Số việc theo từng nền tảng",
+    "activeSources": "{{count}} nguồn",
+    "jobsIndexed": "{{count}} việc đã lập chỉ mục"
+  },
   "staffing": {
     "loadError": "Không tải được bảng điều khiển tuyển dụng.",
     "kpi": {

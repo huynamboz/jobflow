@@ -7,6 +7,9 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
+/* JobNest design system token layer (jn-* utilities). See jobnest.css. */
+@import "./jobnest.css";
+
 @custom-variant dark (&:is(.dark *));
 
 /* ─────────────────────────────────────────────────────────────────────

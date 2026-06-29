@@ -1,0 +1,93 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * JobNest design system — token layer
+ *
+ * The single source of truth for the JobNest admin look (blue brand +
+ * soft-grey surfaces, mirrored from the "Landing page với animation"
+ * mockups). Tokens are exposed as Tailwind v4 utilities under the `jn-*`
+ * namespace via the @theme block below, e.g.
+ *
+ *   bg-jn-bg / bg-jn-surface / bg-jn-sunken
+ *   text-jn-ink / text-jn-ink-soft / text-jn-muted
+ *   border-jn-line / border-jn-line-2
+ *   bg-jn-primary / text-jn-primary / bg-jn-primary-soft
+ *   rounded-jn-btn / rounded-jn-card / rounded-jn-card-lg
+ *   shadow-jn-card / shadow-jn-btn / shadow-jn-hover
+ *
+ * Imported from globals.css AFTER node-tokens so these win where they
+ * overlap. Component primitives live in src/components/ui/.
+ * ─────────────────────────────────────────────────────────────────────── */
+
+/* Inter 800 — JobNest headings; node-tokens only loads up to 700. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@800&display=swap");
+
+@theme {
+  /* ── Surfaces ─────────────────────────────────────────────────────── */
+  --color-jn-bg:             #f4f5f7;   /* page background (soft grey)     */
+  --color-jn-surface:        #ffffff;   /* cards / panels                  */
+  --color-jn-sunken:         #f5f6f7;   /* search / input / segmented bg   */
+
+  /* ── Brand (blue) ─────────────────────────────────────────────────── */
+  --color-jn-primary:        #0064e5;
+  --color-jn-primary-hover:  #0a59c8;
+  --color-jn-primary-soft:   #e8f1fe;   /* tinted fill (icon chips, etc.)  */
+  --color-jn-primary-border: #d5e5fc;
+
+  /* ── Text ─────────────────────────────────────────────────────────── */
+  --color-jn-ink:            #1c1f26;   /* headings / strongest            */
+  --color-jn-ink-soft:       #3a3f47;   /* body                            */
+  --color-jn-ink-mute:       #6b7079;   /* secondary body                  */
+  --color-jn-muted:          #9097a0;   /* labels / meta                   */
+  --color-jn-faint:          #a2a8b0;   /* faintest meta / ids             */
+
+  /* ── Lines ────────────────────────────────────────────────────────── */
+  --color-jn-line:           #efeff1;   /* default divider / card border   */
+  --color-jn-line-2:         #ececee;   /* header / pill outline           */
+  --color-jn-line-3:         #e2e3e6;   /* button outline                  */
+  --color-jn-line-soft:      #f1f2f4;   /* faint row divider               */
+
+  /* ── Status: green / amber / red / violet ─────────────────────────── */
+  --color-jn-green:          #1f9e6e;
+  --color-jn-green-bg:       #e7f6ef;
+  --color-jn-green-border:   #d5efe2;
+
+  --color-jn-amber:          #c77700;
+  --color-jn-amber-bg:       #fbf1dc;
+  --color-jn-amber-border:   #f3e4c2;
+
+  --color-jn-red:            #e0533a;
+  --color-jn-red-bg:         #fcedea;
+  --color-jn-red-border:     #f7ddd7;
+
+  --color-jn-violet:         #7c4dd0;
+  --color-jn-violet-bg:      #f0eafb;
+  --color-jn-violet-border:  #e2d6f6;
+
+  /* ── Radii ────────────────────────────────────────────────────────── */
+  --radius-jn-btn:           10px;   /* buttons / icon buttons / inputs    */
+  --radius-jn-nav:           12px;   /* nav rows / segmented items         */
+  --radius-jn-card:          16px;   /* default card                       */
+  --radius-jn-card-lg:       20px;   /* feature card                       */
+  --radius-jn-pill:          999px;  /* chips / badges                     */
+
+  /* ── Shadows ──────────────────────────────────────────────────────── */
+  --shadow-jn-card:  0 1px 4px rgba(0, 0, 0, 0.05);
+  --shadow-jn-btn:   0 4px 12px rgba(0, 100, 229, 0.25);
+  --shadow-jn-hover: 0 20px 44px rgba(20, 20, 40, 0.1);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Scroll-reveal helper used by the mockups. Add `.jn-reveal` to a node;
+ * a small IntersectionObserver (see hooks/use-reveal.ts) toggles `.in`.
+ * No-JS fallback: visible by default if the observer never runs.
+ * ───────────────────────────────────────────────────────────────────── */
+.jn-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.5s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.jn-reveal.in {
+  opacity: 1;
+  transform: none;
+}

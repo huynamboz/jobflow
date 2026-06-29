@@ -3,6 +3,30 @@
     "title": "Dashboard",
     "subtitle": "What your team needs to handle today."
   },
+  "matchOverview": {
+    "title": "Match overview",
+    "liveStatus": "Crawlers live · catalog up to date",
+    "heroEyebrow": "AI MATCHES · TODAY",
+    "heroBody": "Suitable candidate–job matches found today, alongside {{jobs}} fresh jobs and {{applied}} applications sent.",
+    "reviewMatches": "Review all matches",
+    "jobsInCatalog": "Jobs in catalog",
+    "activeShare": "Active share",
+    "activeShareHint": "{{active}} active of {{total}} jobs in the catalog",
+    "inProgress": "{{count}} in progress",
+    "applicationsSent": "Applications sent",
+    "lost": "{{count}} rejected",
+    "acceptedThisWeek": "Accepted this week",
+    "topMatchesTitle": "Employees with new matches",
+    "topMatchesHint": "Fresh job matches to review",
+    "seeAll": "See all",
+    "noMatches": "No new matches right now.",
+    "newMatchesSub": "new matching jobs to review",
+    "newCount": "{{count}} new",
+    "crawlSourcesTitle": "Crawl sources",
+    "crawlSourcesHint": "Jobs indexed per platform",
+    "activeSources": "{{count}} sources",
+    "jobsIndexed": "{{count}} jobs indexed"
+  },
   "staffing": {
     "loadError": "Failed to load the staffing dashboard.",
     "kpi": {
