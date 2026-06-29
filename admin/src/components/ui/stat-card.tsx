@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import type { BadgeColor } from "./badge";
 
 /**
- * JobNest stat block — the dashboard "Docs Owed / Pending / Accepted" row:
+ * JobFlow stat block — the dashboard "Docs Owed / Pending / Accepted" row:
  * a single bordered card with N stat columns separated by hairline dividers.
  * Each stat has a tinted icon chip, a label and a large value (+ optional
  * suffix like "/13"). Pass `footer` for the trailing "Go to …" link.

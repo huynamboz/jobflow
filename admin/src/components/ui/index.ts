@@ -1,9 +1,9 @@
 /**
- * JobNest design-system primitives. Import from "@/components/ui":
+ * JobFlow design-system primitives. Import from "@/components/ui":
  *
  *   import { Button, Badge, Card, PageHeader, Tabs } from "@/components/ui";
  *
- * Tokens live in src/styles/jobnest.css (jn-* Tailwind utilities).
+ * Tokens live in src/styles/JobFlow.css (jn-* Tailwind utilities).
  */
 export { Button } from "./button";
 export type { ButtonProps, ButtonVariant, ButtonSize } from "./button";

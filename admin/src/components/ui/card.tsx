@@ -3,18 +3,18 @@ import type { CSSProperties, MouseEventHandler, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest Card — the single source of truth for the surface primitive:
+ * JobFlow Card — the single source of truth for the surface primitive:
  * white background, soft hairline border, 16px radius (20px with
  * `radius="lg"`), no resting shadow, optional hover lift.
  *
  * Back-compatible with the previous howard-card API (`hoverable`,
  * `padding`, `className`, `style`, `onClick`). `hoverable` now applies the
- * JobNest lift (translateY + soft shadow). Set `padding={0}` for full-bleed
+ * JobFlow lift (translateY + soft shadow). Set `padding={0}` for full-bleed
  * content (covers, tables, list rows).
  */
 export interface CardProps {
   children: ReactNode;
-  /** Adds cursor + JobNest hover lift (use for clickable cards). */
+  /** Adds cursor + JobFlow hover lift (use for clickable cards). */
   hoverable?: boolean;
   /** Inner padding in px (default 18). Pass 0 for full-bleed content. */
   padding?: number;

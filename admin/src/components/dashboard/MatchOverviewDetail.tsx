@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import type { StaffingDashboard } from "@/types/staffing-dashboard.types";
 
 /**
- * JobNest-styled lower section of the dashboard: pipeline funnel, the
+ * JobFlow-styled lower section of the dashboard: pipeline funnel, the
  * stale-applications + alerts worklist, and recent activity. Consumes the
  * staffing payload already fetched by the dashboard page (no extra request).
  */

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest page header — the big page title row: an extrabold title with an
+ * JobFlow page header — the big page title row: an extrabold title with an
  * optional inline count/status pill, a muted subtitle, and a right-aligned
  * actions slot (Export / Add member …). Mirrors the Employees mockup header.
  */

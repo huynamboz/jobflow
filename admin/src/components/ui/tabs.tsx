@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest underline Tabs — the row of text tabs with a blue active underline
+ * JobFlow underline Tabs — the row of text tabs with a blue active underline
  * sitting on a hairline baseline (see the candidate-detail mockup). Controlled:
  * pass `value` + `onChange`. Optional per-tab `count` renders a small pill.
  */

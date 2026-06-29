@@ -3,7 +3,7 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest Badge — the tinted pill used for statuses, departments, counts and
+ * JobFlow Badge — the tinted pill used for statuses, departments, counts and
  * tags. Soft fill + matching foreground by `color`. Add `dot` for the small
  * leading status dot; `solid` for an inverted dark/strong pill.
  *

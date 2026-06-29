@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest segmented control — the sunken pill toggle ("All Documents /
+ * JobFlow segmented control — the sunken pill toggle ("All Documents /
  * Portal Milestones"). The active item lifts to a white surface with a soft
  * outline; inactive items are muted text. Controlled via `value`/`onChange`.
  */

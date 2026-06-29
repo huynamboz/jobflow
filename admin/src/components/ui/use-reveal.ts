@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Scroll-reveal hook for the `.jn-reveal` helper (see jobnest.css). Attach the
+ * Scroll-reveal hook for the `.jn-reveal` helper (see JobFlow.css). Attach the
  * returned ref to a container; every descendant with the `jn-reveal` class
  * fades/slides in as it enters the viewport, with a small stagger. Falls back
  * to immediately visible when IntersectionObserver is unavailable, and force-

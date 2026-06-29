@@ -5,7 +5,7 @@ import { IconChevronRight, IconArrowLeft } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest breadcrumb — the muted trail above a detail title, with an optional
+ * JobFlow breadcrumb — the muted trail above a detail title, with an optional
  * leading back-arrow. The last crumb is rendered as the current (ink) page;
  * earlier crumbs link via `href`. Add `onBack` to show the back arrow.
  */

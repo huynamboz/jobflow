@@ -3,7 +3,7 @@ import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest section label — the tiny uppercase caption above a group
+ * JobFlow section label — the tiny uppercase caption above a group
  * ("APPLICATION DETAILS"). Faint, bold, wide letter-spacing.
  */
 export function SectionLabel({ className, children, ...rest }: HTMLAttributes<HTMLDivElement>) {

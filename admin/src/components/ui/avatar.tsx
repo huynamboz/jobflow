@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest Avatar — round image avatar with an initials fallback. Falls back
+ * JobFlow Avatar — round image avatar with an initials fallback. Falls back
  * to a tinted blue circle with the first letter when `src` is missing.
  * `ring` adds the white photo ring used over cover images.
  */

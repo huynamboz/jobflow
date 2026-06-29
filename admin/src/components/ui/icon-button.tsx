@@ -4,7 +4,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest IconButton — square, icon-only control used in headers, toolbars
+ * JobFlow IconButton — square, icon-only control used in headers, toolbars
  * and card corners (bell, search, more, etc.).
  *
  *  variant: ghost   → transparent, hover sunken (header tools)

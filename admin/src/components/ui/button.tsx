@@ -4,7 +4,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest Button — the single source of truth for action buttons.
+ * JobFlow Button — the single source of truth for action buttons.
  *
  *  variant: primary  → solid blue, drop shadow (the main CTA)
  *           secondary→ white surface, soft outline (the default action)

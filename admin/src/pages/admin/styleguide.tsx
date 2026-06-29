@@ -32,9 +32,9 @@ import {
 } from "@/components/ui";
 
 /**
- * JobNest design-system styleguide. Live gallery of every shared primitive,
+ * JobFlow design-system styleguide. Live gallery of every shared primitive,
  * mounted at /admin/styleguide. Use it as the visual reference while
- * migrating pages to the JobNest look.
+ * migrating pages to the JobFlow look.
  */
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -61,7 +61,7 @@ export default function StyleguidePage() {
 
       <PageHeader
         className="jn-reveal"
-        title="JobNest design system"
+        title="JobFlow design system"
         pill={<Badge color="blue">v1</Badge>}
         subtitle="Shared primitives + tokens powering the admin re-skin."
         actions={

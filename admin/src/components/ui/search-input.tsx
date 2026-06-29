@@ -5,7 +5,7 @@ import { IconSearch } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
 /**
- * JobNest search field — the sunken pill input with a leading magnifier used
+ * JobFlow search field — the sunken pill input with a leading magnifier used
  * in the top bar and toolbars. Wraps a native <input>; forwards all props.
  * Constrain width at the call site (e.g. `className="max-w-[420px]"`).
  */
