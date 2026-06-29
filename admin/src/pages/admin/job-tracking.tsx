@@ -102,9 +102,10 @@ function JobLogo({ src, name }: { src?: string; name?: string }) {
 export default function JobTrackingPage() {
   const navigate = useNavigate();
   const { t } = useTranslation("jobs");
-  const reveal = useReveal();
   const [items, setItems] = useState<EmployeeJobMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  // Re-scan reveals when the board mounts after the async load.
+  const reveal = useReveal([items, loading]);
   const [busy, setBusy] = useState<number | null>(null);
 
   const load = useCallback(async () => {
