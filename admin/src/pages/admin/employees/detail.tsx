@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { addToast } from "@heroui/toast";
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
+import { Button as HButton } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
-import { Select, SelectItem } from "@heroui/select";
 import {
   Modal,
   ModalBody,
@@ -26,48 +24,53 @@ import {
   IconUser,
   IconUsers,
   IconX,
+  IconBookmark,
+  IconSparkles,
+  IconCheck,
 } from "@tabler/icons-react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
-import { Card } from "@/components/ui/card";
+import { Button, useReveal } from "@/components/ui";
+import { cn } from "@/lib/utils";
 import { employeeService } from "@/services/employee.service";
 import { jobService } from "@/services/job.service";
 import { matchService } from "@/services/match.service";
-import { mailService, type CredentialStatus, type MailLog } from "@/services/mail.service";
+import { mailService, type MailLog } from "@/services/mail.service";
 import type { DuplicateApplyError, DuplicateApplyFrontman } from "@/services/match.service";
 import type { Employee } from "@/types/employee.types";
 import type { EmployeeJobMatch, JobLite, MatchStatus } from "@/types/match.types";
 
-const T = {
-  accent: "#167a7a", accent50: "#e8f4f4", accent100: "#c8e5e5",
-  success: "oklch(0.62 0.17 155)", success50: "oklch(0.96 0.04 155)",
-  danger: "oklch(0.60 0.22 25)", danger50: "oklch(0.96 0.03 25)",
-  warning: "oklch(0.62 0.13 70)", warning50: "oklch(0.97 0.04 75)",
-  ink: "oklch(0.18 0.02 265)", ink2: "oklch(0.38 0.015 265)",
-  ink3: "oklch(0.56 0.012 265)", ink4: "oklch(0.72 0.008 265)",
-  surface: "#ffffff", surface2: "oklch(0.97 0.005 85)", surface3: "oklch(0.945 0.006 85)",
-  line: "rgba(226,232,240,0.7)",
-};
-
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
+const PAGE_SIZE = 10;
 
-const SHOW_MATCH_PCT = true;
-
-const PAGE_SIZE = 10; // job list loads the top 10, then 10 more on demand
-
-// i18n label key per status under matchStatus.*; colors stay here.
-const STATUS_META: Record<MatchStatus, { key: string; bg: string; color: string }> = {
-  suggested: { key: "suggested", bg: T.surface3, color: T.ink2 },
-  pursuing: { key: "pursuing", bg: T.accent100, color: "#0e5353" },
-  applied: { key: "applied", bg: "oklch(0.94 0.05 280)", color: "oklch(0.45 0.16 280)" },
-  won: { key: "won", bg: T.accent100, color: "#0e5353" },
-  in_progress: { key: "inProgress", bg: T.warning50, color: "oklch(0.55 0.12 70)" },
-  completed: { key: "completed", bg: T.success50, color: T.success },
-  lost: { key: "lost", bg: T.danger50, color: T.danger },
-  dismissed: { key: "dismissed", bg: T.surface3, color: T.ink4 },
+// internal palette for the rich score breakdown (semantic, not brand)
+const C = {
+  success: "#1f9e6e", successBg: "#E7F6EF",
+  warning: "#C77700", warningBg: "#FBF1DC",
+  danger: "#E0533A", dangerBg: "#FCEDEA",
+  blue: "#0064E5", blueBg: "#EEF2FB",
 };
 
+const STATUS_META: Record<MatchStatus, { key: string; bg: string; color: string }> = {
+  suggested: { key: "suggested", bg: "#F2F3F5", color: "#5B6470" },
+  pursuing: { key: "pursuing", bg: C.blueBg, color: C.blue },
+  applied: { key: "applied", bg: "rgba(124,77,208,.12)", color: "#7C4DD0" },
+  won: { key: "won", bg: C.successBg, color: C.success },
+  in_progress: { key: "inProgress", bg: C.warningBg, color: C.warning },
+  completed: { key: "completed", bg: C.successBg, color: C.success },
+  lost: { key: "lost", bg: C.dangerBg, color: C.danger },
+  dismissed: { key: "dismissed", bg: "#F2F3F5", color: "#A2A8B0" },
+};
+
+// source/platform brand dot colour
+const SRC_COLOR: Record<string, string> = {
+  freelancer: "#0E76A8", indeed: "#2557A7", linkedin: "#0A66C2",
+  remoteok: "#E0533A", remotive: "#7C4DD0", adzuna: "#1F9E6E",
+};
+const srcColor = (name?: string) => SRC_COLOR[(name || "").toLowerCase().replace(/\s+/g, "")] ?? "#6B7079";
+
+const matchColor = (pct: number) => (pct >= 95 ? "#1F9E6E" : pct >= 85 ? "#0064E5" : "#C77700");
 
 function initials(name: string): string {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -79,18 +82,16 @@ function initials(name: string): string {
 function jobPostedLabel(j: JobLite, t: TFunction): string {
   const iso = j.date_posted || j.created_at;
   if (!iso) return "";
-  const d = new Date(iso);
-  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
   if (days <= 0) return t("posted.today");
   if (days === 1) return t("posted.dayAgo");
   if (days < 30) return t("posted.daysAgo", { count: days });
-  return d.toLocaleDateString("vi-VN", { dateStyle: "short" });
+  return new Date(iso).toLocaleDateString("vi-VN", { dateStyle: "short" });
 }
 
 const SALARY_PERIOD_SUFFIX: Record<string, string> = {
   hourly: "/hr", daily: "/day", weekly: "/wk", monthly: "/mo", annual: "/yr",
 };
-
 function fmtSalary(j: JobLite): string {
   const c = j.salary_currency || "$";
   const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`);
@@ -111,111 +112,197 @@ function StatusChip({ status }: { status: MatchStatus }) {
   const { t } = useTranslation("employees");
   const m = STATUS_META[status];
   return (
-    <span style={{ padding: "3px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: m.bg, color: m.color }}>
+    <span className="rounded-jn-pill px-2.5 py-[3px] text-[12px] font-semibold" style={{ background: m.bg, color: m.color }}>
       {t(`matchStatus.${m.key}`)}
     </span>
   );
 }
 
-function MetaRow({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  if (!children) return null;
+/* ── match ring ─────────────────────────────────────────────────────── */
+function Ring({ pct, size = 80, stroke = 7, color }: { pct: number; size?: number; stroke?: number; color: string }) {
+  const r = (size - stroke) / 2 - 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - Math.max(0, Math.min(1, pct / 100)));
+  const c = size / 2;
+  const { t } = useTranslation("employees");
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: T.ink2 }}>
-      <span style={{ color: T.ink4, display: "flex" }}>{icon}</span>
-      {children}
-    </span>
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={c} cy={c} r={r} fill="none" stroke="#EEF0F2" strokeWidth={stroke} />
+        <circle
+          cx={c} cy={c} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={circ} strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset .7s cubic-bezier(.2,.7,.2,1), stroke .3s" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-[20px] font-extrabold leading-none" style={{ color }}>{pct}%</span>
+        <span className="text-[8.5px] font-bold tracking-[0.08em] text-jn-faint">{t("job.match").toUpperCase()}</span>
+      </div>
+    </div>
   );
 }
 
-/* ---------------- left: job list card ---------------- */
+/* ── left: job list card ────────────────────────────────────────────── */
 function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; selected: boolean; onSelect: () => void }) {
   const { t } = useTranslation("employees");
   const j = match.job;
+  const pct = Math.round((match.match_score || 0) * 100);
+  const mc = matchColor(pct);
   return (
     <button
       type="button"
       onClick={onSelect}
-      style={{
-        display: "block", width: "100%", textAlign: "left", cursor: "pointer",
-        padding: 14, borderRadius: 14, border: `1px solid ${selected ? T.accent : T.line}`,
-        background: selected ? T.accent50 : T.surface, transition: "all 0.12s",
-      }}
+      className={cn(
+        "block w-full cursor-pointer rounded-[14px] border-[1.5px] p-[15px] text-left transition-[background,border-color,box-shadow] duration-200",
+        selected
+          ? "border-[#0064E5] bg-[#F5F9FF] shadow-[0_8px_22px_rgba(0,100,229,.12)]"
+          : "border-jn-line-2 bg-jn-surface hover:border-[#C9D8F5] hover:shadow-[0_6px_18px_rgba(20,20,40,.06)]",
+      )}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
-        <span style={{ fontWeight: 700, fontSize: 14, color: T.ink, lineHeight: 1.3 }}>{j.title}</span>
-        {SHOW_MATCH_PCT && (
-          <span style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 700, color: T.accent }}>
-            {Math.round((match.match_score || 0) * 100)}%
-          </span>
-        )}
+      <div className="flex items-start justify-between gap-3">
+        <span className="text-[14.5px] font-bold leading-[1.3] text-jn-ink">{j.title}</span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span className="h-[7px] w-[7px] rounded-full" style={{ background: mc }} />
+          <span className="text-[13.5px] font-extrabold" style={{ color: mc }}>{pct}%</span>
+        </span>
       </div>
-      <div style={{ fontSize: 12.5, color: T.ink3, marginTop: 3 }}>
+      <div className="mt-[5px] text-[12px] text-jn-muted">
         {j.company_name || "—"}{j.location ? ` · ${j.location}` : ""}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-        {match.status !== "suggested" && <StatusChip status={match.status} />}
-        {j.platform_name && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px 2px 6px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: T.surface3, color: T.ink3 }}>
-            {j.platform_logo && (
-              <img
-                src={j.platform_logo}
-                alt=""
-                width={14}
-                height={14}
-                style={{ borderRadius: 3, objectFit: "contain" }}
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-              />
-            )}
-            {j.platform_name}
-          </span>
-        )}
-        {j.job_type && <span style={{ fontSize: 11.5, color: T.ink4 }}>{j.job_type}</span>}
-        {jobPostedLabel(j, t) && (
-          <span style={{ marginLeft: "auto", fontSize: 11.5, color: T.ink4 }}>{jobPostedLabel(j, t)}</span>
-        )}
+      <div className="mt-[11px] flex items-center justify-between">
+        <div className="flex items-center gap-[7px]">
+          {j.platform_name && (
+            <span className="flex items-center gap-[5px] rounded-jn-pill bg-[#F2F3F5] px-[9px] py-1 text-[11px] font-semibold text-jn-ink-soft">
+              <span className="h-[7px] w-[7px] rounded-[3px]" style={{ background: srcColor(j.platform_name) }} />
+              {j.platform_name}
+            </span>
+          )}
+          {j.job_type && <span className="text-[11px] text-jn-faint">{j.job_type}</span>}
+        </div>
+        {jobPostedLabel(j, t) && <span className="text-[11px] text-jn-faint">{jobPostedLabel(j, t)}</span>}
       </div>
     </button>
   );
 }
 
+/* ── score-breakdown helpers (rich detail kept) ─────────────────────── */
 const DIM_LABEL_KEYS: Record<string, string> = {
-  skill_fit: "why.dim.skillFit",
-  experience_fit: "why.dim.experienceFit",
-  seniority_fit: "why.dim.seniorityFit",
-  domain_fit: "why.dim.domainFit",
+  skill_fit: "why.dim.skillFit", experience_fit: "why.dim.experienceFit",
+  seniority_fit: "why.dim.seniorityFit", domain_fit: "why.dim.domainFit",
 };
 const DIM_ORDER = ["skill_fit", "experience_fit", "seniority_fit", "domain_fit"];
-
-// dim_scores are numeric [0,1]; tolerate legacy good/ok/weak strings.
 function dimNum(raw: number | string): number {
   if (typeof raw === "number") return raw;
   return ({ good: 1, ok: 0.6, weak: 0.3 } as Record<string, number>)[raw] ?? 0;
 }
 function dimTone(v: number): string {
-  return v >= 0.7 ? T.success : v >= 0.4 ? T.warning : T.danger;
+  return v >= 0.7 ? C.success : v >= 0.4 ? C.warning : C.danger;
 }
-
-function ScoreBar({ label, value, hint, tone = T.accent }: { label: string; value: number; hint?: string; tone?: string }) {
+function ScoreBar({ label, value, hint, tone = C.blue }: { label: string; value: number; hint?: string; tone?: string }) {
   const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: T.ink2 }}>{label}</span>
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: tone }}>{pct}%</span>
+    <div className="mb-3">
+      <div className="mb-1 flex items-baseline justify-between">
+        <span className="text-[12.5px] font-semibold text-jn-ink-soft">{label}</span>
+        <span className="text-[12.5px] font-bold" style={{ color: tone }}>{pct}%</span>
       </div>
-      <div style={{ height: 6, borderRadius: 999, background: T.surface3, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: tone, borderRadius: 999 }} />
+      <div className="h-1.5 overflow-hidden rounded-jn-pill bg-jn-sunken">
+        <div className="h-full rounded-jn-pill" style={{ width: `${pct}%`, background: tone }} />
       </div>
-      {hint && <div style={{ fontSize: 11.5, color: T.ink4, marginTop: 3 }}>{hint}</div>}
+      {hint && <div className="mt-1 text-[11.5px] text-jn-faint">{hint}</div>}
     </div>
   );
 }
 
-/* ---------------- right: job detail panel ---------------- */
+function ScoreBreakdown({ match }: { match: EmployeeJobMatch }) {
+  const { t } = useTranslation("employees");
+  const matched = match.matched_skills?.length ?? 0;
+  const missing = match.missing_skills?.length ?? 0;
+  const reqTotal = matched + missing;
+  const skillCoverage = reqTotal ? matched / reqTotal : 1;
+  const gap = match.seniority_gap;
+  const seniorityFit = gap == null ? 0.5 : Math.max(0, 1 - Math.abs(gap) * 0.3);
+  const overall = match.match_score || 0;
+  const covered = match.covered_skills ?? {};
+  const trulyMissing = (match.missing_skills ?? []).filter((s) => !(s in covered));
+
+  return (
+    <div className="mt-3">
+      <ScoreBar label={t("why.overallMatch")} value={overall} />
+      {Object.keys(match.dim_scores ?? {}).length > 0 ? (
+        DIM_ORDER.filter((k) => match.dim_scores?.[k] != null).map((k) => {
+          const v = dimNum(match.dim_scores![k]);
+          return <ScoreBar key={k} label={DIM_LABEL_KEYS[k] ? t(DIM_LABEL_KEYS[k]) : k} value={v} tone={dimTone(v)} />;
+        })
+      ) : (
+        <>
+          <ScoreBar label={t("why.skillCoverage")} value={skillCoverage} tone={C.success}
+            hint={t("why.skillCoverageHint", { matched, total: reqTotal || matched })} />
+          <ScoreBar label={t("why.seniorityFit")} value={seniorityFit} tone={C.warning} hint={seniorityGapLabel(gap, t)} />
+          <div className="mb-2 text-[11.5px] text-jn-faint">{t("why.refreshHint")}</div>
+        </>
+      )}
+
+      {/* provenance */}
+      {(() => {
+        const bd = match.score_breakdown;
+        if (!bd || !bd.stage1 || !Object.keys(bd.stage1).length) return null;
+        const w = bd.weights ?? {};
+        const s1 = bd.stage1 ?? {};
+        const COMP_LABELS: Record<string, string> = { gnn: "GNN", skill: "Skill", seniority: "Seniority", domain: "Domain" };
+        const gateLabels: Record<string, string> = {
+          domain: t("why.compute.gateLabel.domain"), experience: t("why.compute.gateLabel.experience"), seniority: t("why.compute.gateLabel.seniority"),
+        };
+        const firedGates = Object.entries(bd.gates ?? {}).filter(([, v]) => v != null) as [string, number][];
+        return (
+          <div className="mb-3 mt-1 rounded-[10px] border border-dashed border-jn-line-3 bg-jn-surface px-3 py-2.5">
+            <div className="mb-1.5 text-[11.5px] font-bold uppercase tracking-[0.04em] text-jn-muted">{t("why.compute.title")}</div>
+            <div className="font-mono text-[12px] leading-[1.7] text-jn-ink-soft">
+              <div>
+                <span className="text-jn-muted">{t("why.compute.stage1")}&nbsp;&nbsp;</span>
+                {(["gnn", "skill", "seniority", "domain"] as const).filter((k) => s1[k] != null && w[k] != null).map((k, i) => (
+                  <span key={k}>{i > 0 && " + "}{w[k]}×{COMP_LABELS[k]}({s1[k]})</span>
+                ))}
+                {s1.stage1 != null && <span className="font-bold"> = {s1.stage1}</span>}
+              </div>
+              {bd.reranker != null && (
+                <div><span className="text-jn-muted">{t("why.compute.stage2")}&nbsp;</span>{bd.reranker} <span className="text-jn-faint">{t("why.compute.stage2Note")}</span></div>
+              )}
+              <div>
+                <span className="text-jn-muted">{t("why.compute.gates")}&nbsp;&nbsp;&nbsp;</span>
+                {firedGates.length ? firedGates.map(([k, v]) => `${gateLabels[k] ?? k} ×${v}`).join(" · ") : t("why.compute.noGates")}
+              </div>
+              {bd.calibrated != null && bd.rank_score != null && (
+                <div>
+                  <span className="text-jn-muted">{t("why.compute.calibration")}&nbsp;&nbsp;</span>
+                  rank {bd.rank_score} → <span className="font-bold">P = {bd.calibrated}</span>
+                  <span className="text-jn-faint"> {t("why.compute.display")}</span>
+                </div>
+              )}
+            </div>
+            <div className="mt-1.5 text-[11px] leading-[1.5] text-jn-faint">{t("why.compute.footnote")}</div>
+          </div>
+        );
+      })()}
+
+      {/* missing skills */}
+      <div className="mt-1">
+        <div className="mb-1 text-[12px] text-jn-muted">{t("why.missingSkills")}</div>
+        <div className="flex flex-wrap gap-1.5">
+          {trulyMissing.map((s) => (
+            <span key={s} className="rounded-jn-pill px-2.5 py-0.5 text-[11.5px] font-medium" style={{ background: C.dangerBg, color: C.danger }}>{s}</span>
+          ))}
+          {!trulyMissing.length && <span className="text-[12px]" style={{ color: C.success }}>{t("why.meetsAll")}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── right: job detail panel ────────────────────────────────────────── */
 function JobDetailPanel({
-  match,
-  onApply,
-  onDismiss,
+  match, onApply, onDismiss,
 }: {
   match: EmployeeJobMatch;
   onApply: (m: EmployeeJobMatch) => void;
@@ -224,269 +311,182 @@ function JobDetailPanel({
   const { t } = useTranslation("employees");
   const j = match.job;
   const salary = fmtSalary(j);
+  const pct = Math.round((match.match_score || 0) * 100);
+  const mc = matchColor(pct);
   const [desc, setDesc] = useState<string | null>(null);
   const [descLoading, setDescLoading] = useState(true);
-  const [whyOpen, setWhyOpen] = useState(false);
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
   const [thread, setThread] = useState<MailLog[]>([]);
-  useEffect(() => {
-    mailService.thread(match.id).then(setThread).catch(() => setThread([]));
-  }, [match.id]);
+
+  useEffect(() => { mailService.thread(match.id).then(setThread).catch(() => setThread([])); }, [match.id]);
   useEffect(() => {
     let alive = true;
-    setDescLoading(true);
-    setDesc(null);
-    jobService
-      .getJob(j.id)
-      .then((d) => { if (alive) setDesc(d.description || ""); })
-      .catch(() => { if (alive) setDesc(""); })
-      .finally(() => { if (alive) setDescLoading(false); });
+    setDescLoading(true); setDesc(null);
+    jobService.getJob(j.id).then((d) => { if (alive) setDesc(d.description || ""); })
+      .catch(() => { if (alive) setDesc(""); }).finally(() => { if (alive) setDescLoading(false); });
     return () => { alive = false; };
   }, [j.id]);
+
+  const tracked = match.status === "applied" || match.status === "won" || match.status === "lost";
+
+  // matched + near-miss skills for the green panel
+  const covered = match.covered_skills ?? {};
+  const matchedList = match.matched_skills ?? [];
+  const nearMisses = (match.missing_skills ?? []).filter((s) => s in covered);
+  const whyText = `${t("why.skillCoverageHint", { matched: matchedList.length, total: matchedList.length + (match.missing_skills?.length ?? 0) })}. ${seniorityGapLabel(match.seniority_gap, t)}.`;
+
   return (
-    <div style={{ padding: 22 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-        <div style={{ minWidth: 0 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", margin: 0, color: T.ink, lineHeight: 1.2 }}>{j.title}</h2>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 8 }}>
-            <MetaRow icon={<IconBuilding size={14} />}>{j.company_name}</MetaRow>
-            <MetaRow icon={<IconMapPin size={14} />}>{j.location}</MetaRow>
-            {j.seniority != null && <MetaRow icon={<IconBriefcase size={14} />}>{SENIORITY_LABELS[j.seniority] ?? j.seniority}</MetaRow>}
-            {j.applicant_count && <MetaRow icon={<IconUsers size={14} />}>{t("job.applicants", { count: j.applicant_count })}</MetaRow>}
-            {j.date_posted && <MetaRow icon={<IconCalendar size={14} />}>{new Date(j.date_posted).toLocaleDateString("vi-VN")}</MetaRow>}
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-            {salary && <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, background: T.success50, color: T.success }}>{salary}</span>}
-            {j.job_type && <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 500, background: T.surface3, color: T.ink2 }}>{j.job_type}</span>}
-            <span style={{ padding: "3px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 500, background: j.is_active ? T.success50 : T.surface3, color: j.is_active ? T.success : T.ink4 }}>
-              {j.is_active ? t("job.active") : t("job.closed")}
-            </span>
+    <div className="p-[30px]">
+      {/* header */}
+      <div className="flex items-start justify-between gap-6">
+        <div className="min-w-0 flex-1">
+          <h1 className="m-0 text-[25px] font-extrabold leading-[1.2] tracking-[-0.02em] text-jn-ink">{j.title}</h1>
+          <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {j.company_name && <Meta icon={<IconBuilding size={15} />}>{j.company_name}</Meta>}
+            {j.location && <Meta icon={<IconMapPin size={15} />}>{j.location}</Meta>}
+            {j.seniority != null && <Meta icon={<IconBriefcase size={15} />}>{SENIORITY_LABELS[j.seniority] ?? j.seniority}</Meta>}
+            {j.applicant_count && <Meta icon={<IconUsers size={15} />}>{t("job.applicants", { count: j.applicant_count })}</Meta>}
+            {j.date_posted && <Meta icon={<IconCalendar size={15} />}>{new Date(j.date_posted).toLocaleDateString("vi-VN")}</Meta>}
           </div>
         </div>
-        {SHOW_MATCH_PCT && (
-          <div style={{ flexShrink: 0, textAlign: "center" }}>
-            <div style={{ fontSize: 30, fontWeight: 800, color: T.accent, lineHeight: 1 }}>{Math.round((match.match_score || 0) * 100)}<span style={{ fontSize: 15 }}>%</span></div>
-            <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: T.ink4, marginTop: 2 }}>{t("job.match")}</div>
-          </div>
-        )}
+        <Ring pct={pct} color={mc} />
       </div>
 
-      {/* Actions */}
-      <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        {match.status === "applied" || match.status === "won" || match.status === "lost" ? (
+      {/* chips */}
+      <div className="mt-[18px] flex flex-wrap items-center gap-2.5">
+        {salary && <span className="rounded-jn-pill px-[13px] py-1.5 text-[12.5px] font-bold" style={{ background: C.successBg, color: C.success }}>{salary}</span>}
+        {j.job_type && <span className="rounded-jn-pill bg-[#F2F3F5] px-[13px] py-1.5 text-[12.5px] font-semibold text-jn-ink-soft">{j.job_type}</span>}
+        <span className="flex items-center gap-1.5 rounded-jn-pill px-[13px] py-1.5 text-[12.5px] font-semibold"
+          style={{ background: j.is_active ? C.successBg : "#F2F3F5", color: j.is_active ? C.success : "#A2A8B0" }}>
+          {j.is_active && <span className="h-1.5 w-1.5 rounded-full" style={{ background: C.success }} />}
+          {j.is_active ? t("job.active") : t("job.closed")}
+        </span>
+      </div>
+
+      {/* actions */}
+      <div className="mt-[22px] flex flex-wrap items-center gap-3">
+        {tracked ? (
           <>
             <StatusChip status={match.status} />
-            <span style={{ fontSize: 12.5, color: T.ink3 }}>{t("job.inJobTracking")}</span>
-            {j.source_url && (
-              <a href={j.source_url} target="_blank" rel="noreferrer"
-                style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 600, color: T.accent, textDecoration: "none" }}>
-                {t("job.openPosting")} <IconExternalLink size={13} />
-              </a>
-            )}
+            <span className="text-[12.5px] text-jn-ink-mute">{t("job.inJobTracking")}</span>
           </>
         ) : (
           <>
-            <Button color="primary" startContent={<IconExternalLink size={15} />} onPress={() => onApply(match)}>
+            <Button variant="primary" size="md" leftIcon={<IconExternalLink size={16} />} onClick={() => onApply(match)}>
               {t("job.apply")}
             </Button>
-            <Button variant="light" color="danger" startContent={<IconX size={15} />} onPress={() => onDismiss(match)}>
-              {t("job.dismiss")}
-            </Button>
-          </>
-        )}
-      </div>
-
-      {j.source_url && (
-        <a href={j.source_url} target="_blank" rel="noreferrer"
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 14, fontSize: 13, fontWeight: 600, color: T.accent, textDecoration: "none" }}>
-          {t("job.viewOriginal")} <IconExternalLink size={14} />
-        </a>
-      )}
-
-      {/* Why it matches — accordion */}
-      {(() => {
-        const matched = match.matched_skills?.length ?? 0;
-        const missing = match.missing_skills?.length ?? 0;
-        const reqTotal = matched + missing;
-        const skillCoverage = reqTotal ? matched / reqTotal : 1;
-        const gap = match.seniority_gap;
-        const seniorityFit = gap == null ? 0.5 : Math.max(0, 1 - Math.abs(gap) * 0.3);
-        const overall = match.match_score || 0;
-        return (
-          <div style={{ marginTop: 20, borderRadius: 14, background: T.surface2, overflow: "hidden" }}>
             <button
               type="button"
-              onClick={() => setWhyOpen((o) => !o)}
-              style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: 16, background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+              onClick={() => onDismiss(match)}
+              className="flex items-center gap-2 rounded-[11px] border border-jn-line-3 bg-jn-surface px-5 py-3 text-[14px] font-semibold text-jn-ink-mute transition-colors hover:bg-[#FCEDEA] hover:text-[#E0533A]"
             >
-              <span style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink3 }}>{t("why.title")}</span>
-              <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>{t("why.matchPct", { pct: Math.round(overall * 100) })}</span>
-                <IconChevronDown size={16} style={{ color: T.ink4, transition: "transform 0.15s", transform: whyOpen ? "rotate(180deg)" : "none" }} />
-              </span>
+              <IconX size={16} />
+              {t("job.dismiss")}
             </button>
-            {whyOpen && (
-              <div style={{ padding: "0 16px 16px" }}>
-                <ScoreBar label={t("why.overallMatch")} value={overall} />
-
-                {Object.keys(match.dim_scores ?? {}).length > 0 ? (
-                  <div style={{ marginBottom: 4 }}>
-                    {DIM_ORDER.filter((k) => match.dim_scores?.[k] != null).map((k) => {
-                      const v = dimNum(match.dim_scores![k]);
-                      return <ScoreBar key={k} label={DIM_LABEL_KEYS[k] ? t(DIM_LABEL_KEYS[k]) : k} value={v} tone={dimTone(v)} />;
-                    })}
-                  </div>
-                ) : (
-                  <>
-                    <ScoreBar label={t("why.skillCoverage")} value={skillCoverage} tone={T.success}
-                      hint={t("why.skillCoverageHint", { matched, total: reqTotal || matched })} />
-                    <ScoreBar label={t("why.seniorityFit")} value={seniorityFit} tone={T.warning}
-                      hint={seniorityGapLabel(gap, t)} />
-                    <div style={{ fontSize: 11.5, color: T.ink4, marginBottom: 8 }}>
-                      {t("why.refreshHint")}
-                    </div>
-                  </>
-                )}
-
-                {/* 025: How this score is computed — provenance đầy đủ của Overall */}
-                {(() => {
-                  const bd = match.score_breakdown;
-                  if (!bd || !bd.stage1 || !Object.keys(bd.stage1).length) return null;
-                  const w = bd.weights ?? {};
-                  const s1 = bd.stage1 ?? {};
-                  const COMP_LABELS: Record<string, string> = { gnn: "GNN", skill: "Skill", seniority: "Seniority", domain: "Domain" };
-                  const gateLabels: Record<string, string> = {
-                    domain: t("why.compute.gateLabel.domain"),
-                    experience: t("why.compute.gateLabel.experience"),
-                    seniority: t("why.compute.gateLabel.seniority"),
-                  };
-                  const firedGates = Object.entries(bd.gates ?? {}).filter(([, v]) => v != null) as [string, number][];
-                  return (
-                    <div style={{ marginTop: 4, marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: T.surface, border: `1px dashed ${T.border ?? "#e2e8f0"}` }}>
-                      <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: T.ink3, marginBottom: 6 }}>
-                        {t("why.compute.title")}
-                      </div>
-                      <div style={{ fontSize: 12, color: T.ink2, lineHeight: 1.7, fontFamily: "ui-monospace, monospace" }}>
-                        <div>
-                          <span style={{ color: T.ink3 }}>{t("why.compute.stage1")}&nbsp;&nbsp;</span>
-                          {(["gnn", "skill", "seniority", "domain"] as const)
-                            .filter((k) => s1[k] != null && w[k] != null)
-                            .map((k, i) => (
-                              <span key={k}>{i > 0 && " + "}{w[k]}×{COMP_LABELS[k]}({s1[k]})</span>
-                            ))}
-                          {s1.stage1 != null && <span style={{ fontWeight: 700 }}> = {s1.stage1}</span>}
-                        </div>
-                        {bd.reranker != null && (
-                          <div><span style={{ color: T.ink3 }}>{t("why.compute.stage2")}&nbsp;</span>{bd.reranker} <span style={{ color: T.ink4 }}>{t("why.compute.stage2Note")}</span></div>
-                        )}
-                        <div>
-                          <span style={{ color: T.ink3 }}>{t("why.compute.gates")}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-                          {firedGates.length
-                            ? firedGates.map(([k, v]) => `${gateLabels[k] ?? k} ×${v}`).join(" · ")
-                            : t("why.compute.noGates")}
-                        </div>
-                        {bd.calibrated != null && bd.rank_score != null && (
-                          <div>
-                            <span style={{ color: T.ink3 }}>{t("why.compute.calibration")}&nbsp;&nbsp;</span>
-                            rank {bd.rank_score} → <span style={{ fontWeight: 700 }}>P = {bd.calibrated}</span>
-                            <span style={{ color: T.ink4 }}> {t("why.compute.display")}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 11, color: T.ink4, marginTop: 6, lineHeight: 1.5 }}>
-                        {t("why.compute.footnote")}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 025: 1 list chung — matched (xanh) + covered-by-related (vàng, "react ≈ vuejs");
-                    Missing chỉ còn gap thật. Giải thích trực tiếp cách skill_fit tính
-                    (matched = full credit, covered = half credit, missing = 0). */}
-                {(() => {
-                  const covered = match.covered_skills ?? {};
-                  const allMissing = match.missing_skills ?? [];
-                  const trulyMissing = allMissing.filter((s) => !(s in covered));
-                  const nearMisses = allMissing.filter((s) => s in covered);
-                  const matchedList = match.matched_skills ?? [];
-                  return (
-                    <div style={{ marginTop: 6 }}>
-                      <div style={{ marginBottom: 10 }}>
-                        <div style={{ fontSize: 12, color: T.ink3, marginBottom: 4 }}>{t("why.matchedSkills")}</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                          {matchedList.map((s) => (
-                            <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.success50, color: T.success }}>{s}</span>
-                          ))}
-                          {nearMisses.map((s) => (
-                            <Tooltip
-                              key={s}
-                              placement="top"
-                              delay={0}
-                              closeDelay={50}
-                              content={
-                                <div style={{ maxWidth: 240, fontSize: 12, lineHeight: 1.5, padding: 2 }}>
-                                  <Trans i18nKey="why.nearMissTooltip" t={t} values={{ skill: s, covered: covered[s] }} components={[<b key="0" />, <b key="1" />]} />
-                                </div>
-                              }
-                            >
-                              <span style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.warning50 ?? "#fff7ed", color: "oklch(0.55 0.12 70)", cursor: "help" }}>
-                                {s} <span style={{ opacity: 0.7 }}>≈ {covered[s]}</span>
-                              </span>
-                            </Tooltip>
-                          ))}
-                          {!matchedList.length && !nearMisses.length && <span style={{ fontSize: 12, color: T.ink4 }}>{t("why.none")}</span>}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 12, color: T.ink3, marginBottom: 4 }}>{t("why.missingSkills")}</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                          {trulyMissing.map((s) => (
-                            <span key={s} style={{ padding: "2px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.danger50, color: T.danger }}>{s}</span>
-                          ))}
-                          {!trulyMissing.length && <span style={{ fontSize: 12, color: T.success }}>{t("why.meetsAll")}</span>}
-                        </div>
-                      </div>
-                    </div>                  );
-                })()}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Job description */}
-      <div style={{ marginTop: 20 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink3, marginBottom: 8 }}>{t("job.description")}</div>
-        {descLoading ? (
-          <div style={{ fontSize: 13, color: T.ink4 }}>{t("job.loadingDescription")}</div>
-        ) : desc ? (
-          <div style={{ fontSize: 13, lineHeight: 1.65, color: T.ink2, whiteSpace: "pre-line" }}>{desc}</div>
-        ) : (
-          <div style={{ fontSize: 13, color: T.ink4 }}>{t("job.noDescription")}</div>
+            <button
+              type="button"
+              className="flex items-center rounded-[11px] border border-jn-line-3 bg-jn-surface p-3 text-jn-ink-mute transition-colors hover:bg-jn-sunken"
+              aria-label="Bookmark"
+            >
+              <IconBookmark size={16} />
+            </button>
+          </>
+        )}
+        {j.source_url && (
+          <a href={j.source_url} target="_blank" rel="noreferrer"
+            className="ml-1 flex items-center gap-1.5 text-[13px] font-semibold text-jn-primary hover:underline">
+            {t("job.viewOriginal")} <IconExternalLink size={14} />
+          </a>
         )}
       </div>
 
-      {/* 026: mail thread for this application */}
+      {/* WHY IT MATCHES */}
+      <div className="mt-6 rounded-[14px] border border-[#D5EFE2] p-[18px]" style={{ background: "linear-gradient(180deg,#F3FBF7,#FAFEFC)" }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-7 w-7 place-items-center rounded-[9px] text-white" style={{ background: C.success }}>
+              <IconSparkles size={15} />
+            </span>
+            <span className="text-[12.5px] font-bold tracking-[0.03em] text-jn-ink">{t("why.title").toUpperCase()}</span>
+          </div>
+          <span className="text-[13.5px] font-extrabold" style={{ color: C.success }}>{t("why.matchPct", { pct })}</span>
+        </div>
+        <div className="mt-3 text-[13px] leading-[1.6] text-jn-ink-soft">{whyText}</div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {matchedList.map((s) => (
+            <span key={s} className="flex items-center gap-1.5 rounded-jn-pill border border-[#CFEBDD] bg-white px-[11px] py-[5px] text-[12px] font-semibold" style={{ color: "#1F8A5B" }}>
+              <IconCheck size={13} style={{ color: C.success }} />{s}
+            </span>
+          ))}
+          {nearMisses.map((s) => (
+            <Tooltip key={s} placement="top" delay={0} closeDelay={50}
+              content={<div className="max-w-[240px] p-0.5 text-[12px] leading-[1.5]">
+                <Trans i18nKey="why.nearMissTooltip" t={t} values={{ skill: s, covered: covered[s] }} components={[<b key="0" />, <b key="1" />]} />
+              </div>}>
+              <span className="flex cursor-help items-center gap-1 rounded-jn-pill border border-[#F3E4C2] bg-white px-[11px] py-[5px] text-[12px] font-semibold" style={{ color: C.warning }}>
+                {s} <span className="opacity-70">≈ {covered[s]}</span>
+              </span>
+            </Tooltip>
+          ))}
+          {!matchedList.length && !nearMisses.length && <span className="text-[12px] text-jn-faint">{t("why.none")}</span>}
+        </div>
+
+        {/* score details toggle */}
+        <button
+          type="button"
+          onClick={() => setBreakdownOpen((o) => !o)}
+          className="mt-3 flex items-center gap-1.5 text-[12px] font-semibold text-jn-primary"
+        >
+          {t("why.compute.title")}
+          <IconChevronDown size={14} className={cn("transition-transform", breakdownOpen && "rotate-180")} />
+        </button>
+        {breakdownOpen && <ScoreBreakdown match={match} />}
+      </div>
+
+      {/* job description */}
+      <div className="mt-6">
+        <div className="mb-3 text-[12.5px] font-bold uppercase tracking-[0.04em] text-jn-muted">{t("job.description")}</div>
+        {descLoading ? (
+          <div className="text-[13px] text-jn-faint">{t("job.loadingDescription")}</div>
+        ) : desc ? (
+          <div className="whitespace-pre-line text-[14px] leading-[1.7] text-jn-ink-soft">{desc}</div>
+        ) : (
+          <div className="text-[13px] text-jn-faint">{t("job.noDescription")}</div>
+        )}
+      </div>
+
+      {/* mail thread */}
       {thread.length > 0 && (
-        <div style={{ marginTop: 20 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink3, marginBottom: 8 }}>{t("job.emailThread")}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="mt-6">
+          <div className="mb-3 text-[12.5px] font-bold uppercase tracking-[0.04em] text-jn-muted">{t("job.emailThread")}</div>
+          <div className="flex flex-col gap-2">
             {thread.map((e) => (
-              <div key={e.id} style={{ borderRadius: 10, border: `1px solid ${e.is_bounce ? T.danger : T.line}`,
-                                       background: e.direction === "in" ? T.accent50 : T.surface, padding: "10px 12px" }}>
-                <div style={{ fontSize: 11.5, color: T.ink4, marginBottom: 4 }}>
+              <div key={e.id} className="rounded-[10px] px-3 py-2.5"
+                style={{ border: `1px solid ${e.is_bounce ? C.danger : "#EFEFF1"}`, background: e.direction === "in" ? C.blueBg : "#fff" }}>
+                <div className="mb-1 text-[11.5px] text-jn-faint">
                   {e.direction === "out" ? t("job.sentTo", { addr: e.to_addr }) : t("job.replyFrom", { addr: e.from_addr })}
-                  {e.is_bounce && <span style={{ color: T.danger, fontWeight: 700 }}> · {t("job.deliveryFailed")}</span>}
-                  {e.cv_attached && <span style={{ color: T.success }}> · {t("job.cvAttached")}</span>}
-                  <span style={{ marginLeft: 8 }}>{new Date(e.created_at).toLocaleString("vi-VN")}</span>
+                  {e.is_bounce && <span className="font-bold" style={{ color: C.danger }}> · {t("job.deliveryFailed")}</span>}
+                  {e.cv_attached && <span style={{ color: C.success }}> · {t("job.cvAttached")}</span>}
+                  <span className="ml-2">{new Date(e.created_at).toLocaleString("vi-VN")}</span>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: T.ink2 }}>{e.subject}</div>
-                <div style={{ fontSize: 12.5, color: T.ink2, marginTop: 3, whiteSpace: "pre-line", lineHeight: 1.5 }}>{e.body_text}</div>
+                <div className="text-[13px] font-semibold text-jn-ink-soft">{e.subject}</div>
+                <div className="mt-1 whitespace-pre-line text-[12.5px] leading-[1.5] text-jn-ink-soft">{e.body_text}</div>
               </div>
             ))}
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function Meta({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  if (!children) return null;
+  return (
+    <span className="flex items-center gap-1.5 text-[13px]" style={{ color: "#5B6470" }}>
+      <span className="flex text-jn-muted">{icon}</span>
+      {children}
+    </span>
   );
 }
 
@@ -498,6 +498,7 @@ export default function EmployeeDetailPage() {
   const wantMatch = Number(searchParams.get("match")) || null;
   const empId = Number(id);
   const navigate = useNavigate();
+  const reveal = useReveal();
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [matches, setMatches] = useState<EmployeeJobMatch[]>([]);
@@ -505,19 +506,17 @@ export default function EmployeeDetailPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [tab] = useState<MatchStatus | "all">("all"); // status filter removed from UI; list shows all
   const [sortBy, setSortBy] = useState<"score" | "newest">("score");
-  const [platformFilter, setPlatformFilter] = useState<string>(""); // platform slug; "" = all
+  const [platformFilter, setPlatformFilter] = useState<string>("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [dup, setDup] = useState<{ match: EmployeeJobMatch; frontman: DuplicateApplyFrontman } | null>(null);
   const [applyTarget, setApplyTarget] = useState<EmployeeJobMatch | null>(null);
 
-  // Server-side status filter per tab; matches arrive ranked by score, paginated.
   const listParams = useCallback(
     (pg: number) => ({
       employee: empId,
       ...(platformFilter ? { platform: platformFilter } : {}),
-      hide_applied: true, // already-applied jobs live on the job-tracking pipeline
+      hide_applied: true,
       ordering: sortBy === "newest" ? "-job__created_at" : "-match_score",
       page: pg, page_size: PAGE_SIZE,
     }),
@@ -527,10 +526,7 @@ export default function EmployeeDetailPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [emp, m] = await Promise.all([
-        employeeService.get(empId),
-        matchService.list(listParams(1)),
-      ]);
+      const [emp, m] = await Promise.all([employeeService.get(empId), matchService.list(listParams(1))]);
       setEmployee(emp);
       setMatches(m.results);
       setTotal(m.count ?? m.results.length);
@@ -540,11 +536,11 @@ export default function EmployeeDetailPage() {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empId, listParams]);
 
   useEffect(() => { void reload(); }, [reload]);
 
-  // Pagination: each page REPLACES the list (not append).
   const goToPage = useCallback(async (p: number) => {
     if (loadingMore) return;
     setLoadingMore(true);
@@ -558,10 +554,9 @@ export default function EmployeeDetailPage() {
     } finally {
       setLoadingMore(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadingMore, listParams]);
 
-  // 026: deep-link from a notification (?match=) selects that match if present;
-  // else default to the top match.
   useEffect(() => {
     if (!matches.length) return;
     if (wantMatch && matches.some((m) => m.id === wantMatch)) {
@@ -573,12 +568,10 @@ export default function EmployeeDetailPage() {
 
   const selected = matches.find((m) => m.id === selectedId) || null;
 
-  // Apply: mark the match applied (saved to job tracking) and open the posting.
   const applyToJob = async (match: EmployeeJobMatch, confirmDuplicate = false) => {
     try {
       await matchService.update(match.id, { status: "applied", confirm_duplicate: confirmDuplicate });
-      setDup(null);
-      setApplyTarget(null);
+      setDup(null); setApplyTarget(null);
       addToast({ title: t("toast.applied"), color: "success" });
       if (match.job.source_url) window.open(match.job.source_url, "_blank", "noopener,noreferrer");
       await reload();
@@ -593,13 +586,11 @@ export default function EmployeeDetailPage() {
     }
   };
 
-  // Write email: open the composer with employee + job + match context.
   const goWriteEmail = (match: EmployeeJobMatch) => {
     setApplyTarget(null);
     navigate(`/admin/apply-email?employee=${empId}&job=${match.job.id}&match=${match.id}`);
   };
 
-  // Dismiss: hide from the list, keep out of re-ranking, store as a label.
   const dismissMatch = async (match: EmployeeJobMatch) => {
     try {
       await matchService.update(match.id, { status: "dismissed" });
@@ -610,103 +601,81 @@ export default function EmployeeDetailPage() {
     }
   };
 
-  if (loading && !employee) return <div style={{ padding: 40, color: T.ink3 }}>{t("detail.loading")}</div>;
-  if (!employee) return <div style={{ padding: 40, color: T.ink3 }}>{t("detail.notFound")}</div>;
+  if (loading && !employee) return <div className="p-10 text-jn-ink-mute">{t("detail.loading")}</div>;
+  if (!employee) return <div className="p-10 text-jn-ink-mute">{t("detail.notFound")}</div>;
+
+  const skillsLine = (employee.skills ?? []).slice(0, 4).join(", ");
+  const platforms = employee.matches_count_by_platform?.filter((p) => p.slug) ?? [];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <Button variant="light" isIconOnly onPress={() => navigate("/admin/employees")}>
+    <div ref={reveal} className="flex min-h-0 flex-col">
+      {/* candidate context */}
+      <div className="jn-reveal mb-[18px] flex items-center gap-3.5">
+        <button type="button" onClick={() => navigate("/admin/employees")}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-jn-btn text-jn-ink-mute transition-colors hover:bg-jn-sunken" aria-label="Back">
           <IconArrowLeft size={18} />
-        </Button>
-        <span style={{ width: 48, height: 48, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", background: T.accent50, color: T.accent, fontWeight: 700, fontSize: 17 }}>
+        </button>
+        <span className="grid h-[50px] w-[50px] shrink-0 place-items-center rounded-[13px] text-[16px] font-bold" style={{ background: C.blueBg, color: C.blue }}>
           {initials(employee.full_name)}
         </span>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: T.ink, letterSpacing: "-0.02em" }}>{employee.full_name}</h1>
-          <div style={{ fontSize: 13, color: T.ink3 }}>
+        <div className="min-w-0 flex-1">
+          <div className="text-[18px] font-bold tracking-[-0.01em] text-jn-ink">{employee.full_name}</div>
+          <div className="mt-[3px] truncate text-[13px] text-jn-muted">
             {employee.position || "—"} · {SENIORITY_LABELS[employee.seniority] ?? employee.seniority}
             {employee.experience_years != null && ` · ${t("detail.expYears", { years: employee.experience_years })}`}
+            {skillsLine && ` · ${skillsLine}`}
           </div>
         </div>
-        <div style={{ marginLeft: "auto" }}>
-          <Button variant="bordered" size="sm" startContent={<IconUser size={14} />} onPress={() => navigate(`/admin/employees/${empId}/info`)}>
-            {t("detail.viewDetail")}
-          </Button>
-        </div>
+        <Button variant="secondary" leftIcon={<IconUser size={16} className="text-jn-ink-mute" />} onClick={() => navigate(`/admin/employees/${empId}/info`)}>
+          {t("detail.viewDetail")}
+        </Button>
       </div>
 
-      {/* one row: platform filter (left) + sort (right) */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-        {(employee.matches_count_by_platform?.filter((p) => p.slug).length ?? 0) > 1 && (
+      {/* filter row */}
+      <div className="jn-reveal mb-4 flex flex-wrap items-center gap-3">
+        {platforms.length > 1 && (
           <>
-            <span style={{ fontSize: 11.5, color: T.ink4 }}>{t("detail.platformLabel")}</span>
-            <button type="button" onClick={() => setPlatformFilter("")}
-              style={{
-                padding: "5px 11px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                border: `1px solid ${platformFilter === "" ? T.accent : T.line}`,
-                background: platformFilter === "" ? T.accent : T.surface, color: platformFilter === "" ? "#fff" : T.ink2,
-              }}>
-              {t("detail.platformAll")}
-            </button>
-            {employee.matches_count_by_platform!.filter((p) => p.slug).map((p) => {
-              const active = platformFilter === p.slug;
-              return (
-                <button key={p.slug} type="button"
-                  onClick={() => setPlatformFilter((prev) => (prev === p.slug ? "" : p.slug))}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    padding: "5px 11px 5px 7px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                    border: `1px solid ${active ? T.accent : T.line}`,
-                    background: active ? T.accent : T.surface, color: active ? "#fff" : T.ink2,
-                  }}>
-                  {p.logo && (
-                    <img
-                      src={p.logo}
-                      alt=""
-                      width={15}
-                      height={15}
-                      style={{ borderRadius: 3, objectFit: "contain", background: "#fff" }}
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                    />
-                  )}
-                  {p.name} <span style={{ opacity: 0.7 }}>{p.count}</span>
-                </button>
-              );
-            })}
+            <span className="text-[13px] font-medium text-jn-muted">{t("detail.platformLabel")}</span>
+            <div className="flex flex-wrap gap-2">
+              <PlatformPill active={platformFilter === ""} onClick={() => setPlatformFilter("")}>{t("detail.platformAll")}</PlatformPill>
+              {platforms.map((p) => (
+                <PlatformPill key={p.slug} active={platformFilter === p.slug} onClick={() => setPlatformFilter((prev) => (prev === p.slug ? "" : p.slug))}>
+                  {p.logo && <img src={p.logo} alt="" width={15} height={15} className="rounded-[3px] object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
+                  {p.name} <span className="font-bold opacity-70">{p.count}</span>
+                </PlatformPill>
+              ))}
+            </div>
           </>
         )}
-        {/* sort — pushed to the right */}
-        <span style={{ marginLeft: "auto", display: "inline-flex", gap: 4, alignItems: "center" }}>
-          <span style={{ fontSize: 11.5, color: T.ink4 }}>{t("detail.sortLabel")}</span>
-          {([["score", t("detail.sortScore")], ["newest", t("detail.sortNewest")]] as const).map(([key, label]) => (
-            <button key={key} type="button" onClick={() => setSortBy(key)}
-              style={{
-                padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                border: `1px solid ${sortBy === key ? T.accent : T.line}`,
-                background: sortBy === key ? T.accent50 : T.surface,
-                color: sortBy === key ? T.accent : T.ink3,
-              }}>
-              {label}
-            </button>
-          ))}
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-[13px] text-jn-muted">{t("detail.sortLabel")}</span>
+          <div className="flex rounded-jn-pill bg-jn-sunken p-[3px]">
+            {([["score", t("detail.sortScore")], ["newest", t("detail.sortNewest")]] as const).map(([key, label]) => (
+              <button key={key} type="button" onClick={() => setSortBy(key)}
+                className={cn(
+                  "rounded-[18px] px-3.5 py-1.5 text-[13px] font-semibold transition-all",
+                  sortBy === key ? "border border-jn-line-2 bg-white text-jn-primary" : "border border-transparent text-jn-muted hover:text-jn-ink-soft",
+                )}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* LinkedIn-style browser */}
+      {/* two columns */}
       {matches.length === 0 ? (
-        <Card style={{ display: "grid", placeItems: "center", height: 240, color: T.ink3 }}>
-          <div style={{ textAlign: "center" }}>
-            <IconBriefcase size={30} style={{ margin: "0 auto 10px", color: T.ink4 }} />
-            <div style={{ fontWeight: 600 }}>{tab === "all" ? t("detail.emptyAllTitle") : t("detail.emptyStatusTitle")}</div>
-            <div style={{ fontSize: 13 }}>{tab === "all" ? t("detail.emptyAllHint") : t("detail.emptyStatusHint")}</div>
+        <div className="grid h-[240px] place-items-center rounded-jn-card border border-jn-line bg-jn-surface text-center text-jn-ink-mute">
+          <div>
+            <IconBriefcase size={30} className="mx-auto mb-2.5 text-jn-faint" />
+            <div className="font-semibold text-jn-ink">{t("detail.emptyAllTitle")}</div>
+            <div className="text-[13px] text-jn-muted">{t("detail.emptyAllHint")}</div>
           </div>
-        </Card>
+        </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 380px) 1fr", gap: 14, alignItems: "stretch", height: "calc(100vh - 220px)" }}>
-          {/* left list — page-based pagination */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0, overflow: "auto", paddingRight: 4 }}>
+        <div className="jn-reveal grid items-start gap-[18px]" style={{ gridTemplateColumns: "380px 1fr", height: "calc(100vh - 250px)" }}>
+          {/* left list */}
+          <div className="flex h-full min-h-0 flex-col gap-[11px] overflow-y-auto pr-1.5">
             {matches.map((m) => (
               <JobListItem key={m.id} match={m} selected={m.id === selectedId} onSelect={() => setSelectedId(m.id)} />
             ))}
@@ -718,38 +687,25 @@ export default function EmployeeDetailPage() {
               start = Math.max(1, end - WINDOW + 1);
               const nums: number[] = [];
               for (let i = start; i <= end; i++) nums.push(i);
-
               const numBtn = (p: number) => {
                 const active = p === page;
                 return (
-                  <button key={p} type="button" disabled={loadingMore || active}
-                    onClick={() => void goToPage(p)}
-                    style={{
-                      minWidth: 28, height: 28, padding: "0 6px", borderRadius: 8, cursor: active ? "default" : "pointer",
-                      fontSize: 12.5, fontWeight: 600, fontVariantNumeric: "tabular-nums",
-                      border: `1px solid ${active ? T.accent : T.line}`,
-                      background: active ? T.accent : T.surface, color: active ? "#fff" : T.ink2,
-                    }}>
+                  <button key={p} type="button" disabled={loadingMore || active} onClick={() => void goToPage(p)}
+                    className={cn("h-7 min-w-7 rounded-lg px-1.5 text-[12.5px] font-semibold tabular-nums",
+                      active ? "border border-jn-primary bg-jn-primary text-white" : "border border-jn-line-2 bg-jn-surface text-jn-ink-soft hover:bg-jn-sunken")}>
                     {p}
                   </button>
                 );
               };
               const arrow = (dir: -1 | 1, disabled: boolean) => (
-                <button type="button" disabled={disabled || loadingMore} onClick={() => void goToPage(page + dir)}
-                  aria-label={dir < 0 ? "Prev" : "Next"}
-                  style={{
-                    width: 28, height: 28, borderRadius: 8, display: "grid", placeItems: "center",
-                    cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.4 : 1,
-                    border: `1px solid ${T.line}`, background: T.surface, color: T.ink2,
-                  }}>
+                <button type="button" disabled={disabled || loadingMore} onClick={() => void goToPage(page + dir)} aria-label={dir < 0 ? "Prev" : "Next"}
+                  className="grid h-7 w-7 place-items-center rounded-lg border border-jn-line-2 bg-jn-surface text-jn-ink-soft disabled:opacity-40">
                   {dir < 0 ? <IconChevronLeft size={15} /> : <IconChevronRight size={15} />}
                 </button>
               );
-              const ell = (k: string) => (
-                <span key={k} style={{ minWidth: 18, textAlign: "center", color: T.ink4, fontSize: 12.5 }}>…</span>
-              );
+              const ell = (key: string) => <span key={key} className="min-w-[18px] text-center text-[12.5px] text-jn-faint">…</span>;
               return (
-                <div className="shrink-0" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 4, padding: "10px 4px" }}>
+                <div className="flex shrink-0 flex-wrap items-center justify-center gap-1 px-1 py-2.5">
                   {arrow(-1, page <= 1)}
                   {start > 1 && numBtn(1)}
                   {start > 2 && ell("l")}
@@ -761,14 +717,15 @@ export default function EmployeeDetailPage() {
               );
             })()}
           </div>
+
           {/* right detail */}
-          <Card padding={0} style={{ height: "100%", overflow: "auto" }}>
+          <div className="h-full overflow-y-auto rounded-jn-card border border-jn-line bg-jn-surface">
             {selected ? (
               <JobDetailPanel match={selected} onApply={setApplyTarget} onDismiss={dismissMatch} />
             ) : (
-              <div style={{ display: "grid", placeItems: "center", height: 200, color: T.ink4 }}>{t("detail.selectJob")}</div>
+              <div className="grid h-[200px] place-items-center text-jn-faint">{t("detail.selectJob")}</div>
             )}
-          </Card>
+          </div>
         </div>
       )}
 
@@ -778,19 +735,12 @@ export default function EmployeeDetailPage() {
           <ModalHeader>{t("duplicate.title")}</ModalHeader>
           <ModalBody className="text-sm">
             {dup && (
-              <p>
-                <Trans
-                  i18nKey="duplicate.body"
-                  t={t}
-                  values={{ name: dup.frontman.employee_name, status: dup.frontman.status }}
-                  components={[<span key="0" className="font-semibold" />]}
-                />
-              </p>
+              <p><Trans i18nKey="duplicate.body" t={t} values={{ name: dup.frontman.employee_name, status: dup.frontman.status }} components={[<span key="0" className="font-semibold" />]} /></p>
             )}
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onPress={() => setDup(null)}>{t("common:actions.cancel")}</Button>
-            <Button color="warning" onPress={() => dup && void applyToJob(dup.match, true)}>{t("duplicate.applyAnyway")}</Button>
+            <HButton variant="light" onPress={() => setDup(null)}>{t("common:actions.cancel")}</HButton>
+            <HButton color="warning" onPress={() => dup && void applyToJob(dup.match, true)}>{t("duplicate.applyAnyway")}</HButton>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -801,39 +751,45 @@ export default function EmployeeDetailPage() {
           <ModalHeader>{t("applyModal.title")}</ModalHeader>
           <ModalBody className="text-sm">
             <p className="text-default-500">
-              <Trans
-                i18nKey="applyModal.question"
-                t={t}
-                values={{ title: applyTarget?.job.title }}
-                components={[<span key="0" className="font-semibold text-foreground" />]}
-              />
+              <Trans i18nKey="applyModal.question" t={t} values={{ title: applyTarget?.job.title }} components={[<span key="0" className="font-semibold text-foreground" />]} />
             </p>
             <div className="flex flex-col gap-2 pb-1">
-              <Button variant="flat" color="primary" className="h-auto justify-start py-3"
-                startContent={<IconExternalLink size={18} />}
+              <HButton variant="flat" color="primary" className="h-auto justify-start py-3" startContent={<IconExternalLink size={18} />}
                 onPress={() => applyTarget && void applyToJob(applyTarget)}>
                 <span className="text-left">
                   <span className="block font-semibold">{t("applyModal.openPostingTitle")}</span>
                   <span className="block text-xs opacity-70">{t("applyModal.openPostingDesc")}</span>
                 </span>
-              </Button>
-              <Button variant="flat" className="h-auto justify-start py-3"
-                startContent={<IconMail size={18} />}
+              </HButton>
+              <HButton variant="flat" className="h-auto justify-start py-3" startContent={<IconMail size={18} />}
                 onPress={() => applyTarget && goWriteEmail(applyTarget)}>
                 <span className="text-left">
                   <span className="block font-semibold">{t("applyModal.writeEmailTitle")}</span>
                   <span className="block text-xs opacity-70">{t("applyModal.writeEmailDesc")}</span>
                 </span>
-              </Button>
+              </HButton>
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onPress={() => setApplyTarget(null)}>{t("common:actions.cancel")}</Button>
+            <HButton variant="light" onPress={() => setApplyTarget(null)}>{t("common:actions.cancel")}</HButton>
           </ModalFooter>
         </ModalContent>
       </Modal>
-
     </div>
   );
 }
 
+function PlatformPill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1.5 rounded-jn-pill border px-[13px] py-[7px] text-[13px] font-semibold transition-colors",
+        active ? "border-jn-primary bg-jn-primary text-white" : "border-jn-line-2 bg-jn-surface text-jn-ink-soft hover:bg-jn-sunken",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
