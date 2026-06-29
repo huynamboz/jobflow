@@ -132,6 +132,22 @@
     "emptyTitle": "No jobs here yet",
     "emptyHint": "Apply to jobs from an employee's job browser to start tracking.",
     "dash": "—",
-    "viewMore": "View more ({{count}} left)"
+    "viewMore": "View more ({{count}} left)",
+    "searchPlaceholder": "Search applications…",
+    "columnEmpty": "No applications",
+    "moveTo": "Move to {{label}}",
+    "reopen": "Reopen",
+    "viewEmployee": "View employee",
+    "summary": {
+      "total": "Total tracked",
+      "inProgress": "In progress",
+      "accepted": "Accepted",
+      "completed": "Completed"
+    },
+    "time": {
+      "today": "today",
+      "daysAgo": "{{count}}d ago",
+      "weeksAgo": "{{count}}w ago"
+    }
   }
 }

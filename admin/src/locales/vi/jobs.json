@@ -132,6 +132,22 @@
     "emptyTitle": "Chưa có việc làm nào ở đây",
     "emptyHint": "Nộp đơn từ trình duyệt việc làm của nhân viên để bắt đầu theo dõi.",
     "dash": "—",
-    "viewMore": "Xem thêm ({{count}} còn lại)"
+    "viewMore": "Xem thêm ({{count}} còn lại)",
+    "searchPlaceholder": "Tìm đơn ứng tuyển…",
+    "columnEmpty": "Chưa có đơn",
+    "moveTo": "Chuyển sang {{label}}",
+    "reopen": "Mở lại",
+    "viewEmployee": "Xem nhân viên",
+    "summary": {
+      "total": "Tổng theo dõi",
+      "inProgress": "Đang xử lý",
+      "accepted": "Được nhận",
+      "completed": "Hoàn tất"
+    },
+    "time": {
+      "today": "hôm nay",
+      "daysAgo": "{{count}} ngày trước",
+      "weeksAgo": "{{count}} tuần trước"
+    }
   }
 }
