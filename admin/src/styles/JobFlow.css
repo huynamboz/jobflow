@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * JobNest design system — token layer
+ * JobFlow design system — token layer
  *
- * The single source of truth for the JobNest admin look (blue brand +
+ * The single source of truth for the JobFlow admin look (blue brand +
  * soft-grey surfaces, mirrored from the "Landing page với animation"
  * mockups). Tokens are exposed as Tailwind v4 utilities under the `jn-*`
  * namespace via the @theme block below, e.g.
@@ -17,7 +17,7 @@
  * overlap. Component primitives live in src/components/ui/.
  * ─────────────────────────────────────────────────────────────────────── */
 
-/* Inter 800 — JobNest headings; node-tokens only loads up to 700. */
+/* Inter 800 — JobFlow headings; node-tokens only loads up to 700. */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@800&display=swap");
 
 @theme {

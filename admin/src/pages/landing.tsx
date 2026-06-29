@@ -3,12 +3,15 @@ import { Link } from "react-router-dom";
 import type { CSSProperties } from "react";
 import {
   IconSpeakerphone, IconPencil, IconUsers, IconTrendingUp, IconHeart, IconShield,
-  IconBriefcase, IconSchool, IconHeadset, IconClipboardCheck, IconMessage,
+  IconBriefcase, IconSchool, IconHeadset, IconClipboardCheck, IconMessage, IconLayoutDashboard,
 } from "@tabler/icons-react";
 
+import { useAuthStore } from "@/stores/auth.store";
+import { STORAGE_KEYS } from "@/config/api";
+
 /**
- * JobNest public landing page (route "/"). A faithful 1:1 port of the
- * "JobNest Landing" mockup — blue→violet brand, dark feature sections,
+ * JobFlow public landing page (route "/"). A faithful 1:1 port of the
+ * "JobFlow Landing" mockup — blue→violet brand, dark feature sections,
  * floating hero cards, scroll-reveal + animated stat counters + FAQ.
  * Self-contained (no admin layout); CTAs route into the app.
  */
@@ -37,10 +40,10 @@ const JOBS = [
 ];
 
 const FAQS = [
-  { q: "How do I apply for a job on JobNest?", a: "To apply for a job on JobNest, simply sign up for a free account and complete your profile. Then, browse through curated job listings based on your skills and interests. When you find a job you like, click “Apply Now” to send your CV instantly. You’ll also get personalized job alerts sent directly to your dashboard." },
-  { q: "What is JobNest?", a: "JobNest is a modern job platform that connects talented job seekers with trusted employers worldwide. We focus on matching people to roles that fit their real skills and ambitions, not just their resume." },
+  { q: "How do I apply for a job on JobFlow?", a: "To apply for a job on JobFlow, simply sign up for a free account and complete your profile. Then, browse through curated job listings based on your skills and interests. When you find a job you like, click “Apply Now” to send your CV instantly. You’ll also get personalized job alerts sent directly to your dashboard." },
+  { q: "What is JobFlow?", a: "JobFlow is a modern job platform that connects talented job seekers with trusted employers worldwide. We focus on matching people to roles that fit their real skills and ambitions, not just their resume." },
   { q: "How can I get better job matches?", a: "Complete your profile fully, highlight your real skills and projects, and keep your preferences up to date. Our matching engine uses this to surface roles that genuinely fit your potential." },
-  { q: "How often are new jobs posted on JobNest?", a: "New roles are posted every day across every industry. Turn on job alerts to be notified the moment a matching opportunity goes live." },
+  { q: "How often are new jobs posted on JobFlow?", a: "New roles are posted every day across every industry. Turn on job alerts to be notified the moment a matching opportunity goes live." },
   { q: "Can I save job listings for later?", a: "Yes. Bookmark any job to your dashboard and revisit it whenever you're ready to apply. Saved jobs sync across all your devices." },
 ];
 
@@ -60,6 +63,17 @@ const gradBtn: CSSProperties = { border: "none", cursor: "pointer", color: "#fff
 export default function LandingPage() {
   const rootRef = useRef<HTMLDivElement>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // Public page: show a logged-in nav when a session exists. Resolve the user
+  // from the token on mount so the avatar/name can render.
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const checkAuth = useAuthStore((s) => s.checkAuth);
+  const logout = useAuthStore((s) => s.logout);
+  const loggedIn = isAuthenticated || !!localStorage.getItem(STORAGE_KEYS.accessToken);
+  useEffect(() => {
+    if (!isAuthenticated && localStorage.getItem(STORAGE_KEYS.accessToken)) void checkAuth();
+  }, [isAuthenticated, checkAuth]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -128,16 +142,31 @@ export default function LandingPage() {
       {/* NAV */}
       <nav style={{ position: "sticky", top: 0, zIndex: 60, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", background: "rgba(255,255,255,.78)", borderBottom: "1px solid #EAEAEA" }}>
         <div style={{ maxWidth: 1240, margin: "0 auto", padding: "16px 40px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontWeight: 700, fontSize: 22, letterSpacing: "-.02em" }}>.JobNest</span>
+          <span style={{ fontWeight: 700, fontSize: 22, letterSpacing: "-.02em" }}>.JobFlow</span>
           <div style={{ display: "flex", gap: 38, alignItems: "center" }}>
             {["Jobs", "Companies", "Career Resources", "For Employers"].map((l) => (
               <a key={l} href="#" className="lp-link" style={{ textDecoration: "none", color: "#3a3a3a", fontSize: 15, fontWeight: 500 }}>{l}</a>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <Link to="/login" style={{ textDecoration: "none", color: "#202020", fontSize: 15, fontWeight: 600 }}>Log In</Link>
-            <Link to="/admin" className="lp-lift" style={{ ...gradBtn, textDecoration: "none", fontSize: 15, fontWeight: 600, padding: "11px 26px", borderRadius: 30, boxShadow: "0 8px 22px rgba(99,76,210,.28)" }}>Sign Up</Link>
-          </div>
+          {loggedIn ? (
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <button type="button" onClick={logout} className="lp-link" style={{ border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", color: "#202020", fontSize: 15, fontWeight: 600 }}>Log Out</button>
+              <Link to="/admin" className="lp-lift" style={{ ...gradBtn, textDecoration: "none", fontSize: 15, fontWeight: 600, padding: "10px 22px 10px 12px", borderRadius: 30, boxShadow: "0 8px 22px rgba(99,76,210,.28)", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,.22)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>
+                  {(user?.username || user?.email || "A").charAt(0).toUpperCase()}
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <IconLayoutDashboard size={16} />
+                  Dashboard
+                </span>
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+              <Link to="/login" style={{ textDecoration: "none", color: "#202020", fontSize: 15, fontWeight: 600 }}>Log In</Link>
+              <Link to="/login" className="lp-lift" style={{ ...gradBtn, textDecoration: "none", fontSize: 15, fontWeight: 600, padding: "11px 26px", borderRadius: 30, boxShadow: "0 8px 22px rgba(99,76,210,.28)" }}>Sign Up</Link>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -261,7 +290,7 @@ export default function LandingPage() {
           <h2 style={{ position: "relative", fontSize: 38, lineHeight: 1.25, fontWeight: 800, letterSpacing: "-.02em", maxWidth: 880, margin: "0 auto 56px" }}>We've built a trusted ecosystem that supports thousands of job seekers and recruiters around the globe — <span style={{ background: "linear-gradient(90deg,#6ea8ff,#CE81EE)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>fast, reliable, and results-driven.</span></h2>
           <div style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 30, marginBottom: 52 }}>
             {[
-              { id: "lp-stat-0", suffix: "K", label: "Job matches made through JobNest" },
+              { id: "lp-stat-0", suffix: "K", label: "Job matches made through JobFlow" },
               { id: "lp-stat-1", suffix: "K", label: "Verified employers onboard" },
               { id: "lp-stat-2", suffix: "%", label: "Satisfaction rate from both talents and companies" },
               { fixed: "24/7", label: "Dedicated support to guide your hiring or job search journey" },
@@ -319,7 +348,7 @@ export default function LandingPage() {
         <div className="lp-reveal">
           <h2 style={{ fontSize: 42, fontWeight: 800, letterSpacing: "-.025em", margin: "0 0 40px" }}>What Our Users Say</h2>
           <div style={{ fontSize: 60, lineHeight: 1, ...gradText, fontWeight: 800, marginBottom: 6 }}>"</div>
-          <p style={{ fontSize: 24, lineHeight: 1.55, fontWeight: 500, color: "#202020", margin: "0 0 28px" }}>I used to struggle with job platforms, but JobNest makes it feel easy and personal. It actually understands what I'm looking for.</p>
+          <p style={{ fontSize: 24, lineHeight: 1.55, fontWeight: 500, color: "#202020", margin: "0 0 28px" }}>I used to struggle with job platforms, but JobFlow makes it feel easy and personal. It actually understands what I'm looking for.</p>
           <div style={{ fontWeight: 700, fontSize: 17 }}>Esther Howard</div>
           <div style={{ fontSize: 14, color: "#9a9a9a", marginBottom: 26 }}>Marketing Coordinator</div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
@@ -419,8 +448,8 @@ export default function LandingPage() {
       <footer style={{ borderTop: "1px solid #EAEAEA", padding: "64px 40px 0" }}>
         <div style={{ maxWidth: 1240, margin: "0 auto", display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: 50, paddingBottom: 48 }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 18 }}>.JobNest</div>
-            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 12 }}>Stay Connected With JobNest</div>
+            <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 18 }}>.JobFlow</div>
+            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 12 }}>Stay Connected With JobFlow</div>
             <p style={{ fontSize: 14, lineHeight: 1.6, color: "#7a7a7a", maxWidth: 340, margin: "0 0 22px" }}>Follow us on social media to never miss a job opportunity, career insights, and expert hiring tips.</p>
             <div style={{ display: "flex", gap: 12 }}>
               {["in", "X", "f"].map((s) => (
@@ -440,13 +469,13 @@ export default function LandingPage() {
             <div style={{ fontSize: 15, color: "#b1b1b1", fontWeight: 500, marginBottom: 18 }}>Our address</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 13, fontSize: 15, color: "#3a3a3a" }}>
               <span>+44 865 077 802</span>
-              <span>contact@jobnest.com</span>
+              <span>contact@JobFlow.com</span>
               <span style={{ lineHeight: 1.5 }}>35 To Vinh Dien str, Thanh<br />Yuan, Hanoi, Vietnam</span>
             </div>
           </div>
         </div>
         <div style={{ borderTop: "1px solid #EAEAEA", padding: "26px 0", textAlign: "center" }}>
-          <span style={{ fontSize: 13, color: "#9a9a9a" }}>Copyrights 2025 JobNest. All rights reserved.</span>
+          <span style={{ fontSize: 13, color: "#9a9a9a" }}>Copyrights 2025 JobFlow. All rights reserved.</span>
         </div>
       </footer>
     </div>
