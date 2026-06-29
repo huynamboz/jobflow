@@ -35,14 +35,15 @@ const POLL_INTERVAL = 3000;
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
 const MAX_FILES = 50;
 
-// Soft cover gradients assigned deterministically per employee for visual variety.
+// Cover scene images (served from /public/covers), assigned deterministically
+// per employee — mirrors the mockup's scene banners.
 const COVERS = [
-  "linear-gradient(120deg,#E8F1FE,#DCEBFF)",
-  "linear-gradient(120deg,#F2ECFB,#EADFF8)",
-  "linear-gradient(120deg,#E7F6EF,#D5EFE2)",
-  "linear-gradient(120deg,#FBF1DC,#F8E9C8)",
-  "linear-gradient(120deg,#E2F5F5,#D2EFEF)",
-  "linear-gradient(120deg,#FCEDEA,#F7DDD7)",
+  "/covers/scene-1.png",
+  "/covers/scene-2.png",
+  "/covers/scene-3.png",
+  "/covers/scene-4.png",
+  "/covers/scene-5.png",
+  "/covers/scene-6.png",
 ];
 
 function fmtDate(iso: string) {
@@ -109,7 +110,10 @@ function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) 
       )}
 
       {/* cover + more */}
-      <div className="relative h-[74px]" style={{ background: cover }}>
+      <div
+        className="relative h-[74px] bg-jn-sunken bg-cover bg-center"
+        style={{ backgroundImage: `url('${cover}')` }}
+      >
         <button
           type="button"
           onClick={stop}
