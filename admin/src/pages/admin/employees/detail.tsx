@@ -498,10 +498,11 @@ export default function EmployeeDetailPage() {
   const wantMatch = Number(searchParams.get("match")) || null;
   const empId = Number(id);
   const navigate = useNavigate();
-  const reveal = useReveal();
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [matches, setMatches] = useState<EmployeeJobMatch[]>([]);
+  // Re-scan reveals when the page content mounts after the async load.
+  const reveal = useReveal([employee, matches]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
