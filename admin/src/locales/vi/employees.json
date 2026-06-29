@@ -138,6 +138,13 @@
   "why": {
     "title": "Vì sao phù hợp",
     "matchPct": "{{pct}}% phù hợp",
+    "matchConfidence": "Độ tin cậy khớp",
+    "confidenceShort": "Tin cậy",
+    "calibratedProbability": "Xác suất khớp (hiệu chuẩn)",
+    "rerankerDiagnostics": "Chẩn đoán reranker (học)",
+    "diagnosticsHint": "Điểm từng trục do reranker học — chỉ là góc nhìn chẩn đoán, KHÔNG phải thành phần tạo ra % ở trên.",
+    "scoreBreakdown": "Chi tiết điểm",
+    "hideBreakdown": "Ẩn chi tiết",
     "overallMatch": "Tổng mức phù hợp",
     "skillCoverage": "Mức phủ kỹ năng",
     "skillCoverageHint": "{{matched}} trên {{total}} kỹ năng yêu cầu khớp",
@@ -169,7 +176,7 @@
       "noGates": "không cổng nào kích hoạt (×1.0)",
       "calibration": "Hiệu chuẩn",
       "display": "(hiển thị)",
-      "footnote": "Overall % là xác suất TUYỆT ĐỐI đã hiệu chuẩn (Platt) — cùng một thang cho mọi nhân viên, ổn định qua các lần chạy. Ý nghĩa: khả năng cặp CV–job này được ground truth của hệ chấm là match. Không phải trung bình của 4 chiều phía trên.",
+      "footnote": "% lớn là xác suất khớp đã hiệu chuẩn (Platt) — so sánh được giữa các nhân viên, ổn định qua các lần chạy. Là độ tin cậy của mô hình rằng cặp CV–job này khớp theo định nghĩa ground-truth của hệ — KHÔNG phải trung bình các trục chẩn đoán phía trên, cũng KHÔNG phải xác suất được nhận việc.",
       "gateLabel": {
         "domain": "Khác nghề",
         "experience": "Lệch kinh nghiệm",

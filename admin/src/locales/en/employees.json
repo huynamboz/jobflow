@@ -139,6 +139,13 @@
   "why": {
     "title": "Why it matches",
     "matchPct": "{{pct}}% match",
+    "matchConfidence": "Match confidence",
+    "confidenceShort": "Confidence",
+    "calibratedProbability": "Calibrated match probability",
+    "rerankerDiagnostics": "Reranker diagnostics (learned)",
+    "diagnosticsHint": "Interpretable per-axis scores from the reranker — a diagnostic view, not the components of the % above.",
+    "scoreBreakdown": "Score breakdown",
+    "hideBreakdown": "Hide breakdown",
     "overallMatch": "Overall match",
     "skillCoverage": "Skill coverage",
     "skillCoverageHint": "{{matched}} of {{total}} required skills matched",
@@ -170,7 +177,7 @@
       "noGates": "no gate fired (×1.0)",
       "calibration": "Calibration",
       "display": "(displayed)",
-      "footnote": "Overall % is a calibrated ABSOLUTE probability (Platt) — the same scale for every employee, stable across runs. Meaning: the likelihood this CV–job pair is scored a match by the system's ground truth. It is not the average of the 4 dimensions above.",
+      "footnote": "The headline % is a calibrated match probability (Platt) — comparable across employees and stable across runs. It's the model's confidence that this CV–job pair matches by the system's ground-truth definition — not the average of the diagnostics above, and not the chance of being hired.",
       "gateLabel": {
         "domain": "Different role",
         "experience": "Experience mismatch",
