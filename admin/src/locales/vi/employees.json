@@ -83,6 +83,7 @@
   "ranking": {
     "title": "Đang xếp hạng việc cho {{name}}",
     "subtitle": "Hệ thống đang đọc CV bằng AI và chấm điểm các vị trí phù hợp nhất. Thường mất vài giây và sẽ tự cập nhật.",
+    "subtitleRanking": "Đã phân tích xong CV — GNN đang xếp hạng các vị trí phù hợp nhất trong kho việc. Trang sẽ tự cập nhật.",
     "stepUploaded": "Đã tải CV",
     "stepParsing": "Đang đọc CV bằng AI",
     "stepSkills": "Trích xuất kỹ năng & cấp bậc",

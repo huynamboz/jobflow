@@ -84,6 +84,7 @@
   "ranking": {
     "title": "Ranking jobs for {{name}}",
     "subtitle": "We're reading the CV with AI and scoring the best-fit roles. This usually takes a few seconds and updates automatically.",
+    "subtitleRanking": "The CV is parsed — now the GNN is ranking the best-fit roles across the catalog. This page updates automatically.",
     "stepUploaded": "CV uploaded",
     "stepParsing": "Reading the CV with AI",
     "stepSkills": "Extracting skills & seniority",

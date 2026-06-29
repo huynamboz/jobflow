@@ -501,16 +501,26 @@ function StepIcon({ state }: { state: "done" | "active" | "pending" }) {
   return <span className="h-[22px] w-[22px] shrink-0 rounded-full border-[1.5px] border-jn-line-3" />;
 }
 
-function RankingState({ employee }: { employee: Employee }) {
+function RankingState({ employee, phase }: { employee: Employee; phase: "parsing" | "ranking" }) {
   const { t } = useTranslation("employees");
   const first = (employee.full_name || "").trim().split(/\s+/)[0] || employee.full_name;
   const skills = employee.skills ?? [];
-  const steps = [
-    { key: "uploaded", label: t("ranking.stepUploaded"), state: "done" as const },
-    { key: "parsing", label: t("ranking.stepParsing"), state: "active" as const },
-    { key: "skills", label: t("ranking.stepSkills"), state: (skills.length ? "done" : "pending") as "done" | "pending" },
-    { key: "ranking", label: t("ranking.stepRanking"), state: "pending" as const },
-  ];
+  type S = "done" | "active" | "pending";
+  // In the ranking phase, parse + skill extraction are done and ranking is active.
+  const steps: { key: string; label: string; state: S }[] =
+    phase === "ranking"
+      ? [
+          { key: "uploaded", label: t("ranking.stepUploaded"), state: "done" },
+          { key: "parsing", label: t("ranking.stepParsing"), state: "done" },
+          { key: "skills", label: t("ranking.stepSkills"), state: "done" },
+          { key: "ranking", label: t("ranking.stepRanking"), state: "active" },
+        ]
+      : [
+          { key: "uploaded", label: t("ranking.stepUploaded"), state: "done" },
+          { key: "parsing", label: t("ranking.stepParsing"), state: "active" },
+          { key: "skills", label: t("ranking.stepSkills"), state: skills.length ? "done" : "pending" },
+          { key: "ranking", label: t("ranking.stepRanking"), state: "pending" },
+        ];
   return (
     <div className="overflow-hidden rounded-jn-card border border-jn-line bg-jn-surface">
       <style>{`
@@ -528,7 +538,7 @@ function RankingState({ employee }: { employee: Employee }) {
           <IconSparkles size={30} className="animate-pulse" />
         </span>
         <div className="relative mt-5 text-[22px] font-extrabold tracking-[-0.02em]">{t("ranking.title", { name: first })}</div>
-        <div className="relative mt-2 max-w-[460px] text-[14px] leading-relaxed text-white/85">{t("ranking.subtitle")}</div>
+        <div className="relative mt-2 max-w-[460px] text-[14px] leading-relaxed text-white/85">{t(phase === "ranking" ? "ranking.subtitleRanking" : "ranking.subtitle")}</div>
         <div className="relative mt-6 h-1.5 w-full max-w-[420px] overflow-hidden rounded-full bg-white/20">
           <span className="absolute top-0 h-full w-[40%] rounded-full bg-white" style={{ animation: "jnIndeterminate 1.4s ease-in-out infinite" }} />
         </div>
@@ -625,14 +635,33 @@ export default function EmployeeDetailPage() {
 
   useEffect(() => { void reload(); }, [reload]);
 
-  // While the CV is still being parsed/ranked in the background, poll so the
-  // page flips to the job browser automatically once matches land.
+  // Background work has two phases the UI should wait through:
+  //  1. parsing — CV not parsed yet (parsed_at null).
+  //  2. ranking — parsed, but the GNN re-match hasn't persisted matches yet.
+  //     The backend sets parsed_at BEFORE running the (slow) ranking, so a
+  //     parsed employee with zero matches is almost always still ranking.
+  // Genuinely-empty employees are rare, so we treat "parsed + 0 matches" as
+  // ranking for a bounded window, then fall back to the real empty state.
   const parsing = !!employee && !employee.parsed_at && !employee.is_parse_failed;
+  const parsedNoMatches = !!employee && !!employee.parsed_at && !employee.is_parse_failed && matches.length === 0;
+  const [rankingExpired, setRankingExpired] = useState(false);
+  const ranking = parsedNoMatches && !rankingExpired;
+  const working = parsing || ranking;
+
+  // Bound the ranking window so a truly-empty employee doesn't spin forever.
   useEffect(() => {
-    if (!parsing) return;
+    if (!parsedNoMatches) { setRankingExpired(false); return; }
+    const tmo = setTimeout(() => setRankingExpired(true), 40_000);
+    return () => clearTimeout(tmo);
+  }, [parsedNoMatches]);
+
+  // Poll while either phase is active so the page flips to the browser
+  // automatically once matches land.
+  useEffect(() => {
+    if (!working) return;
     const idv = setInterval(() => { void reload(); }, 3000);
     return () => clearInterval(idv);
-  }, [parsing, reload]);
+  }, [working, reload]);
 
   const goToPage = useCallback(async (p: number) => {
     if (loadingMore) return;
@@ -724,8 +753,8 @@ export default function EmployeeDetailPage() {
         </Button>
       </div>
 
-      {parsing ? (
-        <RankingState employee={employee} />
+      {working ? (
+        <RankingState employee={employee} phase={parsing ? "parsing" : "ranking"} />
       ) : employee.is_parse_failed && matches.length === 0 ? (
         <ParseFailedState onSettings={() => navigate(`/admin/employees/${empId}/info`)} />
       ) : (
