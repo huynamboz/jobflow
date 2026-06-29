@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { addToast } from "@heroui/toast";
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
 import {
   Modal,
   ModalBody,
@@ -13,120 +11,196 @@ import {
 import {
   IconCloudUpload,
   IconLoader2,
-  IconSearch,
   IconSparkles,
   IconUserPlus,
   IconUsers,
+  IconMail,
+  IconPhone,
+  IconCalendar,
+  IconMessage,
+  IconDots,
+  IconDownload,
+  IconPlus,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
-import { Card } from "@/components/ui/card";
+import { Avatar, Badge, Button, Card, PageHeader, SearchInput, useReveal } from "@/components/ui";
+import type { BadgeColor } from "@/components/ui";
+import { cn } from "@/lib/utils";
 import { employeeService } from "@/services/employee.service";
 import type { Employee } from "@/types/employee.types";
-
-const T = {
-  accent: "#167a7a", accent50: "#e8f4f4",
-  success: "oklch(0.62 0.17 155)", success50: "oklch(0.96 0.04 155)",
-  danger: "oklch(0.60 0.22 25)", danger50: "oklch(0.96 0.03 25)",
-  warning: "oklch(0.62 0.13 70)", warning50: "oklch(0.97 0.04 75)",
-  ink: "oklch(0.18 0.02 265)", ink2: "oklch(0.38 0.015 265)",
-  ink3: "oklch(0.56 0.012 265)", ink4: "oklch(0.72 0.008 265)",
-  surface: "#ffffff", surface2: "oklch(0.97 0.005 85)", surface3: "oklch(0.945 0.006 85)",
-  line: "rgba(226,232,240,0.7)",
-};
 
 const POLL_INTERVAL = 3000;
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
 const MAX_FILES = 50;
 
-type BadgeState = { label: string; bg: string; color: string; pulse?: boolean };
-
-function badgeFor(emp: Employee, t: TFunction): BadgeState | null {
-  const parsing = !emp.parsed_at && !emp.is_parse_failed;
-  if (parsing) return { label: t("card.parsing"), bg: "#c8e5e5", color: "#0e5353", pulse: true };
-  if (emp.is_parse_failed) return { label: t("card.parseFailed"), bg: T.danger50, color: T.danger };
-  return null;
-}
-
-function initials(name: string): string {
-  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+// Soft cover gradients assigned deterministically per employee for visual variety.
+const COVERS = [
+  "linear-gradient(120deg,#E8F1FE,#DCEBFF)",
+  "linear-gradient(120deg,#F2ECFB,#EADFF8)",
+  "linear-gradient(120deg,#E7F6EF,#D5EFE2)",
+  "linear-gradient(120deg,#FBF1DC,#F8E9C8)",
+  "linear-gradient(120deg,#E2F5F5,#D2EFEF)",
+  "linear-gradient(120deg,#FCEDEA,#F7DDD7)",
+];
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("vi-VN", { dateStyle: "short" });
 }
 
+type Status = { label: string; color: "amber" | "red" | "green"; pulse?: boolean };
+function statusFor(emp: Employee, t: TFunction): Status {
+  if (!emp.parsed_at && !emp.is_parse_failed) return { label: t("card.parsing"), color: "amber", pulse: true };
+  if (emp.is_parse_failed) return { label: t("card.parseFailed"), color: "red" };
+  return { label: t("card.ready"), color: "green" };
+}
+
+// Seniority → coloured chip (mirrors the mockup's department pill).
+const SENIORITY_TINT: BadgeColor[] = ["neutral", "blue", "green", "violet", "amber", "red"];
+
+/** Small square action button on the card footer (message / call). Renders as
+ *  an <a> when `href` is given (e.g. tel:) so we never nest a button in a link. */
+function CardIconBtn({
+  children,
+  onClick,
+  title,
+  href,
+}: {
+  children: React.ReactNode;
+  onClick: (e: React.MouseEvent) => void;
+  title?: string;
+  href?: string;
+}) {
+  const cls =
+    "grid h-[42px] w-[42px] shrink-0 place-items-center rounded-jn-btn border border-jn-line-3 bg-jn-surface text-jn-ink-mute transition-colors hover:bg-jn-sunken";
+  if (href) {
+    return (
+      <a href={href} title={title} onClick={onClick} className={cls}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <button type="button" title={title} onClick={onClick} className={cls}>
+      {children}
+    </button>
+  );
+}
+
 function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) {
   const { t } = useTranslation("employees");
-  const b = badgeFor(emp, t);
+  const st = statusFor(emp, t);
   const parsing = !emp.parsed_at && !emp.is_parse_failed;
-  const skills = emp.skills ?? [];
+  const cover = COVERS[emp.id % COVERS.length];
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
-    <Card hoverable onClick={onClick} style={{ position: "relative", overflow: "hidden" }}>
-      {parsing && <span style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg,transparent,#167a7a,transparent)", backgroundSize: "200% 100%", animation: "jb-shimmer 1.6s linear infinite" }} />}
+    <Card radius="lg" padding={0} hoverable onClick={onClick} className="jn-reveal relative overflow-hidden">
+      {parsing && (
+        <span
+          className="absolute inset-x-0 top-0 z-20 h-[3px]"
+          style={{
+            background: "linear-gradient(90deg,transparent,#0064E5,transparent)",
+            backgroundSize: "200% 100%",
+            animation: "jb-shimmer 1.6s linear infinite",
+          }}
+        />
+      )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        {b ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: b.bg, color: b.color }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0, animation: b.pulse ? "jb-pulse 1.4s ease-in-out infinite" : undefined }} />
-            {b.label}
+      {/* cover + more */}
+      <div className="relative h-[74px]" style={{ background: cover }}>
+        <button
+          type="button"
+          onClick={stop}
+          className="absolute right-3 top-3 grid h-[30px] w-[30px] place-items-center rounded-[9px] bg-white/85 text-jn-ink-mute transition-colors hover:bg-white"
+        >
+          <IconDots size={16} />
+        </button>
+      </div>
+
+      <div className="relative z-[1] -mt-[38px] px-6 pb-6">
+        {/* avatar — 76px with 4px white ring (matches mockup) */}
+        <div
+          className="w-fit rounded-full"
+          style={{ border: "4px solid #fff", boxShadow: "0 4px 14px rgba(0,0,0,.1)" }}
+        >
+          <Avatar name={emp.full_name} size={68} />
+        </div>
+
+        {/* name + status */}
+        <div className="mt-3.5 flex items-center gap-2.5">
+          <span className="truncate text-[18px] font-bold tracking-[-0.01em] text-jn-ink">{emp.full_name}</span>
+          <Badge color={st.color} dot className={cn(st.pulse && "[&>span:first-child]:animate-pulse")}>
+            {st.label}
+          </Badge>
+        </div>
+
+        {/* role */}
+        <div className="mt-1 truncate text-[13.5px] text-jn-ink-mute">
+          {emp.position || (parsing ? t("card.readingCv") : "—")}
+        </div>
+
+        {/* seniority pill + id */}
+        <div className="mt-2.5 flex items-center gap-2.5">
+          <Badge color={SENIORITY_TINT[emp.seniority] ?? "neutral"} dot>
+            {SENIORITY_LABELS[emp.seniority] ?? emp.seniority}
+          </Badge>
+          {emp.experience_years != null && (
+            <span className="text-[12px] text-jn-muted">{t("card.experienceYears", { count: emp.experience_years })}</span>
+          )}
+          <span className="ml-auto font-mono text-[12px] text-jn-faint">
+            {t("card.empId", { id: String(emp.id).padStart(4, "0") })}
           </span>
-        ) : <span />}
-        <span style={{ fontFamily: "monospace", fontSize: 11, color: T.ink4 }}>{fmtDate(emp.created_at)}</span>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <span style={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center", background: T.accent50, color: T.accent, fontWeight: 700, fontSize: 15 }}>
-          {initials(emp.full_name)}
-        </span>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp.full_name}</div>
-          <div style={{ fontSize: 12, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {emp.position || (parsing ? t("card.readingCv") : "—")}{emp.email ? ` · ${emp.email}` : ""}
-          </div>
         </div>
-      </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, minHeight: 24 }}>
-        {parsing && skills.length === 0 ? (
-          <span style={{ fontSize: 12, color: T.ink4, fontStyle: "italic" }}>{t("card.extractingSkills")}</span>
-        ) : skills.length === 0 ? (
-          <span style={{ fontSize: 12, color: T.ink4 }}>{t("card.noSkills")}</span>
-        ) : (
-          <>
-            {skills.slice(0, 5).map((s) => (
-              <span key={s} style={{ padding: "2px 8px", borderRadius: 999, fontSize: 11.5, fontWeight: 500, background: T.surface2, color: T.ink2 }}>{s}</span>
-            ))}
-            {skills.length > 5 && <span style={{ fontSize: 11.5, color: T.ink4, alignSelf: "center" }}>+{skills.length - 5}</span>}
-          </>
-        )}
-      </div>
+        <div className="my-[18px] h-px bg-jn-line-soft" />
 
-      <div style={{ height: 1, background: T.line, margin: "12px 0" }} />
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, fontSize: 11.5, alignItems: "center" }}>
-        <div>
-          <div style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 10, color: T.ink4 }}>{t("card.seniority")}</div>
-          <div style={{ marginTop: 2, color: T.ink2, fontWeight: 600 }}>{SENIORITY_LABELS[emp.seniority] ?? emp.seniority}</div>
+        {/* contact rows */}
+        <div className="flex flex-col gap-[11px]">
+          <ContactRow icon={<IconMail size={15} />} truncate>
+            {emp.email || "—"}
+          </ContactRow>
+          <ContactRow icon={<IconPhone size={15} />}>{emp.phone || t("card.noPhone")}</ContactRow>
+          <ContactRow icon={<IconSparkles size={15} />}>
+            {emp.match_count ? (
+              <span className="font-semibold text-jn-primary">{t("card.newMatches", { count: emp.match_count })}</span>
+            ) : (
+              <span className="text-jn-muted">{t("card.noMatches")}</span>
+            )}
+          </ContactRow>
+          <ContactRow icon={<IconCalendar size={15} />}>{t("card.joined", { date: fmtDate(emp.created_at) })}</ContactRow>
         </div>
-        <div>
-          <div style={{ textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, fontSize: 10, color: T.ink4 }}>{t("card.experience")}</div>
-          <div style={{ marginTop: 2, color: T.ink2, fontWeight: 600 }}>{emp.experience_years != null ? t("card.experienceYears", { count: emp.experience_years }) : "—"}</div>
+
+        {/* actions */}
+        <div className="mt-5 flex gap-2.5">
+          <Button variant="primary" className="flex-1" onClick={(e) => { stop(e); onClick(); }}>
+            {t("card.viewProfile")}
+          </Button>
+          <CardIconBtn title="Message" onClick={(e) => { stop(e); onClick(); }}>
+            <IconMessage size={16} />
+          </CardIconBtn>
+          {emp.phone ? (
+            <CardIconBtn title="Call" href={`tel:${emp.phone}`} onClick={stop}>
+              <IconPhone size={16} />
+            </CardIconBtn>
+          ) : (
+            <CardIconBtn title="Call" onClick={(e) => { stop(e); onClick(); }}>
+              <IconPhone size={16} />
+            </CardIconBtn>
+          )}
         </div>
-        {emp.match_count ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, background: T.accent, color: "#fff" }}>
-            <IconSparkles size={13} /> {t("card.newMatches", { count: emp.match_count })}
-          </span>
-        ) : (
-          <span style={{ fontSize: 11.5, color: T.ink4 }}>—</span>
-        )}
       </div>
     </Card>
+  );
+}
+
+function ContactRow({ icon, children, truncate }: { icon: React.ReactNode; children: React.ReactNode; truncate?: boolean }) {
+  return (
+    <div className="flex items-center gap-[11px] text-[13px] text-jn-ink-soft">
+      <span className="flex shrink-0 text-jn-muted">{icon}</span>
+      <span className={cn("min-w-0", truncate && "truncate")}>{children}</span>
+    </div>
   );
 }
 
@@ -138,6 +212,7 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const reveal = useReveal([employees]);
 
   const load = useCallback(async () => {
     try {
@@ -151,6 +226,7 @@ export default function EmployeesPage() {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   useEffect(() => { void load(); }, [load]);
@@ -163,88 +239,85 @@ export default function EmployeesPage() {
     return () => clearInterval(id);
   }, [anyParsing, load]);
 
-  const withNewJobs = employees.filter((e) => (e.match_count ?? 0) > 0).length;
-  const parsing = employees.filter((e) => !e.parsed_at && !e.is_parse_failed).length;
-
-  const stats = [
-    { label: t("stats.total"), value: total, unit: t("stats.totalUnit") },
-    { label: t("stats.withNewJobs"), value: withNewJobs, unit: t("stats.withNewJobsUnit") },
-    { label: t("stats.parsing"), value: parsing, unit: t("stats.parsingUnit"), accent: parsing > 0 },
-  ];
+  const exportCsv = () => {
+    const head = ["id", "full_name", "email", "phone", "position", "seniority", "experience_years", "skills", "match_count", "created_at"];
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const rows = employees.map((e) =>
+      [e.id, e.full_name, e.email, e.phone ?? "", e.position, SENIORITY_LABELS[e.seniority] ?? e.seniority,
+       e.experience_years ?? "", (e.skills ?? []).join("; "), e.match_count ?? 0, e.created_at].map(esc).join(","),
+    );
+    const blob = new Blob(["﻿" + [head.join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `employees-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div ref={reveal} className="flex flex-col gap-5">
       <style>{`
         @keyframes jb-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        @keyframes jb-pulse   { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes jb-spin    { to{transform:rotate(360deg)} }
-        .jb-card-hover:hover { transform:translateY(-2px); box-shadow:0 2px 4px rgba(20,18,30,.04),0 8px 24px rgba(20,18,30,.06); }
       `}</style>
 
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
-        <div>
-          <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.025em", margin: 0, color: T.ink }}>
-            <span style={{ fontStyle: "italic", color: T.accent, fontWeight: 400 }}>{t("list.title")}</span>
-          </h1>
-          <p style={{ margin: "4px 0 0", color: T.ink3, fontSize: 14 }}>
-            {t("list.subtitle")}
-          </p>
-        </div>
-        <div style={{ marginLeft: "auto" }}>
-          <Button color="primary" startContent={<IconUserPlus size={14} />} onPress={() => setUploadOpen(true)}>
-            {t("list.addEmployees")}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        className="jn-reveal"
+        title={t("list.title")}
+        pill={<Badge color="blue">{t("stats.totalUnitCount", { count: total })}</Badge>}
+        subtitle={t("list.subtitle")}
+        actions={
+          <>
+            <Button variant="secondary" leftIcon={<IconDownload size={15} />} onClick={exportCsv} disabled={!employees.length}>
+              {t("list.export")}
+            </Button>
+            <Button variant="primary" leftIcon={<IconUserPlus size={15} />} onClick={() => setUploadOpen(true)}>
+              {t("list.addEmployees")}
+            </Button>
+          </>
+        }
+      />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
-        {stats.map((s) => (
-          <div key={s.label} style={{
-            background: s.accent ? T.accent : T.surface, border: `1px solid ${s.accent ? T.accent : T.line}`,
-            borderRadius: 16, padding: "14px 16px", color: s.accent ? "#fff" : T.ink,
-          }}>
-            <div style={{ fontSize: 11.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: s.accent ? "rgba(255,255,255,0.75)" : T.ink3 }}>{s.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4, display: "flex", alignItems: "baseline", gap: 6 }}>
-              {s.value}
-              <span style={{ fontSize: 13, fontWeight: 500, color: s.accent ? "rgba(255,255,255,0.7)" : T.ink3 }}>{s.unit}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-        <Input
-          placeholder={t("list.searchPlaceholder")}
-          startContent={<IconSearch size={16} className="text-default-400" />}
-          value={search}
-          onValueChange={setSearch}
-          className="max-w-xs"
-          isClearable
-          onClear={() => setSearch("")}
-        />
-      </div>
+      <SearchInput
+        className="jn-reveal max-w-sm"
+        placeholder={t("list.searchPlaceholder")}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
 
       {loading ? (
-        <div style={{ display: "grid", placeItems: "center", height: 200, color: T.ink3 }}>
-          <IconLoader2 size={22} style={{ animation: "jb-spin 0.7s linear infinite" }} />
+        <div className="grid h-[200px] place-items-center text-jn-muted">
+          <IconLoader2 size={22} className="animate-spin" />
         </div>
       ) : employees.length === 0 ? (
-        <div style={{ display: "grid", placeItems: "center", height: 280, color: T.ink3 }}>
-          <div style={{ textAlign: "center" }}>
-            <IconUsers size={32} style={{ margin: "0 auto 12px", color: T.ink4 }} />
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>
-              {search ? t("list.emptySearchTitle") : t("list.emptyTitle")}
-            </div>
-            <div style={{ fontSize: 13 }}>
-              {search ? t("list.emptySearchHint") : t("list.emptyHint")}
-            </div>
+        <div className="grid h-[280px] place-items-center text-center text-jn-ink-mute">
+          <div>
+            <IconUsers size={32} className="mx-auto mb-3 text-jn-faint" />
+            <div className="mb-1 font-semibold text-jn-ink">{search ? t("list.emptySearchTitle") : t("list.emptyTitle")}</div>
+            <div className="text-[13px] text-jn-muted">{search ? t("list.emptySearchHint") : t("list.emptyHint")}</div>
           </div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
+        <div className="grid gap-[22px]" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))" }}>
           {employees.map((emp) => (
             <EmployeeCard key={emp.id} emp={emp} onClick={() => navigate(`/admin/employees/${emp.id}`)} />
           ))}
+
+          {/* add-member card */}
+          <button
+            type="button"
+            onClick={() => setUploadOpen(true)}
+            className="jn-reveal flex min-h-[300px] flex-col items-center justify-center gap-3.5 rounded-jn-card-lg border-[1.5px] border-dashed border-jn-line-3 text-jn-muted transition-colors hover:border-jn-primary-border hover:bg-jn-primary-soft/40 hover:text-jn-primary"
+          >
+            <span className="grid h-14 w-14 place-items-center rounded-2xl bg-jn-sunken text-current">
+              <IconPlus size={26} />
+            </span>
+            <div className="text-center">
+              <div className="text-[14.5px] font-bold text-jn-ink-soft">{t("list.addEmployees")}</div>
+              <div className="mt-0.5 text-[12.5px]">{t("upload.fileFormats")}</div>
+            </div>
+          </button>
         </div>
       )}
 
@@ -299,11 +372,9 @@ function BulkUploadModal({
   return (
     <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()} size="lg">
       <ModalContent>
-        <ModalHeader style={{ fontWeight: 700, fontSize: 17 }}>{t("upload.title")}</ModalHeader>
+        <ModalHeader className="text-[17px] font-bold text-jn-ink">{t("upload.title")}</ModalHeader>
         <ModalBody>
-          <p style={{ fontSize: 13, color: T.ink3, margin: "0 0 8px" }}>
-            {t("upload.description", { max: MAX_FILES })}
-          </p>
+          <p className="mb-2 text-[13px] text-jn-ink-mute">{t("upload.description", { max: MAX_FILES })}</p>
           <input
             ref={inputRef}
             type="file"
@@ -315,30 +386,28 @@ function BulkUploadModal({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-              width: "100%", padding: "28px 16px", borderRadius: 16, cursor: "pointer",
-              border: `1.5px dashed ${files.length ? T.accent : T.line}`,
-              background: files.length ? T.accent50 : T.surface2, transition: "all 0.14s",
-            }}
+            className={cn(
+              "flex w-full flex-col items-center gap-2 rounded-jn-card border-[1.5px] border-dashed px-4 py-7 transition-colors",
+              files.length ? "border-jn-primary bg-jn-primary-soft/50" : "border-jn-line-3 bg-jn-sunken",
+            )}
           >
-            <IconCloudUpload size={26} style={{ color: files.length ? T.accent : T.ink4 }} />
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink2 }}>
+            <IconCloudUpload size={26} className={files.length ? "text-jn-primary" : "text-jn-faint"} />
+            <span className="text-[13.5px] font-semibold text-jn-ink-soft">
               {files.length ? t("upload.filesSelected", { count: files.length }) : t("upload.chooseFiles")}
             </span>
-            <span style={{ fontSize: 12, color: T.ink4 }}>{t("upload.fileFormats")}</span>
+            <span className="text-[12px] text-jn-faint">{t("upload.fileFormats")}</span>
           </button>
           {files.length > 0 && (
-            <ul style={{ fontSize: 12, color: T.ink3, maxHeight: 140, overflow: "auto", margin: "10px 0 0", paddingLeft: 4 }}>
+            <ul className="mt-2.5 max-h-[140px] overflow-auto pl-1 text-[12px] text-jn-ink-mute">
               {files.map((f) => (
-                <li key={f.name} style={{ padding: "2px 0" }}>{f.name} · {(f.size / 1024).toFixed(0)} KB</li>
+                <li key={f.name} className="py-0.5">{f.name} · {(f.size / 1024).toFixed(0)} KB</li>
               ))}
             </ul>
           )}
         </ModalBody>
         <ModalFooter>
-          <Button variant="light" onPress={onClose} isDisabled={uploading}>{t("common:actions.cancel")}</Button>
-          <Button color="primary" onPress={submit} isDisabled={!files.length || uploading} isLoading={uploading}>
+          <Button variant="ghost" onClick={onClose} disabled={uploading}>{t("common:actions.cancel")}</Button>
+          <Button variant="primary" onClick={submit} disabled={!files.length || uploading} loading={uploading}>
             {t("upload.uploadButton")} {files.length || ""}
           </Button>
         </ModalFooter>

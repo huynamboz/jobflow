@@ -3,6 +3,7 @@
     "title": "Employees",
     "subtitle": "Upload CVs, review AI-parsed profiles and matched jobs.",
     "addEmployees": "Add employees",
+    "export": "Export",
     "searchPlaceholder": "Search name, email, position…",
     "emptyTitle": "No employees yet",
     "emptySearchTitle": "No matching employees",
@@ -13,6 +14,8 @@
   "stats": {
     "total": "Total",
     "totalUnit": "employees",
+    "totalUnitCount_one": "{{count}} member",
+    "totalUnitCount_other": "{{count}} members",
     "withNewJobs": "With new jobs",
     "withNewJobsUnit": "to review",
     "parsing": "Parsing",
@@ -21,13 +24,19 @@
   "card": {
     "parsing": "Parsing…",
     "parseFailed": "Parse failed",
+    "ready": "Ready",
     "readingCv": "reading CV…",
     "extractingSkills": "Extracting skills…",
     "noSkills": "No skills parsed",
     "seniority": "Seniority",
     "experience": "Experience",
-    "experienceYears": "{{count}}y",
-    "newMatches": "{{count}} new"
+    "experienceYears": "{{count}}y exp",
+    "newMatches": "{{count}} new matches",
+    "noMatches": "No new matches",
+    "viewProfile": "View profile",
+    "joined": "Joined {{date}}",
+    "noPhone": "No phone",
+    "empId": "EMP-{{id}}"
   },
   "upload": {
     "title": "Add employees",
@@ -62,7 +71,15 @@
     "sortNewest": "Newest job",
     "viewMore": "View {{shown}} more · {{left}} left",
     "allShown": "All {{count}} jobs shown",
-    "pageOf": "Page {{page}}/{{total}}"
+    "pageOf": "Page {{page}}/{{total}}",
+    "breadcrumbEmployees": "Employees",
+    "employeeTag": "Employee",
+    "createdOn": "Created on {{date}}",
+    "lastActivity": "Last activity",
+    "noActivity": "No recent activity",
+    "tabInfo": "Info",
+    "tabActivity": "Activity",
+    "statMatches": "Matches"
   },
   "tabs": {
     "all": "All",
@@ -195,7 +212,13 @@
     "rescoreFailed": "Re-score failed (Celery offline?)",
     "deleted": "Employee deleted",
     "deleteFailed": "Delete failed (admin only?)",
-    "loadFailed": "Failed to load employee"
+    "loadFailed": "Failed to load employee",
+    "statSkills": "Skills",
+    "statExperience": "Experience",
+    "timelineCreated": "Added to system",
+    "timelineUpdated": "Profile updated",
+    "timelineParsed": "CV parsed",
+    "timelineParseFailed": "CV parse failed"
   },
   "cvVersions": {
     "title": "CV versions",

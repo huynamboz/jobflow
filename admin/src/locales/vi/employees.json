@@ -3,6 +3,7 @@
     "title": "Nhân viên",
     "subtitle": "Tải lên CV, xem hồ sơ do AI phân tích và các công việc phù hợp.",
     "addEmployees": "Thêm nhân viên",
+    "export": "Xuất CSV",
     "searchPlaceholder": "Tìm theo tên, email, vị trí…",
     "emptyTitle": "Chưa có nhân viên nào",
     "emptySearchTitle": "Không tìm thấy nhân viên phù hợp",
@@ -13,6 +14,7 @@
   "stats": {
     "total": "Tổng",
     "totalUnit": "nhân viên",
+    "totalUnitCount_other": "{{count}} nhân viên",
     "withNewJobs": "Có việc mới",
     "withNewJobsUnit": "cần xem",
     "parsing": "Đang phân tích",
@@ -21,13 +23,19 @@
   "card": {
     "parsing": "Đang phân tích…",
     "parseFailed": "Phân tích thất bại",
+    "ready": "Sẵn sàng",
     "readingCv": "đang đọc CV…",
     "extractingSkills": "Đang trích xuất kỹ năng…",
     "noSkills": "Chưa phân tích được kỹ năng",
     "seniority": "Cấp bậc",
     "experience": "Kinh nghiệm",
-    "experienceYears": "{{count}}n",
-    "newMatches": "{{count}} mới"
+    "experienceYears": "{{count}} năm KN",
+    "newMatches": "{{count}} việc mới",
+    "noMatches": "Chưa có việc mới",
+    "viewProfile": "Xem hồ sơ",
+    "joined": "Vào {{date}}",
+    "noPhone": "Chưa có SĐT",
+    "empId": "EMP-{{id}}"
   },
   "upload": {
     "title": "Thêm nhân viên",
@@ -62,7 +70,15 @@
     "sortNewest": "Job mới nhất",
     "viewMore": "Xem thêm {{shown}} · còn {{left}}",
     "allShown": "Đã hiển thị tất cả {{count}} việc",
-    "pageOf": "Trang {{page}}/{{total}}"
+    "pageOf": "Trang {{page}}/{{total}}",
+    "breadcrumbEmployees": "Nhân viên",
+    "employeeTag": "Nhân viên",
+    "createdOn": "Tạo ngày {{date}}",
+    "lastActivity": "Hoạt động gần nhất",
+    "noActivity": "Chưa có hoạt động nào",
+    "tabInfo": "Thông tin",
+    "tabActivity": "Hoạt động",
+    "statMatches": "Tổng match"
   },
   "tabs": {
     "all": "Tất cả",
@@ -195,7 +211,13 @@
     "rescoreFailed": "Chấm điểm lại thất bại (Celery ngoại tuyến?)",
     "deleted": "Đã xóa nhân viên",
     "deleteFailed": "Xóa thất bại (chỉ admin?)",
-    "loadFailed": "Tải nhân viên thất bại"
+    "loadFailed": "Tải nhân viên thất bại",
+    "statSkills": "Kỹ năng",
+    "statExperience": "Kinh nghiệm",
+    "timelineCreated": "Thêm vào hệ thống",
+    "timelineUpdated": "Cập nhật hồ sơ",
+    "timelineParsed": "Đã phân tích CV",
+    "timelineParseFailed": "Phân tích CV thất bại"
   },
   "cvVersions": {
     "title": "Phiên bản CV",
