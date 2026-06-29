@@ -4,6 +4,7 @@ import { AdminRoute } from "@/components/admin-route";
 import { PublicRoute } from "@/components/public-route";
 
 import LoginPage from "@/pages/login";
+import LandingPage from "@/pages/landing";
 import DashboardPage from "@/pages/admin/dashboard";
 import MailPage from "@/pages/admin/mail";
 import MailDetailPage from "@/pages/admin/mail-detail";
@@ -39,6 +40,8 @@ import StyleguidePage from "@/pages/admin/styleguide";
 function App() {
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
+
       <Route element={<AdminRoute />} path="/admin">
         <Route index element={<DashboardPage />} />
         <Route path="system" element={<SystemPage />} />
