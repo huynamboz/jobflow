@@ -27,6 +27,8 @@ import {
   IconBookmark,
   IconSparkles,
   IconCheck,
+  IconLoader2,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -490,6 +492,87 @@ function Meta({ icon, children }: { icon: React.ReactNode; children: React.React
   );
 }
 
+/* ── waiting state: CV is being parsed + ranked in the background ────── */
+function StepIcon({ state }: { state: "done" | "active" | "pending" }) {
+  if (state === "done")
+    return <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-jn-green-bg" style={{ color: C.success }}><IconCheck size={13} /></span>;
+  if (state === "active")
+    return <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-jn-primary-soft text-jn-primary"><IconLoader2 size={13} className="animate-spin" /></span>;
+  return <span className="h-[22px] w-[22px] shrink-0 rounded-full border-[1.5px] border-jn-line-3" />;
+}
+
+function RankingState({ employee }: { employee: Employee }) {
+  const { t } = useTranslation("employees");
+  const first = (employee.full_name || "").trim().split(/\s+/)[0] || employee.full_name;
+  const skills = employee.skills ?? [];
+  const steps = [
+    { key: "uploaded", label: t("ranking.stepUploaded"), state: "done" as const },
+    { key: "parsing", label: t("ranking.stepParsing"), state: "active" as const },
+    { key: "skills", label: t("ranking.stepSkills"), state: (skills.length ? "done" : "pending") as "done" | "pending" },
+    { key: "ranking", label: t("ranking.stepRanking"), state: "pending" as const },
+  ];
+  return (
+    <div className="overflow-hidden rounded-jn-card border border-jn-line bg-jn-surface">
+      <style>{`
+        @keyframes jnIndeterminate { 0%{left:-40%} 100%{left:100%} }
+        @keyframes jnPulseRing { 0%,100%{transform:scale(1);opacity:.45} 50%{transform:scale(1.14);opacity:.85} }
+      `}</style>
+      {/* gradient hero */}
+      <div
+        className="relative flex flex-col items-center overflow-hidden px-8 py-12 text-center text-white"
+        style={{ background: "linear-gradient(135deg,#0a4fc4 0%,#5b34c0 56%,#7c3fb5 100%)" }}
+      >
+        <span className="pointer-events-none absolute h-[210px] w-[210px] rounded-full border border-white/25" style={{ animation: "jnPulseRing 5s ease-in-out infinite" }} />
+        <span className="pointer-events-none absolute h-[140px] w-[140px] rounded-full border border-white/30" style={{ animation: "jnPulseRing 5s ease-in-out infinite .6s" }} />
+        <span className="relative grid h-16 w-16 place-items-center rounded-2xl bg-white/15">
+          <IconSparkles size={30} className="animate-pulse" />
+        </span>
+        <div className="relative mt-5 text-[22px] font-extrabold tracking-[-0.02em]">{t("ranking.title", { name: first })}</div>
+        <div className="relative mt-2 max-w-[460px] text-[14px] leading-relaxed text-white/85">{t("ranking.subtitle")}</div>
+        <div className="relative mt-6 h-1.5 w-full max-w-[420px] overflow-hidden rounded-full bg-white/20">
+          <span className="absolute top-0 h-full w-[40%] rounded-full bg-white" style={{ animation: "jnIndeterminate 1.4s ease-in-out infinite" }} />
+        </div>
+      </div>
+      {/* steps */}
+      <div className="flex flex-col gap-3.5 px-8 py-7">
+        {steps.map((s) => (
+          <div key={s.key} className="flex items-center gap-3">
+            <StepIcon state={s.state} />
+            <span className={cn("text-[14px]", s.state === "pending" ? "text-jn-muted" : s.state === "active" ? "font-semibold text-jn-ink" : "text-jn-ink-soft")}>{s.label}</span>
+          </div>
+        ))}
+        {skills.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {skills.slice(0, 10).map((s) => (
+              <span key={s} className="rounded-jn-pill bg-jn-sunken px-2.5 py-1 text-[11.5px] font-medium text-jn-ink-soft">{s}</span>
+            ))}
+          </div>
+        )}
+        <div className="mt-1 flex items-center gap-2 text-[12.5px] text-jn-muted">
+          <IconLoader2 size={14} className="animate-spin" />
+          {t("ranking.autoRefresh")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ParseFailedState({ onSettings }: { onSettings: () => void }) {
+  const { t } = useTranslation("employees");
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-jn-card border border-jn-line bg-jn-surface px-8 py-14 text-center">
+      <span className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: C.dangerBg, color: C.danger }}>
+        <IconAlertTriangle size={26} />
+      </span>
+      <div className="text-[16px] font-bold text-jn-ink">{t("ranking.failedTitle")}</div>
+      <div className="max-w-[400px] text-[13px] text-jn-muted">{t("ranking.failedHint")}</div>
+      <Button variant="secondary" className="mt-1" leftIcon={<IconUser size={15} className="text-jn-ink-mute" />} onClick={onSettings}>
+        {t("ranking.openSettings")}
+      </Button>
+    </div>
+  );
+}
+
 /* ============================ page ============================ */
 export default function EmployeeDetailPage() {
   const { t } = useTranslation("employees");
@@ -541,6 +624,15 @@ export default function EmployeeDetailPage() {
   }, [empId, listParams]);
 
   useEffect(() => { void reload(); }, [reload]);
+
+  // While the CV is still being parsed/ranked in the background, poll so the
+  // page flips to the job browser automatically once matches land.
+  const parsing = !!employee && !employee.parsed_at && !employee.is_parse_failed;
+  useEffect(() => {
+    if (!parsing) return;
+    const idv = setInterval(() => { void reload(); }, 3000);
+    return () => clearInterval(idv);
+  }, [parsing, reload]);
 
   const goToPage = useCallback(async (p: number) => {
     if (loadingMore) return;
@@ -632,6 +724,12 @@ export default function EmployeeDetailPage() {
         </Button>
       </div>
 
+      {parsing ? (
+        <RankingState employee={employee} />
+      ) : employee.is_parse_failed && matches.length === 0 ? (
+        <ParseFailedState onSettings={() => navigate(`/admin/employees/${empId}/info`)} />
+      ) : (
+        <>
       {/* filter row */}
       <div className="jn-reveal mb-4 flex flex-wrap items-center gap-3">
         {platforms.length > 1 && (
@@ -728,6 +826,9 @@ export default function EmployeeDetailPage() {
             )}
           </div>
         </div>
+      )}
+
+        </>
       )}
 
       {/* duplicate-apply modal */}

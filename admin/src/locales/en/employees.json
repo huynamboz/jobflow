@@ -81,6 +81,18 @@
     "tabActivity": "Activity",
     "statMatches": "Matches"
   },
+  "ranking": {
+    "title": "Ranking jobs for {{name}}",
+    "subtitle": "We're reading the CV with AI and scoring the best-fit roles. This usually takes a few seconds and updates automatically.",
+    "stepUploaded": "CV uploaded",
+    "stepParsing": "Reading the CV with AI",
+    "stepSkills": "Extracting skills & seniority",
+    "stepRanking": "Ranking best-fit jobs",
+    "autoRefresh": "This page refreshes automatically",
+    "failedTitle": "CV parsing failed",
+    "failedHint": "We couldn't read this CV. Open settings to re-upload or re-score it.",
+    "openSettings": "Open settings"
+  },
   "tabs": {
     "all": "All",
     "suggested": "Suggested",
