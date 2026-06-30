@@ -31,6 +31,10 @@ class HttpPresenceVerifier(JobStatusVerifier):
     _NAME: str = ""
     _URL_PATTERNS: tuple[str, ...] = ()
     _EXPIRED_MARKERS: tuple[str, ...] = ()  # lowercased text substrings → EXPIRED
+    # Optional company-logo backfill from the live page (e.g. RemoteOK lazy-loads
+    # the real logo URL into a data-attr). Empty selector → no logo extraction.
+    _LOGO_SELECTOR: str = ""
+    _LOGO_ATTR: str = "data-src"
 
     def __init__(self, *, delay_s: float = 0.5, **_ignored) -> None:
         # **_ignored swallows browser-only kwargs (require_li_at/headless).
@@ -80,9 +84,30 @@ class HttpPresenceVerifier(JobStatusVerifier):
         if job_id and job_id not in final_url:
             return VerifyResult(JobStatus.EXPIRED, reason="redirected off job URL", final_url=final_url)
 
-        text = (resp.text or "")[:200_000].lower()
+        body = resp.text or ""
+        text = body[:200_000].lower()
         for marker in self._EXPIRED_MARKERS:
             if marker in text:
                 return VerifyResult(JobStatus.EXPIRED, reason=f"marker: {marker}", final_url=final_url)
 
-        return VerifyResult(JobStatus.ACTIVE, reason="live (HTTP 200)", final_url=final_url)
+        return VerifyResult(
+            JobStatus.ACTIVE, reason="live (HTTP 200)", final_url=final_url,
+            company_logo=self._extract_logo(body),
+        )
+
+    def _extract_logo(self, html: str) -> str:
+        """Pull a company logo URL off the live page (subclass-configured
+        selector + attr). Returns "" if not configured or not a real image URL."""
+        if not self._LOGO_SELECTOR:
+            return ""
+        try:
+            from bs4 import BeautifulSoup
+            el = BeautifulSoup(html, "html.parser").select_one(self._LOGO_SELECTOR)
+            if not el:
+                return ""
+            url = (el.get(self._LOGO_ATTR) or el.get("src") or "").strip()
+            if url.startswith("http") and "pixel.gif" not in url:
+                return url
+        except Exception:
+            pass
+        return ""

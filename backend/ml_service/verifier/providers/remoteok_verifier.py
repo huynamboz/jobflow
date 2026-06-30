@@ -23,3 +23,7 @@ class RemoteOKVerifier(HttpPresenceVerifier):
         "position has been filled",
         "this job post has expired",
     )
+    # RemoteOK lazy-loads the company logo: the real URL sits in data-src of the
+    # itemprop=image avatar (src is a pixel.gif placeholder).
+    _LOGO_SELECTOR = "img[itemprop='image']"
+    _LOGO_ATTR = "data-src"
