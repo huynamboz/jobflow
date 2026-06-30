@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { addToast } from "@heroui/toast";
@@ -7,7 +7,7 @@ import { mailService } from "@/services/mail.service";
 import { Input, Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/modal";
-import { IconArrowLeft, IconArrowRight, IconBriefcase, IconBuilding, IconEye, IconFileText, IconMail, IconMailExclamation, IconMapPin, IconPaperclip, IconSparkles, IconTrash, IconUpload, IconUser } from "@tabler/icons-react";
+import { IconArrowLeft, IconArrowRight, IconBriefcase, IconBuilding, IconEye, IconFileText, IconLoader2, IconMail, IconMailExclamation, IconMapPin, IconPaperclip, IconSparkles, IconTrash, IconUpload, IconUser } from "@tabler/icons-react";
 
 import { Card } from "@/components/ui/card";
 import { QuillEditor, type QuillHandle } from "@/components/quill-editor";
@@ -23,6 +23,12 @@ const T = {
   ink: "oklch(0.18 0.02 265)", ink2: "oklch(0.38 0.015 265)",
   ink3: "oklch(0.56 0.012 265)", ink4: "oklch(0.72 0.008 265)",
   surface2: "oklch(0.97 0.005 85)",
+};
+
+// small uppercase section label
+const LABEL: CSSProperties = {
+  fontSize: 10.5, fontWeight: 700, textTransform: "uppercase",
+  letterSpacing: "0.05em", color: "oklch(0.72 0.008 265)", marginBottom: 7,
 };
 
 function initials(name: string): string {
@@ -287,44 +293,36 @@ export default function ApplyEmailPage() {
       <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 320px) 1fr", gap: 16, alignItems: "start" }}>
         {/* left: context */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Candidate — only the details NOT already in the banner (contact + skills) */}
           <Card>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-              <span style={{ width: 42, height: 42, borderRadius: "50%", display: "grid", placeItems: "center", background: "#e8f4f4", color: T.accent, fontWeight: 700, fontSize: 14 }}>
-                {initials(emp?.full_name || "?")}
-              </span>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: T.ink }}>{emp?.full_name || "—"}</div>
-                <div style={{ fontSize: 12, color: T.ink3 }}>{emp?.position || "—"}</div>
-              </div>
-            </div>
-            <div style={{ fontSize: 12.5, color: T.ink2, display: "flex", flexDirection: "column", gap: 4 }}>
-              {emp?.email && <span><IconMail size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />{emp.email}</span>}
-              {emp?.phone && <span><IconUser size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />{emp.phone}</span>}
+            <div style={LABEL}>{t("compose.contact")}</div>
+            <div style={{ fontSize: 12.5, color: T.ink2, display: "flex", flexDirection: "column", gap: 5 }}>
+              {emp?.email && <span><IconMail size={13} style={{ display: "inline", marginRight: 6, color: T.ink4, verticalAlign: "-2px" }} />{emp.email}</span>}
+              {emp?.phone && <span><IconUser size={13} style={{ display: "inline", marginRight: 6, color: T.ink4, verticalAlign: "-2px" }} />{emp.phone}</span>}
+              {!emp?.email && !emp?.phone && <span style={{ color: T.ink4 }}>—</span>}
             </div>
             {!!(emp?.skills?.length) && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 10 }}>
-                {emp!.skills.slice(0, 10).map((s) => (
-                  <span key={s} style={{ padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 500, background: T.surface2, color: T.ink2 }}>{s}</span>
-                ))}
-              </div>
+              <>
+                <div style={{ ...LABEL, marginTop: 14 }}>{t("compose.skills")}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                  {emp!.skills.slice(0, 12).map((s) => (
+                    <span key={s} style={{ padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 500, background: T.surface2, color: T.ink2 }}>{s}</span>
+                  ))}
+                </div>
+              </>
             )}
           </Card>
 
+          {/* Job — only the extra details (seniority, type) + posting link */}
           <Card>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-              <CompanyAvatar logo={job?.company?.logo_url} name={job?.company?.name || job?.title} size={42} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job?.title || "—"}</div>
-                <div style={{ fontSize: 12, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job?.company?.name || "—"}</div>
-              </div>
-            </div>
-            <div style={{ fontSize: 12.5, color: T.ink2, display: "flex", flexDirection: "column", gap: 4 }}>
-              {job?.company?.name && <span><IconBuilding size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />{job.company.name}</span>}
-              {job?.location && <span><IconMapPin size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />{job.location}</span>}
-              {job?.seniority != null && <span><IconBriefcase size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />{t("compose.seniority", { level: job.seniority })}</span>}
+            <div style={LABEL}>{t("compose.jobDetails")}</div>
+            <div style={{ fontSize: 12.5, color: T.ink2, display: "flex", flexDirection: "column", gap: 5 }}>
+              {job?.seniority != null && <span><IconBriefcase size={13} style={{ display: "inline", marginRight: 6, color: T.ink4, verticalAlign: "-2px" }} />{t("compose.seniority", { level: job.seniority })}</span>}
+              {job?.job_type && <span><IconBuilding size={13} style={{ display: "inline", marginRight: 6, color: T.ink4, verticalAlign: "-2px" }} />{job.job_type}</span>}
+              {job?.location && <span><IconMapPin size={13} style={{ display: "inline", marginRight: 6, color: T.ink4, verticalAlign: "-2px" }} />{job.location}</span>}
             </div>
             {job?.source_url && (
-              <a href={job.source_url} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12.5, fontWeight: 600, color: T.accent, textDecoration: "none" }}>
+              <a href={job.source_url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 12, fontSize: 12.5, fontWeight: 600, color: T.accent, textDecoration: "none" }}>
                 {t("compose.viewPosting")}
               </a>
             )}
@@ -375,9 +373,25 @@ export default function ApplyEmailPage() {
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: T.ink3 }}>{t("compose.message")}</div>
-              <Button size="sm" variant="flat" color="primary" startContent={<IconSparkles size={14} />} isLoading={generating} onPress={() => generateEmail(false)}>
+              <button
+                type="button"
+                onClick={() => generateEmail(false)}
+                disabled={generating}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "7px 14px", borderRadius: 10, border: "none",
+                  fontSize: 12.5, fontWeight: 600, color: "#fff",
+                  background: "linear-gradient(135deg, #167a7a, #0E9CA6)",
+                  boxShadow: "0 1px 2px rgba(22,122,122,.25)",
+                  cursor: generating ? "default" : "pointer", opacity: generating ? 0.7 : 1,
+                  transition: "filter .15s, opacity .15s",
+                }}
+                onMouseEnter={(e) => { if (!generating) e.currentTarget.style.filter = "brightness(1.07)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
+              >
+                {generating ? <IconLoader2 size={14} className="animate-spin" /> : <IconSparkles size={14} />}
                 {generating ? t("compose.generating") : t("compose.generateEmail")}
-              </Button>
+              </button>
             </div>
             <QuillEditor ref={editorRef} initialHTML={bodyHTML} placeholder={t("compose.editorPlaceholder")} onChange={onEditorChange} minHeight={300} />
             {/* Feedback → regenerate: tell the LLM what to change and rewrite the draft */}
@@ -393,17 +407,23 @@ export default function ApplyEmailPage() {
                 classNames={{ inputWrapper: "bg-default-50" }}
                 className="flex-1"
               />
-              <Button
-                size="sm"
-                variant="flat"
-                color="secondary"
-                startContent={<IconSparkles size={14} />}
-                isLoading={generating}
-                isDisabled={!feedback.trim()}
-                onPress={() => generateEmail(true)}
+              <button
+                type="button"
+                onClick={() => generateEmail(true)}
+                disabled={generating || !feedback.trim()}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0,
+                  padding: "8px 14px", borderRadius: 10, border: `1px solid ${T.accent}33`,
+                  fontSize: 12.5, fontWeight: 600, color: T.accent, background: "#e8f4f4",
+                  cursor: generating || !feedback.trim() ? "default" : "pointer",
+                  opacity: generating || !feedback.trim() ? 0.5 : 1, transition: "filter .15s, opacity .15s",
+                }}
+                onMouseEnter={(e) => { if (!(generating || !feedback.trim())) e.currentTarget.style.filter = "brightness(0.97)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; }}
               >
+                <IconSparkles size={14} />
                 {t("compose.regenerate")}
-              </Button>
+              </button>
             </div>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
