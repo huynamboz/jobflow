@@ -25,7 +25,9 @@ Mapping (per jobkey):
 from __future__ import annotations
 
 import logging
+import random
 import re
+import time
 
 import requests
 
@@ -60,6 +62,8 @@ _QUERY_TMPL = (
 _JK_RE = re.compile(r"[?&]jk=([0-9a-fA-F]+)")
 _DEFAULT_CHUNK = 25
 _DEFAULT_TIMEOUT = 15.0
+_DEFAULT_DELAY_S = 1.5   # pause between chunk requests so a big run stays gentle
+_DEFAULT_JITTER_S = 0.7
 
 
 def _extract_jk(url: str) -> str:
@@ -71,11 +75,15 @@ class IndeedVerifier(JobStatusVerifier):
     _NAME = "indeed"
 
     def __init__(self, *, chunk_size: int = _DEFAULT_CHUNK,
-                 timeout: float = _DEFAULT_TIMEOUT, **_ignored) -> None:
+                 timeout: float = _DEFAULT_TIMEOUT,
+                 delay_s: float = _DEFAULT_DELAY_S,
+                 jitter_s: float = _DEFAULT_JITTER_S, **_ignored) -> None:
         # **_ignored swallows require_li_at / headless passed by the shared
         # command — the API path needs neither a login nor a browser.
         self._chunk = max(1, int(chunk_size))
         self._timeout = timeout
+        self._delay_s = max(0.0, delay_s)
+        self._jitter_s = max(0.0, jitter_s)
 
     @property
     def name(self) -> str:
@@ -108,22 +116,32 @@ class IndeedVerifier(JobStatusVerifier):
                     order.append(jk)
                 idx_by_jk.setdefault(jk, []).append(i)
 
-        # Query the API in chunks; fill results by jobkey.
+        # urls without a jk were resolved above — report them first so the
+        # dashboard counter doesn't stall on skipped rows.
+        if progress_callback is not None:
+            for i in range(n):
+                if results[i] is not None:
+                    progress_callback(i, n, urls[i], results[i])
+
+        # Query the API in chunks; fill results by jobkey. Pause between chunks
+        # (not before the first) so a large run doesn't hammer the endpoint.
+        # Emit progress per chunk so the dashboard advances during the pauses.
         for start in range(0, len(order), self._chunk):
+            if start > 0 and self._delay_s:
+                time.sleep(self._delay_s + random.uniform(0.0, self._jitter_s))
             chunk = order[start:start + self._chunk]
             verdicts = self._query_chunk(chunk)
+            done_idx: list[int] = []
             for jk in chunk:
                 status, reason, logo = verdicts[jk]
                 for i in idx_by_jk[jk]:
                     results[i] = VerifyResult(
                         status, reason=reason, final_url=urls[i], company_logo=logo,
                     )
-
-        # Emit progress in input order (the API is fast; ordered ticks keep the
-        # service's job_id mapping and the dashboard's counter correct).
-        if progress_callback is not None:
-            for i in range(n):
-                progress_callback(i, n, urls[i], results[i])
+                    done_idx.append(i)
+            if progress_callback is not None:
+                for i in sorted(done_idx):
+                    progress_callback(i, n, urls[i], results[i])
 
         return [r for r in results]  # type: ignore[return-value]
 
