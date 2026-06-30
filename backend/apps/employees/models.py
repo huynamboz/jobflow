@@ -26,6 +26,10 @@ class Employee(models.Model):
     cv_file = models.FileField(upload_to="employee_cvs/", null=True, blank=True)
     parsed_at = models.DateTimeField(null=True, blank=True)
     is_parse_failed = models.BooleanField(default=False)
+    # Set after the GNN ranking persists matches (any count). Lets the UI tell
+    # "ranking in progress" (parsed_at set, matched_at null) apart from
+    # "genuinely 0 matches" without inferring from list length.
+    matched_at = models.DateTimeField(null=True, blank=True)
 
     notes = models.TextField(blank=True, default="")
 

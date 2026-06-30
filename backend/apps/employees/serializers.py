@@ -53,13 +53,13 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
         fields = (
             "id", "full_name", "email", "phone", "position",
             "seniority", "experience_years", "skills",
-            "cv_file", "parsed_at", "is_parse_failed",
+            "cv_file", "parsed_at", "is_parse_failed", "matched_at",
             "notes", "created_by",
             "matches_count_by_status", "matches_count_by_platform",
             "created_at", "updated_at",
         )
         read_only_fields = (
-            "id", "cv_file", "parsed_at", "is_parse_failed",
+            "id", "cv_file", "parsed_at", "is_parse_failed", "matched_at",
             "created_by", "matches_count_by_status", "matches_count_by_platform",
             "created_at", "updated_at",
         )

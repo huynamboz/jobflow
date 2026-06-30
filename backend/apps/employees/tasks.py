@@ -90,6 +90,12 @@ def _persist_matches(emp: Employee, matches: list[dict]) -> dict:
             .delete()
         )
 
+    # Ranking finished (regardless of count) → stamp matched_at so the UI can
+    # distinguish "still ranking" from "done with 0 matches".
+    from django.utils import timezone
+    emp.matched_at = timezone.now()
+    emp.save(update_fields=["matched_at"])
+
     return {
         "employee_id": emp.id,
         "matches_total": len(matches),

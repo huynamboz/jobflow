@@ -738,31 +738,21 @@ export default function EmployeeDetailPage() {
 
   useEffect(() => { void reload(); }, [reload]);
 
-  // Background work has two phases the UI should wait through:
-  //  1. parsing — CV not parsed yet (parsed_at null).
-  //  2. ranking — parsed, but the GNN re-match hasn't persisted matches yet.
-  //     The backend sets parsed_at BEFORE running the (slow) ranking, so a
-  //     parsed employee with zero matches is almost always still ranking.
-  // Genuinely-empty employees are rare, so we treat "parsed + 0 matches" as
-  // ranking for a bounded window, then fall back to the real empty state.
-  const parsing = !!employee && !employee.parsed_at && !employee.is_parse_failed;
-  const parsedNoMatches = !!employee && !!employee.parsed_at && !employee.is_parse_failed && matches.length === 0;
-  const [rankingExpired, setRankingExpired] = useState(false);
-  // Only treat "parsed + 0 matches" as ranking on the DEFAULT browse (active tab,
-  // no platform filter). An empty Saved/Closed/Dismissed tab is just empty, not
-  // ranking — otherwise switching to an empty tab wrongly shows the ranking UI.
-  const ranking = parsedNoMatches && !rankingExpired && jobTab === "active" && !platformFilter;
-  const working = parsing || ranking;
+  // Processing phase from explicit backend timestamps (no list-length guessing):
+  //   parsing → CV not parsed yet · ranking → parsed but GNN match not persisted
+  //   failed  → parse failed (never matched) · ready → matched_at stamped.
+  const phase: "parsing" | "ranking" | "failed" | "ready" = !employee
+    ? "ready"
+    : employee.is_parse_failed && !employee.matched_at
+      ? "failed"
+      : !employee.parsed_at
+        ? "parsing"
+        : !employee.matched_at
+          ? "ranking"
+          : "ready";
+  const working = phase === "parsing" || phase === "ranking";
 
-  // Bound the ranking window so a truly-empty employee doesn't spin forever.
-  useEffect(() => {
-    if (!parsedNoMatches) { setRankingExpired(false); return; }
-    const tmo = setTimeout(() => setRankingExpired(true), 40_000);
-    return () => clearTimeout(tmo);
-  }, [parsedNoMatches]);
-
-  // Poll while either phase is active so the page flips to the browser
-  // automatically once matches land.
+  // Poll while parsing/ranking so the page flips to the browser once done.
   useEffect(() => {
     if (!working) return;
     const idv = setInterval(() => { void reload(); }, 3000);
@@ -872,8 +862,8 @@ export default function EmployeeDetailPage() {
       </div>
 
       {working ? (
-        <RankingState employee={employee} phase={parsing ? "parsing" : "ranking"} />
-      ) : employee.is_parse_failed && matches.length === 0 && jobTab === "active" && !platformFilter ? (
+        <RankingState employee={employee} phase={phase === "parsing" ? "parsing" : "ranking"} />
+      ) : phase === "failed" ? (
         <ParseFailedState onSettings={() => navigate(`/admin/employees/${empId}/info`)} />
       ) : (
         <>

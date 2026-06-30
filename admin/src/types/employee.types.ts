@@ -10,6 +10,7 @@ export interface Employee {
   cv_file: string | null;
   is_parse_failed: boolean;
   parsed_at: string | null;
+  matched_at?: string | null;
   match_count?: number;
   matches_count_by_status?: Record<string, number>;
   matches_count_by_platform?: { name: string; slug: string; logo?: string; count: number }[];
