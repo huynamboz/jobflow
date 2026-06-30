@@ -152,7 +152,12 @@
       "experience": "Kinh nghiệm",
       "years": "{{count}} năm",
       "email": "Email",
-      "phone": "Điện thoại"
+      "phone": "Điện thoại",
+      "emailThread": "Luồng email",
+      "noEmails": "Chưa gửi email nào cho đơn ứng tuyển này.",
+      "sent": "Đã gửi",
+      "reply": "Phản hồi",
+      "bounced": "Trả về"
     },
     "summary": {
       "total": "Tổng đã nộp",

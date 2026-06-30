@@ -23,12 +23,15 @@ import {
   IconCoin,
   IconCalendarEvent,
   IconStairsUp,
+  IconArrowUpRight,
+  IconArrowDownLeft,
 } from "@tabler/icons-react";
 
 import { Avatar, Button, useReveal } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { matchService } from "@/services/match.service";
 import { employeeService } from "@/services/employee.service";
+import { mailService, type MailLog } from "@/services/mail.service";
 import type { Employee } from "@/types/employee.types";
 import type { EmployeeJobMatch, MatchStatus } from "@/types/match.types";
 
@@ -409,16 +412,24 @@ function ApplicationDetailModal({
   const m = match;
   const [emp, setEmp] = useState<Employee | null>(null);
   const [empLoading, setEmpLoading] = useState(false);
+  const [thread, setThread] = useState<MailLog[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
 
   useEffect(() => {
-    if (!m) { setEmp(null); return; }
+    if (!m) { setEmp(null); setThread([]); return; }
     let alive = true;
     setEmp(null);
+    setThread([]);
     setEmpLoading(true);
+    setThreadLoading(true);
     employeeService.get(m.employee)
       .then((e) => { if (alive) setEmp(e); })
       .catch(() => { if (alive) setEmp(null); })
       .finally(() => { if (alive) setEmpLoading(false); });
+    mailService.thread(m.id)
+      .then((ts) => { if (alive) setThread(ts); })
+      .catch(() => { if (alive) setThread([]); })
+      .finally(() => { if (alive) setThreadLoading(false); });
     return () => { alive = false; };
   }, [m]);
 
@@ -486,6 +497,51 @@ function ApplicationDetailModal({
                     {emp?.phone && <InfoRow icon={<IconPhone size={14} />} label={t("tracking.dialog.phone")} value={emp.phone} />}
                   </div>
                 </div>
+              </section>
+
+              {/* Email thread */}
+              <section>
+                <div className="mb-2 flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-jn-muted">
+                  <IconMail size={14} />{t("tracking.dialog.emailThread")}
+                  {threadLoading && <IconLoader2 size={13} className="animate-spin text-jn-faint" />}
+                  {!threadLoading && thread.length > 0 && (
+                    <span className="ml-auto rounded-jn-pill bg-jn-sunken px-2 py-px text-[11px] font-bold text-jn-ink-mute">{thread.length}</span>
+                  )}
+                </div>
+                {threadLoading ? null : thread.length === 0 ? (
+                  <div className="rounded-[12px] border border-jn-line-2 bg-jn-surface px-3.5 py-3 text-[12.5px] text-jn-muted">
+                    {t("tracking.dialog.noEmails")}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {thread.map((mail) => {
+                      const out = mail.direction === "out";
+                      return (
+                        <div key={mail.id} className="rounded-[12px] border border-jn-line-2 bg-jn-surface px-3.5 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="inline-flex items-center gap-1 rounded-jn-pill px-2 py-[2px] text-[11px] font-bold"
+                              style={out ? { color: "#0064E5", background: "#E8F1FE" } : { color: "#1F9E6E", background: "#E7F6EF" }}
+                            >
+                              {out ? <IconArrowUpRight size={11} /> : <IconArrowDownLeft size={11} />}
+                              {out ? t("tracking.dialog.sent") : t("tracking.dialog.reply")}
+                            </span>
+                            {mail.is_bounce && (
+                              <span className="rounded-jn-pill px-2 py-[2px] text-[11px] font-bold" style={{ color: "#E0533A", background: "#FCEDEA" }}>
+                                {t("tracking.dialog.bounced")}
+                              </span>
+                            )}
+                            <span className="ml-auto text-[11px] tabular-nums text-jn-faint">{new Date(mail.created_at).toLocaleString("vi-VN")}</span>
+                          </div>
+                          <div className="mt-1.5 truncate text-[12.5px] font-semibold text-jn-ink">{mail.subject || "—"}</div>
+                          {mail.body_text && (
+                            <div className="mt-0.5 line-clamp-2 whitespace-pre-line text-[12px] leading-snug text-jn-muted">{mail.body_text}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
             </ModalBody>
             <ModalFooter className="gap-2 px-6 pb-5">

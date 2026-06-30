@@ -152,7 +152,12 @@
       "experience": "Experience",
       "years": "{{count}} years",
       "email": "Email",
-      "phone": "Phone"
+      "phone": "Phone",
+      "emailThread": "Email thread",
+      "noEmails": "No emails sent for this application yet.",
+      "sent": "Sent",
+      "reply": "Reply",
+      "bounced": "Bounced"
     },
     "summary": {
       "total": "Total applied",
