@@ -176,10 +176,9 @@ function JobLogo({ src, name, size = 38 }: { src?: string; name?: string; size?:
   const [failed, setFailed] = useState(false);
   if (src && !failed) {
     return (
-      <span className="grid shrink-0 place-items-center overflow-hidden border border-jn-line-2 bg-white"
+      <span className="block shrink-0 overflow-hidden border border-jn-line-2 bg-white"
         style={{ width: size, height: size, borderRadius: 10 }}>
-        <img src={src} alt="" loading="lazy" className="object-contain"
-          style={{ width: Math.round(size * 0.62), height: Math.round(size * 0.62) }} onError={() => setFailed(true)} />
+        <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" onError={() => setFailed(true)} />
       </span>
     );
   }
