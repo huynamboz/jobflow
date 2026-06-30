@@ -122,6 +122,7 @@
     "contact": "Liên hệ",
     "skills": "Kỹ năng",
     "jobDetails": "Chi tiết công việc",
+    "applicantsCount": "{{count}} ứng viên",
     "seniority": "Cấp bậc {{level}}",
     "viewPosting": "Xem tin tuyển →",
     "toLabel": "Đến",

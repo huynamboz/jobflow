@@ -7,7 +7,7 @@ import { mailService } from "@/services/mail.service";
 import { Input, Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/modal";
-import { IconArrowLeft, IconBriefcase, IconEye, IconFileText, IconLoader2, IconMail, IconMailExclamation, IconMapPin, IconPaperclip, IconPhone, IconSparkles, IconStairsUp, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconArrowLeft, IconBriefcase, IconCalendarEvent, IconCoin, IconEye, IconFileText, IconLoader2, IconMail, IconMailExclamation, IconMapPin, IconPaperclip, IconPhone, IconSparkles, IconStairsUp, IconTrash, IconUpload, IconUsers, IconWorld } from "@tabler/icons-react";
 
 import { Card } from "@/components/ui/card";
 import { QuillEditor, type QuillHandle } from "@/components/quill-editor";
@@ -35,6 +35,16 @@ const HAIRLINE = "#ECECEE";
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
 function seniorityLabel(n?: number): string {
   return n != null && n >= 0 && n < SENIORITY_LABELS.length ? SENIORITY_LABELS[n] : "—";
+}
+
+function fmtSalary(j: JobDetail | null): string {
+  if (!j) return "";
+  const { salary_min: a, salary_max: b, salary_currency: c, salary_period: p } = j;
+  if (!a && !b) return "";
+  const cur = c ? `${c} ` : "";
+  const per = p ? `/${p}` : "";
+  const f = (n: number) => n.toLocaleString();
+  return a && b ? `${cur}${f(a)}–${f(b)}${per}` : `${cur}${f((a || b) as number)}${per}`;
 }
 
 function initials(name: string): string {
@@ -408,6 +418,10 @@ export default function ApplyEmailPage() {
               {job?.location && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconMapPin size={14} style={{ color: T.ink4, flexShrink: 0 }} />{job.location}</span>}
               {job?.job_type && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconBriefcase size={14} style={{ color: T.ink4, flexShrink: 0 }} />{job.job_type}</span>}
               {job?.seniority != null && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconStairsUp size={14} style={{ color: T.ink4, flexShrink: 0 }} />{seniorityLabel(job.seniority)}</span>}
+              {fmtSalary(job) && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconCoin size={14} style={{ color: T.ink4, flexShrink: 0 }} />{fmtSalary(job)}</span>}
+              {job?.platform?.name && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconWorld size={14} style={{ color: T.ink4, flexShrink: 0 }} />{job.platform.name}</span>}
+              {job?.applicant_count != null && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconUsers size={14} style={{ color: T.ink4, flexShrink: 0 }} />{t("compose.applicantsCount", { count: job.applicant_count })}</span>}
+              {job?.date_posted && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconCalendarEvent size={14} style={{ color: T.ink4, flexShrink: 0 }} />{new Date(job.date_posted).toLocaleDateString("vi-VN")}</span>}
             </div>
             {job?.source_url && (
               <a href={job.source_url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 12, fontSize: 12.5, fontWeight: 600, color: T.accent, textDecoration: "none" }}>

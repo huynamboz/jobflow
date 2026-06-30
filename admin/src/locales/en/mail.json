@@ -122,6 +122,7 @@
     "contact": "Contact",
     "skills": "Skills",
     "jobDetails": "Job details",
+    "applicantsCount": "{{count}} applicants",
     "seniority": "Seniority {{level}}",
     "viewPosting": "View posting →",
     "toLabel": "To",
