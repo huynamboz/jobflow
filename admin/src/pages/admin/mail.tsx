@@ -73,8 +73,8 @@ function Avatar({ label, size = 40, logo }: { label: string; size?: number; logo
         />
       )}
       <span
-        className="grid h-full w-full place-items-center font-extrabold text-white"
-        style={{ borderRadius: radius, fontSize: size * 0.36, background: "linear-gradient(135deg,#0064E5,#16C7B5)", display: logo ? "none" : undefined }}
+        className="grid h-full w-full place-items-center font-bold text-jn-ink-mute"
+        style={{ borderRadius: radius, fontSize: size * 0.38, background: "#F2F2F2", border: "1px solid #EFEFEF", display: logo ? "none" : undefined }}
       >
         {(label || "?").charAt(0).toUpperCase()}
       </span>
