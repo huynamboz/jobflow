@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 _API = "https://www.freelancer.com/api/projects/0.1/projects/"
 _UA = {"User-Agent": "Mozilla/5.0 (compatible; JobFlowVerifier/1.0)"}
+# Removed projects 404 the public page; use a real browser UA for that check.
+_BROWSER_UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 _SEO_RE = re.compile(r"/projects/(.+?)/?$", re.IGNORECASE)
 
 # Freelancer project statuses → lifecycle. "active" is the only live one.
@@ -81,10 +83,11 @@ class FreelancerVerifier(JobStatusVerifier):
             return VerifyResult(JobStatus.UNKNOWN, reason="bad JSON", final_url=url)
 
         if not projects:
-            # API doesn't index this seo-url anymore — treat as gone, but only
-            # softly: UNKNOWN (no-op) avoids killing a still-active project that
-            # the seo lookup simply failed to resolve.
-            return VerifyResult(JobStatus.UNKNOWN, reason="not found via API", final_url=url)
+            # API no longer indexes this seo-url. That usually means the project
+            # was removed — confirm on the public page: a removed project 404s
+            # (or redirects off /projects/). Only then mark EXPIRED; a live page
+            # we just couldn't resolve stays UNKNOWN (no-op).
+            return self._confirm_gone(url)
 
         status = str(projects[0].get("status") or "").lower()
         if status in _EXPIRED_STATUSES:
@@ -92,3 +95,16 @@ class FreelancerVerifier(JobStatusVerifier):
         if status in _ACTIVE_STATUSES:
             return VerifyResult(JobStatus.ACTIVE, reason=f"status={status}", final_url=url)
         return VerifyResult(JobStatus.UNKNOWN, reason=f"status={status!r}", final_url=url)
+
+    def _confirm_gone(self, url: str) -> VerifyResult:
+        """API returned no project → confirm removal on the public page."""
+        try:
+            page = requests.get(url, headers=_BROWSER_UA, timeout=15, allow_redirects=True)
+        except requests.RequestException:
+            return VerifyResult(JobStatus.UNKNOWN, reason="not found via API; page check failed", final_url=url)
+        if page.status_code in (404, 410):
+            return VerifyResult(JobStatus.EXPIRED, reason="removed (API empty + HTTP 404)", final_url=url)
+        final = str(getattr(page, "url", "") or url)
+        if "/projects/" not in final:
+            return VerifyResult(JobStatus.EXPIRED, reason="removed (redirected off project)", final_url=final)
+        return VerifyResult(JobStatus.UNKNOWN, reason="not found via API", final_url=final)
