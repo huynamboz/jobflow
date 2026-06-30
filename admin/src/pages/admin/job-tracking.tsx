@@ -79,11 +79,16 @@ const STATUS_LABEL: Record<MatchStatus, string> = {
 };
 const MENU_STATUSES: MatchStatus[] = ["applied", "in_progress", "won", "completed", "lost"];
 
-// match-badge palette (exact hex from the mockup's mc())
+// Headline % = reranker rank score (same as the matching page), with the same
+// colour thresholds: ≥66 green / ≥40 blue / else amber.
+function rankPct(m: EmployeeJobMatch): number {
+  const r = m.score_breakdown?.rank_score;
+  return Math.round((r != null ? r : (m.match_score ?? 0)) * 100);
+}
 function matchStyle(pct: number): { color: string; bg: string } {
-  if (pct >= 95) return { color: "#1F9E6E", bg: "#E7F6EF" };
-  if (pct >= 85) return { color: "#0064E5", bg: "#E8F1FE" };
-  return { color: "#E8961E", bg: "#FBF1DC" };
+  if (pct >= 66) return { color: "#1F9E6E", bg: "#E7F6EF" };
+  if (pct >= 40) return { color: "#0064E5", bg: "#E8F1FE" };
+  return { color: "#C77700", bg: "#FBF1DC" };
 }
 
 function dateFor(m: EmployeeJobMatch): string | null {
@@ -260,7 +265,7 @@ export default function JobTrackingPage() {
 
                 {/* cards */}
                 {cards.map((m) => {
-                  const pct = Math.round((m.match_score ?? 0) * 100);
+                  const pct = rankPct(m);
                   const ms = matchStyle(pct);
                   return (
                     <div
@@ -417,7 +422,7 @@ function ApplicationDetailModal({
     return () => { alive = false; };
   }, [m]);
 
-  const pct = m ? Math.round((m.match_score ?? 0) * 100) : 0;
+  const pct = m ? rankPct(m) : 0;
   const ms = matchStyle(pct);
   const col = COLUMNS.find((c) => c.key === m?.status);
 

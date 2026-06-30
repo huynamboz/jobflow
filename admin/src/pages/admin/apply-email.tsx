@@ -7,7 +7,7 @@ import { mailService } from "@/services/mail.service";
 import { Input, Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/modal";
-import { IconArrowLeft, IconBriefcase, IconBuilding, IconEye, IconFileText, IconMail, IconMailExclamation, IconMapPin, IconPaperclip, IconSparkles, IconTrash, IconUpload, IconUser } from "@tabler/icons-react";
+import { IconArrowLeft, IconArrowRight, IconBriefcase, IconBuilding, IconEye, IconFileText, IconMail, IconMailExclamation, IconMapPin, IconPaperclip, IconSparkles, IconTrash, IconUpload, IconUser } from "@tabler/icons-react";
 
 import { Card } from "@/components/ui/card";
 import { QuillEditor, type QuillHandle } from "@/components/quill-editor";
@@ -29,6 +29,27 @@ function initials(name: string): string {
   const p = (name || "").trim().split(/\s+/).filter(Boolean);
   if (!p.length) return "?";
   return (p.length === 1 ? p[0].slice(0, 2) : p[0][0] + p[p.length - 1][0]).toUpperCase();
+}
+
+/** Company avatar — real logo (object-cover) with a neutral-initial fallback. */
+function CompanyAvatar({ logo, name, size = 46 }: { logo?: string; name?: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  const radius = Math.round(size * 0.3);
+  if (logo && !failed) {
+    return (
+      <img
+        src={logo}
+        alt=""
+        onError={() => setFailed(true)}
+        style={{ width: size, height: size, borderRadius: radius, objectFit: "cover", background: "#fff", border: "1px solid #ECECEE", flexShrink: 0 }}
+      />
+    );
+  }
+  return (
+    <span style={{ width: size, height: size, borderRadius: radius, display: "grid", placeItems: "center", background: "#F2F2F2", border: "1px solid #ECECEE", color: T.ink3, fontWeight: 800, fontSize: size * 0.36, flexShrink: 0 }}>
+      {(name || "?").charAt(0).toUpperCase()}
+    </span>
+  );
 }
 
 function draftBody(emp: Employee | null, job: JobDetail | null): string {
@@ -225,6 +246,44 @@ export default function ApplyEmailPage() {
         </div>
       </div>
 
+      {/* Apply context banner — at a glance: which employee is applying to which job */}
+      <Card padding={18}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          {/* employee */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 240px" }}>
+            <span style={{ width: 46, height: 46, borderRadius: 14, display: "grid", placeItems: "center", background: "#e8f4f4", color: T.accent, fontWeight: 800, fontSize: 16, flexShrink: 0 }}>
+              {initials(emp?.full_name || "?")}
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink4 }}>{t("compose.applicant")}</div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp?.full_name || "—"}</div>
+              <div style={{ fontSize: 12.5, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp?.position || "—"}</div>
+            </div>
+          </div>
+
+          {/* applying-to arrow */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <span style={{ height: 1, width: 18, background: "#E5E7EB" }} />
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, background: "#e8f4f4", color: T.accent, fontWeight: 600, fontSize: 12 }}>
+              {t("compose.applyingTo")} <IconArrowRight size={13} />
+            </span>
+            <span style={{ height: 1, width: 18, background: "#E5E7EB" }} />
+          </div>
+
+          {/* job */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 240px" }}>
+            <CompanyAvatar logo={job?.company?.logo_url} name={job?.company?.name || job?.title} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.ink4 }}>{t("compose.position")}</div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job?.title || "—"}</div>
+              <div style={{ fontSize: 12.5, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {job?.company?.name || "—"}{job?.location ? ` · ${job.location}` : ""}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 320px) 1fr", gap: 16, alignItems: "start" }}>
         {/* left: context */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -252,7 +311,13 @@ export default function ApplyEmailPage() {
           </Card>
 
           <Card>
-            <div style={{ fontWeight: 700, fontSize: 14, color: T.ink, marginBottom: 6 }}>{job?.title || "—"}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+              <CompanyAvatar logo={job?.company?.logo_url} name={job?.company?.name || job?.title} size={42} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job?.title || "—"}</div>
+                <div style={{ fontSize: 12, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job?.company?.name || "—"}</div>
+              </div>
+            </div>
             <div style={{ fontSize: 12.5, color: T.ink2, display: "flex", flexDirection: "column", gap: 4 }}>
               {job?.company?.name && <span><IconBuilding size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />{job.company.name}</span>}
               {job?.location && <span><IconMapPin size={12} style={{ display: "inline", marginRight: 5, color: T.ink4 }} />{job.location}</span>}

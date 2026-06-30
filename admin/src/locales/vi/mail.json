@@ -116,6 +116,9 @@
   "compose": {
     "title": "Viết email ứng tuyển",
     "subtitle": "Soạn thư, sau đó mở trong Gmail để gửi.",
+    "applicant": "Nhân viên ứng tuyển",
+    "applyingTo": "ứng tuyển vào",
+    "position": "Vị trí",
     "seniority": "Cấp bậc {{level}}",
     "viewPosting": "Xem tin tuyển →",
     "toLabel": "Đến",

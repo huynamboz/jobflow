@@ -116,6 +116,9 @@
   "compose": {
     "title": "Write application email",
     "subtitle": "Compose, then open it in Gmail to send.",
+    "applicant": "Applicant",
+    "applyingTo": "applying to",
+    "position": "Position",
     "seniority": "Seniority {{level}}",
     "viewPosting": "View posting →",
     "toLabel": "To",
