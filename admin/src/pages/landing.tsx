@@ -422,7 +422,7 @@ export default function LandingPage() {
         <h2 className="lp-reveal" style={{ textAlign: "center", fontSize: 42, fontWeight: 800, letterSpacing: "-.025em", margin: "0 0 48px" }}>Frequently Asked Questions</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {FAQS.map((f, i) => (
-            <div key={i} className={`lp-reveal lp-faq${openFaq === i ? " open" : ""}`} onClick={() => setOpenFaq(openFaq === i ? null : i)}
+            <div key={i} className={`lp-faq${openFaq === i ? " open" : ""}`} onClick={() => setOpenFaq(openFaq === i ? null : i)}
               style={{ background: "#fff", border: "1px solid #EAEAEA", borderRadius: 16, padding: "26px 28px", cursor: "pointer", transition: "border-color .3s,box-shadow .3s" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
                 <span style={{ fontWeight: 600, fontSize: 19 }}>{f.q}</span>

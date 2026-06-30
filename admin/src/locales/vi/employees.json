@@ -93,6 +93,16 @@
     "failedHint": "Không đọc được CV này. Mở cài đặt để tải lại hoặc chấm lại.",
     "openSettings": "Mở cài đặt"
   },
+  "browseTabs": {
+    "active": "Đang tuyển",
+    "closed": "Đã đóng",
+    "saved": "Đã lưu",
+    "dismissed": "Đã loại"
+  },
+  "browseEmpty": {
+    "title": "Không có việc ở đây",
+    "hint": "Thử tab khác."
+  },
   "tabs": {
     "all": "Tất cả",
     "suggested": "Gợi ý",
@@ -127,6 +137,9 @@
     "verifyActive": "Vẫn đang tuyển",
     "verifyClosed": "Tin đã đóng",
     "verifyFailed": "Kiểm tra thất bại",
+    "save": "Lưu",
+    "unsave": "Bỏ lưu",
+    "closedTooltip": "Tin này đã đóng — không thể ứng tuyển",
     "minsAgo": "{{count}} phút trước",
     "hrsAgo": "{{count}} giờ trước",
     "match": "phù hợp",
@@ -215,6 +228,8 @@
     "applyFailed": "Ứng tuyển thất bại",
     "dismissed": "Đã bỏ qua",
     "dismissedDesc": "Ẩn khỏi danh sách này và không xếp hạng lại.",
+    "saved": "Đã lưu",
+    "unsaved": "Đã bỏ lưu",
     "updateFailed": "Cập nhật thất bại"
   },
   "info": {

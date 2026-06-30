@@ -8,6 +8,7 @@ interface ListParams {
   statuses?: string; // comma-separated, e.g. "applied,won,lost"
   platform?: string; // platform slug — per-platform ranking browse
   hide_applied?: boolean; // drop already-applied jobs from the suggestion browse
+  job_active?: number; // 1 = open postings, 0 = closed/expired jobs
   assigned_to?: number;
   page?: number;
   page_size?: number;

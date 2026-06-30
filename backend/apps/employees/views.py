@@ -326,6 +326,12 @@ class EmployeeJobMatchViewSet(viewsets.ModelViewSet):
         platform = self.request.query_params.get("platform")
         if platform:
             qs = qs.filter(job__platform__slug=platform)
+        # Browse tabs: ?job_active=1 → open postings, =0 → closed/expired jobs.
+        job_active = self.request.query_params.get("job_active")
+        if job_active in ("1", "true", "True"):
+            qs = qs.filter(job__is_active=True)
+        elif job_active in ("0", "false", "False"):
+            qs = qs.filter(job__is_active=False)
         return qs
 
     def destroy(self, request, *args, **kwargs):

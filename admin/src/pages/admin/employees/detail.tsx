@@ -48,6 +48,9 @@ import type { EmployeeJobMatch, JobLite, MatchStatus } from "@/types/match.types
 const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
 const PAGE_SIZE = 10;
 
+type JobTab = "active" | "closed" | "saved" | "dismissed";
+const JOB_TABS: JobTab[] = ["active", "closed", "saved", "dismissed"];
+
 // internal palette for the rich score breakdown (semantic, not brand)
 const C = {
   success: "#1f9e6e", successBg: "#E7F6EF",
@@ -199,7 +202,16 @@ function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; s
         <div className="flex items-center gap-[7px]">
           {j.platform_name && (
             <span className="flex items-center gap-[5px] rounded-jn-pill bg-[#F2F3F5] px-[9px] py-1 text-[11px] font-semibold text-jn-ink-soft">
-              <span className="h-[7px] w-[7px] rounded-[3px]" style={{ background: srcColor(j.platform_name) }} />
+              {j.platform_logo ? (
+                <img
+                  src={j.platform_logo}
+                  alt=""
+                  className="h-[13px] w-[13px] rounded-[3px] object-contain"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                />
+              ) : (
+                <span className="h-[7px] w-[7px] rounded-[3px]" style={{ background: srcColor(j.platform_name) }} />
+              )}
               {j.platform_name}
             </span>
           )}
@@ -340,11 +352,12 @@ function ScoreBreakdown({ match }: { match: EmployeeJobMatch }) {
 
 /* ── right: job detail panel ────────────────────────────────────────── */
 function JobDetailPanel({
-  match, onApply, onDismiss,
+  match, onApply, onDismiss, onSave,
 }: {
   match: EmployeeJobMatch;
   onApply: (m: EmployeeJobMatch) => void;
   onDismiss: (m: EmployeeJobMatch) => void;
+  onSave: (m: EmployeeJobMatch) => void;
 }) {
   const { t } = useTranslation("employees");
   const j = match.job;
@@ -385,6 +398,7 @@ function JobDetailPanel({
   }, [j.id]);
 
   const tracked = match.status === "applied" || match.status === "won" || match.status === "lost";
+  const saved = match.status === "pursuing";
 
   // matched + near-miss skills for the green panel
   const covered = match.covered_skills ?? {};
@@ -446,9 +460,13 @@ function JobDetailPanel({
           </>
         ) : (
           <>
-            <Button variant="primary" size="md" leftIcon={<IconExternalLink size={16} />} onClick={() => onApply(match)}>
-              {t("job.apply")}
-            </Button>
+            <Tooltip content={t("job.closedTooltip")} isDisabled={isActive} placement="top">
+              <span className={!isActive ? "cursor-not-allowed" : undefined}>
+                <Button variant="primary" size="md" disabled={!isActive} leftIcon={<IconExternalLink size={16} />} onClick={() => onApply(match)}>
+                  {t("job.apply")}
+                </Button>
+              </span>
+            </Tooltip>
             <button
               type="button"
               onClick={() => onDismiss(match)}
@@ -459,10 +477,15 @@ function JobDetailPanel({
             </button>
             <button
               type="button"
-              className="flex items-center rounded-[11px] border border-jn-line-3 bg-jn-surface p-3 text-jn-ink-mute transition-colors hover:bg-jn-sunken"
-              aria-label="Bookmark"
+              onClick={() => onSave(match)}
+              aria-label="Save"
+              title={saved ? t("job.unsave") : t("job.save")}
+              className={cn(
+                "flex items-center rounded-[11px] border p-3 transition-colors",
+                saved ? "border-jn-primary-border bg-jn-primary-soft text-jn-primary" : "border-jn-line-3 bg-jn-surface text-jn-ink-mute hover:bg-jn-sunken",
+              )}
             >
-              <IconBookmark size={16} />
+              <IconBookmark size={16} fill={saved ? "currentColor" : "none"} />
             </button>
           </>
         )}
@@ -677,19 +700,24 @@ export default function EmployeeDetailPage() {
   const [total, setTotal] = useState(0);
   const [sortBy, setSortBy] = useState<"score" | "newest">("score");
   const [platformFilter, setPlatformFilter] = useState<string>("");
+  const [jobTab, setJobTab] = useState<JobTab>("active");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [dup, setDup] = useState<{ match: EmployeeJobMatch; frontman: DuplicateApplyFrontman } | null>(null);
   const [applyTarget, setApplyTarget] = useState<EmployeeJobMatch | null>(null);
 
   const listParams = useCallback(
-    (pg: number) => ({
-      employee: empId,
-      ...(platformFilter ? { platform: platformFilter } : {}),
-      hide_applied: true,
-      ordering: sortBy === "newest" ? "-job__created_at" : "-match_score",
-      page: pg, page_size: PAGE_SIZE,
-    }),
-    [empId, sortBy, platformFilter],
+    (pg: number) => {
+      const base = {
+        employee: empId,
+        ...(platformFilter ? { platform: platformFilter } : {}),
+        ordering: sortBy === "newest" ? "-job__created_at" : "-match_score",
+        page: pg, page_size: PAGE_SIZE,
+      };
+      if (jobTab === "saved") return { ...base, status: "pursuing" as MatchStatus };
+      if (jobTab === "dismissed") return { ...base, status: "dismissed" as MatchStatus };
+      return { ...base, hide_applied: true, job_active: jobTab === "closed" ? 0 : 1 };
+    },
+    [empId, sortBy, platformFilter, jobTab],
   );
 
   const reload = useCallback(async () => {
@@ -720,7 +748,10 @@ export default function EmployeeDetailPage() {
   const parsing = !!employee && !employee.parsed_at && !employee.is_parse_failed;
   const parsedNoMatches = !!employee && !!employee.parsed_at && !employee.is_parse_failed && matches.length === 0;
   const [rankingExpired, setRankingExpired] = useState(false);
-  const ranking = parsedNoMatches && !rankingExpired;
+  // Only treat "parsed + 0 matches" as ranking on the DEFAULT browse (active tab,
+  // no platform filter). An empty Saved/Closed/Dismissed tab is just empty, not
+  // ranking — otherwise switching to an empty tab wrongly shows the ranking UI.
+  const ranking = parsedNoMatches && !rankingExpired && jobTab === "active" && !platformFilter;
   const working = parsing || ranking;
 
   // Bound the ranking window so a truly-empty employee doesn't spin forever.
@@ -798,6 +829,18 @@ export default function EmployeeDetailPage() {
     }
   };
 
+  // Save = mark the match "pursuing" (toggles back to "suggested" to unsave).
+  const saveMatch = async (match: EmployeeJobMatch) => {
+    const next: MatchStatus = match.status === "pursuing" ? "suggested" : "pursuing";
+    try {
+      await matchService.update(match.id, { status: next });
+      addToast({ title: next === "pursuing" ? t("toast.saved") : t("toast.unsaved"), color: "success" });
+      await reload();
+    } catch {
+      addToast({ title: t("toast.updateFailed"), color: "danger" });
+    }
+  };
+
   if (loading && !employee) return <div className="p-10 text-jn-ink-mute">{t("detail.loading")}</div>;
   if (!employee) return <div className="p-10 text-jn-ink-mute">{t("detail.notFound")}</div>;
 
@@ -830,7 +873,7 @@ export default function EmployeeDetailPage() {
 
       {working ? (
         <RankingState employee={employee} phase={parsing ? "parsing" : "ranking"} />
-      ) : employee.is_parse_failed && matches.length === 0 ? (
+      ) : employee.is_parse_failed && matches.length === 0 && jobTab === "active" && !platformFilter ? (
         <ParseFailedState onSettings={() => navigate(`/admin/employees/${empId}/info`)} />
       ) : (
         <>
@@ -866,13 +909,26 @@ export default function EmployeeDetailPage() {
         </div>
       </div>
 
+      {/* browse tabs — Active / Closed / Saved / Dismissed */}
+      <div className="jn-reveal mb-4 flex flex-wrap gap-1.5">
+        {JOB_TABS.map((tb) => (
+          <button key={tb} type="button" onClick={() => setJobTab(tb)}
+            className={cn(
+              "rounded-jn-pill px-2.5 py-1 text-[11.5px] font-semibold transition-colors",
+              jobTab === tb ? "bg-jn-primary text-white" : "border border-jn-line-2 bg-jn-surface text-jn-ink-mute hover:bg-jn-sunken",
+            )}>
+            {t(`browseTabs.${tb}`)}
+          </button>
+        ))}
+      </div>
+
       {/* two columns */}
       {matches.length === 0 ? (
         <div className="grid h-[240px] place-items-center rounded-jn-card border border-jn-line bg-jn-surface text-center text-jn-ink-mute">
           <div>
             <IconBriefcase size={30} className="mx-auto mb-2.5 text-jn-faint" />
-            <div className="font-semibold text-jn-ink">{t("detail.emptyAllTitle")}</div>
-            <div className="text-[13px] text-jn-muted">{t("detail.emptyAllHint")}</div>
+            <div className="font-semibold text-jn-ink">{t("browseEmpty.title")}</div>
+            <div className="text-[13px] text-jn-muted">{t("browseEmpty.hint")}</div>
           </div>
         </div>
       ) : (
@@ -924,7 +980,7 @@ export default function EmployeeDetailPage() {
           {/* right detail */}
           <div className="h-full overflow-y-auto rounded-jn-card border border-jn-line bg-jn-surface">
             {selected ? (
-              <JobDetailPanel match={selected} onApply={setApplyTarget} onDismiss={dismissMatch} />
+              <JobDetailPanel match={selected} onApply={setApplyTarget} onDismiss={dismissMatch} onSave={saveMatch} />
             ) : (
               <div className="grid h-[200px] place-items-center text-jn-faint">{t("detail.selectJob")}</div>
             )}
