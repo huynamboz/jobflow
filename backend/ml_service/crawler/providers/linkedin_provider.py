@@ -118,6 +118,7 @@ class LinkedInProvider(CrawlProvider):
         request per job for the full description. Backs off on HTTP 429.
         """
         geo_id = str(kwargs.get("geo_id") or "")
+        on_job = kwargs.get("on_job")  # optional per-job heartbeat for the live UI
         sess = requests.Session()
         sess.headers.update(_GUEST_HEADERS)
 
@@ -147,6 +148,11 @@ class LinkedInProvider(CrawlProvider):
                 jobs.append(self._guest_card_to_rawjob(card))
                 if self._save_path:
                     self._stream_save(jobs[-1])
+                if on_job:
+                    try:
+                        on_job(len(jobs))
+                    except Exception:
+                        pass
                 if len(jobs) >= results_wanted:
                     break
             start += _GUEST_PAGE

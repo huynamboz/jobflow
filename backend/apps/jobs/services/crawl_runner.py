@@ -4,7 +4,7 @@
 `live_crawl`, which renders a live rich dashboard (one progress bar per provider)
 and writes per-provider dated files. No DB write:
 
-    <out-dir>/<provider>/<YYYY-MM-DD>.json   (JSON array, merge-dedup by url)
+    <out-dir>/<provider>/<YYYY-MM-DD>.json   (JSON array, merge-dedup by url + fingerprint)
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from pathlib import Path
 from django.conf import settings
 
 from ml_service.crawler import get_provider, list_providers
-from ml_service.crawler.storage import _raw_job_to_dict
+from ml_service.crawler.storage import _dict_to_raw_job, _raw_job_to_dict, compute_fingerprint
 
 _print_lock = threading.Lock()
 
@@ -110,8 +110,16 @@ def run_crawl(
             for i, q in enumerate(queries):
                 if i and request_delay:
                     time.sleep(request_delay)  # throttle between keywords
+                base = len(jobs)
+                on_job = None
+                if progress:
+                    progress.live(pname, base, q)  # mark keyword as started
+                    on_job = (lambda n, _p=pname, _q=q, _b=base:
+                              progress.live(_p, _b + n, _q))
                 try:
-                    jobs.extend(p.fetch(q, location=location, results_wanted=results_wanted))
+                    jobs.extend(p.fetch(
+                        q, location=location, results_wanted=results_wanted, on_job=on_job,
+                    ))
                 except Exception as e:  # noqa: BLE001 — one query failing ≠ kill provider
                     fails += 1
                     if not progress:
@@ -155,8 +163,14 @@ def run_crawl(
 
 
 def _merge_write(path: Path, jobs: list) -> tuple[int, int]:
-    """Merge RawJobs into the day's JSON array (dedup by source_url). Returns
-    (added, total)."""
+    """Merge RawJobs into the day's JSON array, deduped at the JSON stage so the
+    expensive LLM extraction never sees duplicates. Two layers (same as
+    storage.deduplicate): exact source_url, then content fingerprint
+    (normalized title|company|city — catches "Sr. Python Dev" ≡ "Senior Python
+    Developer" reposted under a different URL). Returns (added, total).
+
+    Fingerprint dedup is per-provider file (mirrors the DB's per-platform dedup);
+    the same posting re-crawled across providers is not collapsed here."""
     path.parent.mkdir(parents=True, exist_ok=True)
     existing: list[dict] = []
     if path.exists():
@@ -164,17 +178,34 @@ def _merge_write(path: Path, jobs: list) -> tuple[int, int]:
             existing = json.loads(path.read_text(encoding="utf-8"))
         except (ValueError, OSError):
             existing = []
-    seen = {o.get("source_url") for o in existing if o.get("source_url")}
+
+    seen_urls = {o.get("source_url") for o in existing if o.get("source_url")}
+    seen_fps: set[str] = set()
+    for o in existing:
+        fp = o.get("fingerprint")
+        if not fp:
+            try:  # backfill for legacy files written before fingerprint dedup
+                fp = compute_fingerprint(_dict_to_raw_job(o))
+                o["fingerprint"] = fp
+            except Exception:  # noqa: BLE001 — never let a bad record abort the merge
+                fp = None
+        if fp:
+            seen_fps.add(fp)
+
     added = 0
     for job in jobs:
-        d = _raw_job_to_dict(job)
-        url = d.get("source_url")
-        if url and url in seen:
+        url = job.source_url
+        fp = compute_fingerprint(job)
+        if (url and url in seen_urls) or fp in seen_fps:
             continue
         if url:
-            seen.add(url)
+            seen_urls.add(url)
+        seen_fps.add(fp)
+        d = _raw_job_to_dict(job)
+        d["fingerprint"] = fp
         existing.append(d)
         added += 1
+
     path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
     return added, len(existing)
 
@@ -214,6 +245,14 @@ class _RichProgress:
         tid = self._tasks.get(provider)
         if tid is not None:
             self._progress.update(tid, advance=1, found=found_total, kw=keyword[:26])
+
+    def live(self, provider: str, found_running: int, keyword: str) -> None:
+        """Intra-keyword heartbeat — refresh the running found-count and the
+        keyword currently being fetched WITHOUT advancing the bar, so a long
+        single-keyword fetch (e.g. LinkedIn, ~1 min) doesn't look frozen."""
+        tid = self._tasks.get(provider)
+        if tid is not None:
+            self._progress.update(tid, found=found_running, kw=f"⟳ {keyword[:24]}")
 
     def finish(self, provider: str, res: dict) -> None:
         tid = self._tasks.get(provider)
