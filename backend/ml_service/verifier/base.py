@@ -32,6 +32,9 @@ class VerifyResult:
     status: JobStatus
     reason: str = ""
     final_url: str | None = None
+    # Company logo scraped from the verified page (LinkedIn top card). Used to
+    # backfill Company.logo_url during verification when it's missing.
+    company_logo: str = ""
     verified_at: datetime = field(default_factory=_utcnow)
 
 

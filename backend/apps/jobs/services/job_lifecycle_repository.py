@@ -117,6 +117,13 @@ class DjangoJobLifecycleRepository(JobLifecycleRepository):
             logger.warning("apply_result: unknown JobStatus %r for job %s", result.status, job_id)
             return
 
+        # Backfill the company logo scraped during verification (LinkedIn top
+        # card) when the company has none — verify + logo backfill in one pass.
+        logo = getattr(result, "company_logo", "") or ""
+        if logo and job.company_id and not (job.company.logo_url or "").strip():
+            job.company.logo_url = logo
+            job.company.save(update_fields=["logo_url"])
+
         job.save(update_fields=[
             "lifecycle", "is_active", "last_verified_at",
             "verification_attempts", "verification_backoff_until",

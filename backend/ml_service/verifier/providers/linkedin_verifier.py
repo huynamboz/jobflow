@@ -236,6 +236,7 @@ def inspect_linkedin_lifecycle(page, selectors: dict, *, fallback_url: str | Non
                     JobStatus.ACTIVE,
                     reason=f"matched active marker: {sel}",
                     final_url=final_url,
+                    company_logo=_extract_company_logo(page),
                 )
         except Exception:
             continue
@@ -246,3 +247,20 @@ def inspect_linkedin_lifecycle(page, selectors: dict, *, fallback_url: str | Non
         reason="no markers matched",
         final_url=final_url,
     )
+
+
+def _extract_company_logo(page) -> str:
+    """Pull the company logo URL off the loaded LinkedIn job page (top card).
+    Only real CDN images (media.licdn.com) — skip ghost placeholders."""
+    for sel in (".top-card-layout__card img.artdeco-entity-image", "img.artdeco-entity-image"):
+        try:
+            loc = page.locator(sel).first
+            if not loc.count():
+                continue
+            for attr in ("src", "data-delayed-url"):
+                u = (loc.get_attribute(attr) or "").strip()
+                if "media.licdn.com" in u:
+                    return u
+        except Exception:
+            continue
+    return ""
