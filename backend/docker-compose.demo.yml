@@ -35,9 +35,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      # Admin UI bound to localhost only — reach it via SSH tunnel
-      # (ssh -L 81:127.0.0.1:81 root@HOST) to avoid a public brute-force surface.
-      - "127.0.0.1:81:81"
+      # Admin UI public per request — SET A STRONG ADMIN PASSWORD on first login.
+      - "81:81"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

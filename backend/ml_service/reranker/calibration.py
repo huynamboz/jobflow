@@ -42,14 +42,20 @@ class PlattCalibrator:
             logger.warning("Not enough data for calibration (%d samples)", len(scores))
             return
 
-        # Platt scaling = unregularized 1-D logistic regression (Platt 1999).
+        # Platt scaling = 1-D logistic regression (Platt 1999).
         # 025: the previous hand-rolled GD (lr=0.01, 1000 iters) did NOT
         # converge — it compressed the whole score range into P∈[0.37,0.54].
         # sklearn LBFGS is the canonical implementation (what
         # CalibratedClassifierCV(method="sigmoid") uses); C=1e6 ≈ no penalty.
+        # 029: on well-separated val scores, no-penalty LR drives the slope very
+        # high (a≈8) → P saturates near the top and gate penalties barely move
+        # the displayed %. Set CALIB_C (e.g. 1.0) to L2-regularize the fit and
+        # soften the slope so penalties show through. Default keeps prior behavior.
+        import os
         from sklearn.linear_model import LogisticRegression
 
-        lr_model = LogisticRegression(solver="lbfgs", C=1e6, max_iter=1000)
+        reg_c = float(os.environ.get("CALIB_C", "1e6"))
+        lr_model = LogisticRegression(solver="lbfgs", C=reg_c, max_iter=1000)
         lr_model.fit(scores.reshape(-1, 1), labels)
         a = float(lr_model.coef_[0][0])
         b = float(lr_model.intercept_[0])
