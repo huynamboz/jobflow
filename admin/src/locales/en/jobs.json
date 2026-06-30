@@ -140,9 +140,19 @@
     "reopen": "Reopen",
     "viewEmployee": "View employee",
     "dialog": {
-      "matchedSkills": "Matched skills",
-      "missingSkills": "Missing skills",
-      "notes": "Notes"
+      "jobInfo": "Job information",
+      "employeeInfo": "Employee",
+      "location": "Location",
+      "jobType": "Job type",
+      "level": "Level",
+      "salary": "Salary",
+      "platform": "Source",
+      "posted": "Posted",
+      "applicants": "Applicants",
+      "experience": "Experience",
+      "years": "{{count}} years",
+      "email": "Email",
+      "phone": "Phone"
     },
     "summary": {
       "total": "Total applied",

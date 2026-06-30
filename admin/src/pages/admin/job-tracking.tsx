@@ -17,12 +17,36 @@ import {
   IconExternalLink,
   IconMapPin,
   IconUser,
+  IconMail,
+  IconPhone,
+  IconWorld,
+  IconCoin,
+  IconCalendarEvent,
+  IconStairsUp,
 } from "@tabler/icons-react";
 
 import { Avatar, Button, useReveal } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { matchService } from "@/services/match.service";
+import { employeeService } from "@/services/employee.service";
+import type { Employee } from "@/types/employee.types";
 import type { EmployeeJobMatch, MatchStatus } from "@/types/match.types";
+
+const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
+
+function seniorityLabel(n?: number): string {
+  return n != null && n >= 0 && n < SENIORITY_LABELS.length ? SENIORITY_LABELS[n] : "—";
+}
+
+function fmtSalary(m: EmployeeJobMatch): string {
+  const { salary_min: a, salary_max: b, salary_currency: c, salary_period: p } = m.job;
+  if (!a && !b) return "—";
+  const cur = c ? `${c} ` : "";
+  const per = p ? `/${p}` : "";
+  const fmt = (n: number) => n.toLocaleString();
+  if (a && b) return `${cur}${fmt(a)}–${fmt(b)}${per}`;
+  return `${cur}${fmt((a || b) as number)}${per}`;
+}
 
 const TRACKED = "applied,in_progress,won,completed,lost";
 
@@ -359,6 +383,16 @@ export default function JobTrackingPage() {
 }
 
 /* ── Application detail dialog (opened by clicking a kanban card) ────────── */
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 text-[12.5px]">
+      <span className="shrink-0 text-jn-faint">{icon}</span>
+      <span className="shrink-0 text-jn-muted">{label}</span>
+      <span className="ml-auto min-w-0 truncate text-right font-medium text-jn-ink-soft">{value || "—"}</span>
+    </div>
+  );
+}
+
 function ApplicationDetailModal({
   match, onClose, onViewEmployee,
 }: {
@@ -368,6 +402,21 @@ function ApplicationDetailModal({
 }) {
   const { t } = useTranslation("jobs");
   const m = match;
+  const [emp, setEmp] = useState<Employee | null>(null);
+  const [empLoading, setEmpLoading] = useState(false);
+
+  useEffect(() => {
+    if (!m) { setEmp(null); return; }
+    let alive = true;
+    setEmp(null);
+    setEmpLoading(true);
+    employeeService.get(m.employee)
+      .then((e) => { if (alive) setEmp(e); })
+      .catch(() => { if (alive) setEmp(null); })
+      .finally(() => { if (alive) setEmpLoading(false); });
+    return () => { alive = false; };
+  }, [m]);
+
   const pct = m ? Math.round((m.match_score ?? 0) * 100) : 0;
   const ms = matchStyle(pct);
   const col = COLUMNS.find((c) => c.key === m?.status);
@@ -378,63 +427,61 @@ function ApplicationDetailModal({
         {m && (
           <>
             <ModalBody className="gap-4 px-6 py-6">
-              {/* job header */}
+              {/* header */}
               <div className="flex items-start gap-3.5">
                 <JobLogo src={m.job.company_logo || m.job.platform_logo} name={m.job.company_name || m.job.title} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[16px] font-extrabold leading-snug tracking-[-0.01em] text-jn-ink">{m.job.title}</div>
                   <div className="mt-0.5 truncate text-[13px] text-jn-muted">{m.job.company_name || t("tracking.dash")}</div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-jn-muted">
-                    {m.job.location && <span className="inline-flex items-center gap-1"><IconMapPin size={13} />{m.job.location}</span>}
-                    {m.job.job_type && <span className="inline-flex items-center gap-1"><IconBriefcase size={13} />{m.job.job_type}</span>}
-                  </div>
                 </div>
                 <span className="shrink-0 rounded-[11px] px-2.5 py-1 text-[13px] font-extrabold" style={{ color: ms.color, background: ms.bg }}>{pct}%</span>
               </div>
 
-              {/* status + employee */}
-              <div className="flex flex-wrap items-center gap-2.5 rounded-[12px] border border-jn-line-2 bg-jn-surface px-3.5 py-3">
-                {col && (
-                  <span className="inline-flex items-center gap-1.5 rounded-jn-pill px-2.5 py-[3px] text-[12px] font-bold" style={{ color: col.actionColor, background: col.actionBg }}>
-                    <span className="h-2 w-2 rounded-full" style={{ background: col.color }} />
-                    {t(STATUS_LABEL[m.status])}
-                  </span>
-                )}
-                <span className="h-3.5 w-px bg-jn-line-3" />
-                <Avatar name={m.employee_name} size={22} />
-                <span className="truncate text-[13px] font-medium text-jn-ink-soft">{m.employee_name}</span>
-              </div>
+              {col && (
+                <span className="inline-flex w-fit items-center gap-1.5 rounded-jn-pill px-2.5 py-[3px] text-[12px] font-bold" style={{ color: col.actionColor, background: col.actionBg }}>
+                  <span className="h-2 w-2 rounded-full" style={{ background: col.color }} />
+                  {t(STATUS_LABEL[m.status])}
+                </span>
+              )}
 
-              {/* matched skills */}
-              {m.matched_skills?.length > 0 && (
-                <div>
-                  <div className="mb-1.5 text-[12px] font-semibold text-jn-ink">{t("tracking.dialog.matchedSkills")}</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {m.matched_skills.map((s) => (
-                      <span key={s} className="rounded-jn-pill bg-[#E7F6EF] px-2.5 py-1 text-[11.5px] font-medium text-[#1F9E6E]">{s}</span>
-                    ))}
+              {/* Job information */}
+              <section>
+                <div className="mb-2 flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-jn-muted">
+                  <IconBriefcase size={14} />{t("tracking.dialog.jobInfo")}
+                </div>
+                <div className="space-y-2 rounded-[12px] border border-jn-line-2 bg-jn-surface px-3.5 py-3">
+                  <InfoRow icon={<IconMapPin size={14} />} label={t("tracking.dialog.location")} value={m.job.location} />
+                  <InfoRow icon={<IconBriefcase size={14} />} label={t("tracking.dialog.jobType")} value={m.job.job_type} />
+                  <InfoRow icon={<IconStairsUp size={14} />} label={t("tracking.dialog.level")} value={seniorityLabel(m.job.seniority)} />
+                  <InfoRow icon={<IconCoin size={14} />} label={t("tracking.dialog.salary")} value={fmtSalary(m)} />
+                  {m.job.platform_name && <InfoRow icon={<IconWorld size={14} />} label={t("tracking.dialog.platform")} value={m.job.platform_name} />}
+                  {m.job.date_posted && <InfoRow icon={<IconCalendarEvent size={14} />} label={t("tracking.dialog.posted")} value={new Date(m.job.date_posted).toLocaleDateString("vi-VN")} />}
+                  {m.job.applicant_count && <InfoRow icon={<IconUser size={14} />} label={t("tracking.dialog.applicants")} value={m.job.applicant_count} />}
+                </div>
+              </section>
+
+              {/* Employee information */}
+              <section>
+                <div className="mb-2 flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-jn-muted">
+                  <IconUser size={14} />{t("tracking.dialog.employeeInfo")}
+                  {empLoading && <IconLoader2 size={13} className="animate-spin text-jn-faint" />}
+                </div>
+                <div className="rounded-[12px] border border-jn-line-2 bg-jn-surface px-3.5 py-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={m.employee_name} size={38} />
+                    <div className="min-w-0">
+                      <div className="truncate text-[13.5px] font-bold text-jn-ink">{emp?.full_name || m.employee_name}</div>
+                      <div className="truncate text-[12px] text-jn-muted">{emp?.position || "—"}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-2 border-t border-jn-line-soft pt-3">
+                    <InfoRow icon={<IconStairsUp size={14} />} label={t("tracking.dialog.level")} value={seniorityLabel(emp?.seniority)} />
+                    <InfoRow icon={<IconActivity size={14} />} label={t("tracking.dialog.experience")} value={emp?.experience_years != null ? t("tracking.dialog.years", { count: emp.experience_years }) : "—"} />
+                    <InfoRow icon={<IconMail size={14} />} label={t("tracking.dialog.email")} value={emp?.email} />
+                    {emp?.phone && <InfoRow icon={<IconPhone size={14} />} label={t("tracking.dialog.phone")} value={emp.phone} />}
                   </div>
                 </div>
-              )}
-
-              {/* missing skills */}
-              {m.missing_skills?.length > 0 && (
-                <div>
-                  <div className="mb-1.5 text-[12px] font-semibold text-jn-ink">{t("tracking.dialog.missingSkills")}</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {m.missing_skills.map((s) => (
-                      <span key={s} className="rounded-jn-pill bg-jn-sunken px-2.5 py-1 text-[11.5px] font-medium text-jn-muted">{s}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {m.notes && (
-                <div>
-                  <div className="mb-1.5 text-[12px] font-semibold text-jn-ink">{t("tracking.dialog.notes")}</div>
-                  <div className="whitespace-pre-line rounded-[10px] border border-jn-line-soft bg-[#FAFBFC] px-3.5 py-2.5 text-[13px] text-jn-ink-soft">{m.notes}</div>
-                </div>
-              )}
+              </section>
             </ModalBody>
             <ModalFooter className="gap-2 px-6 pb-5">
               {m.job.source_url && (

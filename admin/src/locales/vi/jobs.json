@@ -140,9 +140,19 @@
     "reopen": "Mở lại",
     "viewEmployee": "Xem nhân viên",
     "dialog": {
-      "matchedSkills": "Kỹ năng khớp",
-      "missingSkills": "Kỹ năng còn thiếu",
-      "notes": "Ghi chú"
+      "jobInfo": "Thông tin công việc",
+      "employeeInfo": "Nhân viên",
+      "location": "Địa điểm",
+      "jobType": "Hình thức",
+      "level": "Cấp bậc",
+      "salary": "Lương",
+      "platform": "Nguồn",
+      "posted": "Đăng ngày",
+      "applicants": "Ứng viên",
+      "experience": "Kinh nghiệm",
+      "years": "{{count}} năm",
+      "email": "Email",
+      "phone": "Điện thoại"
     },
     "summary": {
       "total": "Tổng đã nộp",
