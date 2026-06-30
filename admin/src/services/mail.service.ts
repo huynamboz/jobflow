@@ -64,6 +64,10 @@ class MailService {
     const r = await apiClient.post("/admin/mail/send-apply/", { match, to, subject, body });
     return r.data as Resp;
   }
+  async reply(match: number, body: string) {
+    const r = await apiClient.post("/admin/mail/reply/", { match, body });
+    return r.data as { ok: boolean; email_log: number };
+  }
   async thread(match: number): Promise<MailLog[]> {
     const r = await apiClient.get<MailLog[]>("/admin/mail/thread/", { params: { match } });
     return r.data;

@@ -96,6 +96,53 @@ def send_apply(request):
     return Response({"ok": True, "email_log": log.id, "match_status": match.status, "cv_attached": log.cv_attached})
 
 
+@api_view(["POST"])
+@permission_classes(HR)
+def reply(request):
+    """Send a threaded reply within an existing conversation (same match).
+
+    Unlike send-apply this attaches NO CV, does NOT change the match status,
+    and sets In-Reply-To/References so it lands in the same Gmail thread and our
+    EmailLog chains to the conversation."""
+    match = get_object_or_404(EmployeeJobMatch, pk=request.data.get("match"))
+    emp = match.employee
+    cred = EmployeeMailCredential.objects.filter(
+        employee=emp, status=EmployeeMailCredential.STATUS_ACTIVE
+    ).first()
+    if not cred:
+        return Response({"success": False, "error": {"code": "NO_CREDENTIAL", "message": "Employee has no linked email account."}}, status=400)
+    body = (request.data.get("body") or "").strip()
+    if not body:
+        return Response({"success": False, "error": {"code": "EMPTY_BODY", "message": "Reply body is required."}}, status=400)
+
+    chain = list(EmailLog.objects.filter(match=match).order_by("created_at"))
+    if not chain:
+        return Response({"success": False, "error": {"code": "NO_THREAD", "message": "No conversation to reply to."}}, status=400)
+
+    # Reply to the most recent inbound message if any (the company replied),
+    # else to the original outbound. Address the company, not ourselves.
+    inbound = [m for m in chain if m.direction == EmailLog.IN and not m.is_bounce]
+    parent = inbound[-1] if inbound else chain[-1]
+    to_addr = (inbound[-1].from_addr if inbound else chain[0].to_addr) or request.data.get("to", "")
+    references = " ".join(m.message_id for m in chain if m.message_id)
+    base_subject = chain[0].subject or ""
+    subject = base_subject if base_subject.lower().startswith("re:") else f"Re: {base_subject}".strip()
+
+    try:
+        log = send_apply_email(
+            credential=cred, employee=emp, match=match,
+            to_addr=to_addr, subject=subject, body=body,
+            attach_cv=False, in_reply_to=parent.message_id, references=references,
+        )
+    except Exception as e:  # noqa: BLE001
+        cred.status = EmployeeMailCredential.STATUS_ERROR
+        cred.last_error = str(e)[:500]
+        cred.save(update_fields=["status", "last_error"])
+        return Response({"success": False, "error": {"code": "SEND_FAILED", "message": str(e)}}, status=400)
+
+    return Response({"ok": True, "email_log": log.id})
+
+
 @api_view(["GET"])
 @permission_classes(HR)
 def thread(request):

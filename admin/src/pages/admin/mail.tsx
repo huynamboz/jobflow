@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { addToast } from "@heroui/toast";
 import {
-  IconArrowBackUp, IconArrowForwardUp, IconCalendarEvent,
-  IconClock, IconCheck, IconAlertTriangle, IconRefresh, IconMail, IconLoader2,
+  IconArrowBackUp, IconClock, IconCheck, IconAlertTriangle,
+  IconRefresh, IconMail, IconLoader2,
 } from "@tabler/icons-react";
 
 import { Button, useReveal } from "@/components/ui";
@@ -82,6 +82,19 @@ function Avatar({ label, size = 40, logo }: { label: string; size?: number; logo
   );
 }
 
+/** JobFlow brand avatar — mirrors the sidebar logo (dark tile + teal glow + J). */
+function BrandAvatar({ size = 40 }: { size?: number }) {
+  return (
+    <span
+      className="relative grid shrink-0 place-items-center overflow-hidden font-extrabold text-white"
+      style={{ width: size, height: size, borderRadius: size > 30 ? 11 : "50%", background: "#1a1a1a", fontSize: size * 0.36 }}
+    >
+      <span className="absolute inset-0" style={{ background: "radial-gradient(circle at 70% 30%, #16C7B5, transparent 60%)", opacity: 0.9 }} />
+      <span className="relative z-[1]">J</span>
+    </span>
+  );
+}
+
 export default function MailPage() {
   const { t } = useTranslation("mail");
   const [tab, setTab] = useState<Tab>("all");
@@ -104,10 +117,20 @@ export default function MailPage() {
       ]);
       const replyM = new Set(replies.results.filter((r) => !r.is_bounce && r.match != null).map((r) => r.match));
       const bounceM = new Set(bounces.results.filter((r) => r.match != null).map((r) => r.match));
-      const ths: Thread[] = sent.results.map((log) => ({
-        log,
-        status: log.match != null && bounceM.has(log.match) ? "bounced" : log.match != null && replyM.has(log.match) ? "replied" : "awaiting",
-      }));
+      // One row per conversation: dedupe out-logs by match (a reply adds another
+      // out-log for the same match — keep only the latest, results are newest-first).
+      const seenMatch = new Set<number>();
+      const ths: Thread[] = [];
+      for (const log of sent.results) {
+        if (log.match != null) {
+          if (seenMatch.has(log.match)) continue;
+          seenMatch.add(log.match);
+        }
+        ths.push({
+          log,
+          status: log.match != null && bounceM.has(log.match) ? "bounced" : log.match != null && replyM.has(log.match) ? "replied" : "awaiting",
+        });
+      }
       setThreads(ths);
       setCounts({
         sent: sent.count,
@@ -272,7 +295,8 @@ function ThreadDetail({ detail, onSent }: { detail: MailLogDetail; onSent: () =>
     if (!matchId || !body) return;
     setSending(true);
     try {
-      await mailService.sendApply(matchId, log.to_addr, `Re: ${log.subject || ""}`.trim(), body, { noCv: true });
+      // Threaded reply (same match, In-Reply-To) — not a new apply, no CV.
+      await mailService.reply(matchId, body);
       addToast({ title: t("box.replySent"), color: "success" });
       setReplyText("");
       setReplyOpen(false);
@@ -314,47 +338,43 @@ function ThreadDetail({ detail, onSent }: { detail: MailLogDetail; onSent: () =>
 
       <div className="my-5 h-px bg-jn-line-soft" />
 
-      {/* sent email */}
-      <div className="flex gap-3.5">
-        <Avatar label="J" size={40} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2.5">
-            <div><span className="text-[13.5px] font-bold text-jn-ink">JobFlow</span> <span className="text-[12.5px] text-jn-muted">{t("box.onBehalf", { name: employee?.full_name ?? "—" })}</span></div>
-            <span className="text-[12px] text-jn-faint">{new Date(sent.created_at).toLocaleString("vi-VN")}</span>
-          </div>
-          <div className="mt-0.5 text-[12px] text-jn-muted">{t("box.to")} {sent.to_addr}</div>
-          <div className="mt-3 whitespace-pre-line rounded-[12px] border border-jn-line-soft bg-[#FAFBFC] px-[18px] py-4 text-[14px] leading-[1.65] text-jn-ink-soft">
-            {sent.body_text}
-            <div className="mt-2.5 flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: bounce ? "#E0533A" : "#1F9E6E" }}>
-              {bounce ? <IconAlertTriangle size={14} /> : <IconCheck size={14} />}
-              {bounce ? t("box.deliveryFailed") : t("box.delivered")}
-              {sent.cv_attached && <span className="text-jn-muted">· {t("box.cvAttached")}</span>}
+      {/* full conversation — every message in the thread, chronological */}
+      <div className="space-y-5">
+        {detail.thread.map((m) => {
+          const out = m.direction === "out";
+          return (
+            <div key={m.id} className="flex gap-3.5">
+              {out ? <BrandAvatar size={40} /> : <Avatar label={company} size={40} logo={companyLogo} />}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2.5">
+                  <div className="min-w-0 truncate">
+                    {out ? (
+                      <><span className="text-[13.5px] font-bold text-jn-ink">JobFlow</span> <span className="text-[12.5px] text-jn-muted">{t("box.onBehalf", { name: employee?.full_name ?? "—" })}</span></>
+                    ) : (
+                      <span className="text-[13.5px] font-bold text-jn-ink">{m.from_addr}</span>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-[12px] text-jn-faint">{new Date(m.created_at).toLocaleString("vi-VN")}</span>
+                </div>
+                <div className="mt-0.5 text-[12px] text-jn-muted">{out ? `${t("box.to")} ${m.to_addr}` : t("box.toJobflow")}</div>
+                <div className={cn(
+                  "mt-3 whitespace-pre-line rounded-[12px] border px-[18px] py-4 text-[14px] leading-[1.65]",
+                  out ? "border-jn-line-soft bg-[#FAFBFC] text-jn-ink-soft" : "border-[#D5EFE2] bg-[#F3FBF7] text-jn-ink",
+                )}>
+                  {m.body_text}
+                  {out && (
+                    <div className="mt-2.5 flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: m.is_bounce ? "#E0533A" : "#1F9E6E" }}>
+                      {m.is_bounce ? <IconAlertTriangle size={14} /> : <IconCheck size={14} />}
+                      {m.is_bounce ? t("box.deliveryFailed") : t("box.delivered")}
+                      {m.cv_attached && <span className="text-jn-muted">· {t("box.cvAttached")}</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
-
-      {/* reply */}
-      {reply && (
-        <div className="mt-5 flex gap-3.5">
-          <Avatar label={company} size={40} logo={companyLogo} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2.5">
-              <span className="text-[13.5px] font-bold text-jn-ink">{reply.from_addr}</span>
-              <span className="text-[12px] text-jn-faint">{new Date(reply.created_at).toLocaleString("vi-VN")}</span>
-            </div>
-            <div className="mt-0.5 text-[12px] text-jn-muted">{t("box.toJobflow")}</div>
-            <div className="mt-3 whitespace-pre-line rounded-[12px] border border-[#D5EFE2] bg-[#F3FBF7] px-[18px] py-4 text-[14px] leading-[1.65] text-jn-ink">
-              {reply.body_text}
-            </div>
-            <div className="mt-3.5 flex flex-wrap gap-2.5">
-              <Button variant="primary" size="sm" leftIcon={<IconArrowBackUp size={15} />} onClick={openReply}>{t("box.reply")}</Button>
-              <Button variant="secondary" size="sm" leftIcon={<IconCalendarEvent size={15} className="text-jn-ink-mute" />}>{t("box.scheduleInterview")}</Button>
-              <Button variant="secondary" size="sm" leftIcon={<IconArrowForwardUp size={15} className="text-jn-ink-mute" />}>{t("box.forwardToCandidate")}</Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* status note */}
       {!reply && (

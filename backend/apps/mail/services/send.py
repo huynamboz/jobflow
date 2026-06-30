@@ -19,19 +19,27 @@ def _new_message_id() -> str:
 
 
 def send_apply_email(*, credential, employee, match, to_addr, subject, body,
-                     cv_override=None, attach_cv=True) -> EmailLog:
+                     cv_override=None, attach_cv=True,
+                     in_reply_to="", references="") -> EmailLog:
     """Send + persist EmailLog(out). Raises on SMTP failure (caller flags cred,
     does NOT mark the match applied).
 
     Attachment: ``cv_override`` (an uploaded file) wins; else the employee's
     active CV is attached when ``attach_cv`` is True; ``attach_cv=False`` sends
-    with no CV (HR removed it on the compose screen)."""
+    with no CV (HR removed it on the compose screen).
+
+    ``in_reply_to``/``references`` (a prior Message-ID + the chain) thread the
+    message into the existing conversation — set by the reply path so the email
+    lands in the same Gmail thread and our EmailLog records the parent."""
     msg = EmailMessage()
     message_id = _new_message_id()
     msg["Message-ID"] = message_id
     msg["From"] = credential.gmail_address
     msg["To"] = to_addr
     msg["Subject"] = subject
+    if in_reply_to:
+        msg["In-Reply-To"] = in_reply_to
+        msg["References"] = references or in_reply_to
     msg.set_content(body)
 
     cv_attached = False
@@ -71,16 +79,16 @@ def send_apply_email(*, credential, employee, match, to_addr, subject, body,
         EmailLog.objects.create(
             employee=employee, match=match, direction=EmailLog.OUT,
             from_addr=credential.gmail_address, to_addr=to_addr, subject=subject,
-            body_text=body, message_id=message_id, cv_attached=cv_attached,
-            status=EmailLog.FAILED, error=str(e),
+            body_text=body, message_id=message_id, in_reply_to=in_reply_to,
+            cv_attached=cv_attached, status=EmailLog.FAILED, error=str(e),
         )
         raise
 
     log = EmailLog.objects.create(
         employee=employee, match=match, direction=EmailLog.OUT,
         from_addr=credential.gmail_address, to_addr=to_addr, subject=subject,
-        body_text=body, message_id=message_id, cv_attached=cv_attached,
-        status=EmailLog.SENT,
+        body_text=body, message_id=message_id, in_reply_to=in_reply_to,
+        cv_attached=cv_attached, status=EmailLog.SENT,
     )
     _notify_sent(employee, to_addr, subject)
     return log
