@@ -44,7 +44,15 @@ const LOGO_COLORS = [
   "#DC2626", "#0891B2", "#DB2777", "#4F46E5",
 ];
 
-export function CompanyLogo({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+export function CompanyLogo({
+  name, logo, fallbackLogo, size = "md",
+}: {
+  name: string;
+  logo?: string;
+  fallbackLogo?: string;
+  size?: "sm" | "md" | "lg";
+}) {
+  const src = logo || fallbackLogo;
   const mono = name
     .split(/\s+/)
     .map((w) => w[0])
@@ -60,12 +68,28 @@ export function CompanyLogo({ name, size = "md" }: { name: string; size?: "sm" |
       ? "size-[44px] rounded-xl text-sm"
       : "size-[38px] rounded-[10px] text-sm";
   return (
-    <div
-      className={`${cls} shrink-0 grid place-items-center font-[800] text-white shadow-sm`}
-      style={{ background: bg }}
-    >
-      {mono}
-    </div>
+    <>
+      {src && (
+        <img
+          src={src}
+          alt=""
+          className={`${cls} shrink-0 object-cover bg-white border border-default-200 shadow-sm`}
+          // fall back to the colored-abbr square if the logo fails to load
+          onError={(e) => {
+            const el = e.currentTarget;
+            const span = el.nextElementSibling as HTMLElement | null;
+            el.style.display = "none";
+            if (span) span.style.display = "";
+          }}
+        />
+      )}
+      <div
+        className={`${cls} shrink-0 grid place-items-center font-[800] text-white shadow-sm`}
+        style={{ background: bg, display: src ? "none" : undefined }}
+      >
+        {mono}
+      </div>
+    </>
   );
 }
 

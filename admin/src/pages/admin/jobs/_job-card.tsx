@@ -2,7 +2,7 @@ import { Briefcase, Check, ChevronRight, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { JobListItem } from "@/types/job.types";
 import {
-  JOB_TYPE_LABEL_KEY, PlatformLogo,
+  CompanyLogo, JOB_TYPE_LABEL_KEY,
   StatusBadge, WORK_MODES, WorkModeBadge,
   daysAgo, fmtSalary,
 } from "./_primitives";
@@ -51,7 +51,11 @@ export function JobCard({
     >
       {/* Row 1: logo + company + checkbox */}
       <div className="flex items-center gap-2.5">
-        <PlatformLogo name={job.platform_name || "?"} logo={job.platform_logo} />
+        <CompanyLogo
+          name={job.company_name || job.platform_name || "?"}
+          logo={job.company_logo}
+          fallbackLogo={job.platform_logo}
+        />
         <div className="min-w-0 flex-1">
           <div
             className="truncate"
@@ -194,7 +198,12 @@ export function JobRow({
 
       <td className="px-4 py-3.5">
         <div className="flex items-center gap-2.5">
-          <PlatformLogo name={job.platform_name || "?"} logo={job.platform_logo} size="sm" />
+          <CompanyLogo
+            name={job.company_name || job.platform_name || "?"}
+            logo={job.company_logo}
+            fallbackLogo={job.platform_logo}
+            size="sm"
+          />
           <div className="min-w-0">
             <div
               className="truncate"
