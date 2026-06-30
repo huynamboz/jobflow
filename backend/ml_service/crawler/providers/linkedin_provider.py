@@ -143,7 +143,7 @@ class LinkedInProvider(CrawlProvider):
                 if not jid or jid in seen_ids:
                     continue
                 seen_ids.add(jid)
-                card["description"] = self._guest_detail(sess, jid)
+                card.update(self._guest_detail(sess, jid))
                 jobs.append(self._guest_card_to_rawjob(card))
                 if self._save_path:
                     self._stream_save(jobs[-1])
@@ -200,23 +200,58 @@ class LinkedInProvider(CrawlProvider):
             })
         return out
 
-    def _guest_detail(self, sess: requests.Session, job_id: str) -> str:
-        """Fetch the full description for one job. Empty string on failure/429."""
+    def _guest_detail(self, sess: requests.Session, job_id: str) -> dict:
+        """Fetch the guest detail fragment for one job → description + the
+        top-card extras (company logo/url, seniority, employment type,
+        applicant count). Empty dict on failure/429."""
+        out: dict = {}
         try:
             r = sess.get(_GUEST_DETAIL_URL.format(job_id=job_id), timeout=20)
         except requests.RequestException:
-            return ""
+            return out
         if r.status_code == 429:
             time.sleep(self._guest_delay * 4 + random.uniform(0, 2))
             try:
                 r = sess.get(_GUEST_DETAIL_URL.format(job_id=job_id), timeout=20)
             except requests.RequestException:
-                return ""
+                return out
         if r.status_code != 200:
-            return ""
+            return out
+
         soup = BeautifulSoup(r.text, "html.parser")
         box = soup.select_one(".show-more-less-html__markup") or soup.select_one(".description__text")
-        return box.get_text(" ", strip=True) if box else ""
+        if box:
+            out["description"] = box.get_text(" ", strip=True)
+
+        # Company logo — real CDN images live on media.licdn.com (skip ghost
+        # placeholders served from static.licdn.com).
+        for img in soup.select(".top-card-layout__card img.artdeco-entity-image, img.artdeco-entity-image"):
+            url = next((u for u in (img.get("src"), img.get("data-delayed-url"))
+                        if u and "media.licdn.com" in u), "")
+            if url:
+                out["company_logo_url"] = url.strip()
+                break
+
+        org = soup.select_one("a.topcard__org-name-link")
+        if org and org.get("href"):
+            out["company_url"] = org["href"].split("?")[0]
+
+        # Seniority level / Employment type from the job-criteria list.
+        for item in soup.select(".description__job-criteria-item"):
+            label = item.select_one(".description__job-criteria-subheader")
+            value = item.select_one(".description__job-criteria-text")
+            if not label or not value:
+                continue
+            lab, val = label.get_text(strip=True).lower(), value.get_text(strip=True)
+            if "employment type" in lab:
+                out["job_type"] = val
+            elif "seniority level" in lab:
+                out["seniority_hint"] = val
+
+        appl = soup.select_one(".num-applicants__caption")
+        if appl:
+            out["applicant_count"] = appl.get_text(strip=True)
+        return out
 
     @staticmethod
     def _guest_card_to_rawjob(card: dict) -> RawJob:
@@ -237,6 +272,11 @@ class LinkedInProvider(CrawlProvider):
             location=card.get("location", ""),
             description=card.get("description", ""),
             date_posted=date_posted,
+            seniority_hint=card.get("seniority_hint", "") or None,
+            company_logo_url=card.get("company_logo_url", ""),
+            company_url=card.get("company_url", ""),
+            job_type=card.get("job_type", ""),
+            applicant_count=card.get("applicant_count", ""),
             extra={"guest": True},
         )
 
