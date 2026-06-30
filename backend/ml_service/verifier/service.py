@@ -109,6 +109,7 @@ class StatusCheckService:
         platform: str,
         batch: int,
         dry_run: bool = False,
+        on_progress=None,
     ) -> StatusCheckReport:
         if batch < 1:
             raise ValueError("batch must be >= 1")
@@ -179,7 +180,10 @@ class StatusCheckService:
         # `extract_job_dates`).
         def _on_progress(i: int, total: int, _url: str, result: VerifyResult) -> None:
             job_id, _ = supported[i]
-            _log_verify_progress(i + 1, total, job_id, _url, result)
+            if on_progress is not None:
+                on_progress(i + 1, total, job_id, _url, result)
+            else:
+                _log_verify_progress(i + 1, total, job_id, _url, result)
 
         try:
             results = verifier.verify_batch(
