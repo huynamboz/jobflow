@@ -82,22 +82,6 @@ function rankPct(m: EmployeeJobMatch): number {
   const r = m.score_breakdown?.rank_score;
   return Math.round((r != null ? r : (m.match_score ?? 0)) * 100);
 }
-/** Eligibility stays on the calibrated probability (P ≥ 0.5 ⟺ rank ≈ 0.31). */
-function isEligible(m: EmployeeJobMatch): boolean {
-  return (m.match_score ?? 0) >= 0.5;
-}
-
-function EligiblePill({ eligible }: { eligible: boolean }) {
-  const { t } = useTranslation("employees");
-  return (
-    <span
-      className="rounded-jn-pill px-2 py-[3px] text-[10px] font-bold uppercase tracking-[0.03em]"
-      style={eligible ? { color: "#1F8A5B", background: "#E7F6EF" } : { color: "#6B7079", background: "#F2F3F5" }}
-    >
-      {eligible ? t("why.eligible") : t("why.notEligible")}
-    </span>
-  );
-}
 
 function initials(name: string): string {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -353,7 +337,6 @@ function JobDetailPanel({
   const salary = fmtSalary(j);
   const pct = rankPct(match);
   const mc = matchColor(pct);
-  const eligible = isEligible(match);
   const [desc, setDesc] = useState<string | null>(null);
   const [descLoading, setDescLoading] = useState(true);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
@@ -450,12 +433,9 @@ function JobDetailPanel({
             </span>
             <span className="text-[12.5px] font-bold tracking-[0.03em] text-jn-ink">{t("why.title").toUpperCase()}</span>
           </div>
-          <span className="flex items-center gap-2">
-            <span className="flex items-baseline gap-1.5">
-              <span className="text-[10.5px] font-bold uppercase tracking-[0.04em]" style={{ color: "#1F8A5B" }}>{t("why.matchScore")}</span>
-              <span className="text-[15px] font-extrabold" style={{ color: C.success }}>{pct}</span>
-            </span>
-            <EligiblePill eligible={eligible} />
+          <span className="flex items-baseline gap-1.5">
+            <span className="text-[10.5px] font-bold uppercase tracking-[0.04em]" style={{ color: "#1F8A5B" }}>{t("why.matchScore")}</span>
+            <span className="text-[15px] font-extrabold" style={{ color: C.success }}>{pct}</span>
           </span>
         </div>
         <div className="mt-3 text-[13px] leading-[1.6] text-jn-ink-soft">{whyText}</div>
