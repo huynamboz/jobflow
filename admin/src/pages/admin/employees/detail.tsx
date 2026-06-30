@@ -171,6 +171,26 @@ function Ring({ pct, size = 80, stroke = 7, color }: { pct: number; size?: numbe
   );
 }
 
+/* Company logo tile (company_logo → platform_logo → initial). */
+function JobLogo({ src, name, size = 38 }: { src?: string; name?: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      <span className="grid shrink-0 place-items-center overflow-hidden border border-jn-line-2 bg-white"
+        style={{ width: size, height: size, borderRadius: 10 }}>
+        <img src={src} alt="" loading="lazy" className="object-contain"
+          style={{ width: Math.round(size * 0.62), height: Math.round(size * 0.62) }} onError={() => setFailed(true)} />
+      </span>
+    );
+  }
+  return (
+    <span className="grid shrink-0 place-items-center bg-jn-sunken font-bold text-jn-ink-mute"
+      style={{ width: size, height: size, borderRadius: 10, fontSize: Math.round(size * 0.4) }}>
+      {(name || "?").charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
 /* ── left: job list card ────────────────────────────────────────────── */
 function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; selected: boolean; onSelect: () => void }) {
   const { t } = useTranslation("employees");
@@ -188,36 +208,41 @@ function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; s
           : "border-jn-line-2 bg-jn-surface hover:border-[#C9D8F5] hover:shadow-[0_6px_18px_rgba(20,20,40,.06)]",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-[14.5px] font-bold leading-[1.3] text-jn-ink">{j.title}</span>
-        <span className="flex shrink-0 items-center gap-1.5">
-          <span className="h-[7px] w-[7px] rounded-full" style={{ background: mc }} />
-          <span className="text-[13.5px] font-extrabold" style={{ color: mc }}>{pct}</span>
-        </span>
-      </div>
-      <div className="mt-[5px] text-[12px] text-jn-muted">
-        {j.company_name || "—"}{j.location ? ` · ${j.location}` : ""}
-      </div>
-      <div className="mt-[11px] flex items-center justify-between">
-        <div className="flex items-center gap-[7px]">
-          {j.platform_name && (
-            <span className="flex items-center gap-[5px] rounded-jn-pill bg-[#F2F3F5] px-[9px] py-1 text-[11px] font-semibold text-jn-ink-soft">
-              {j.platform_logo ? (
-                <img
-                  src={j.platform_logo}
-                  alt=""
-                  className="h-[13px] w-[13px] rounded-[3px] object-contain"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                />
-              ) : (
-                <span className="h-[7px] w-[7px] rounded-[3px]" style={{ background: srcColor(j.platform_name) }} />
-              )}
-              {j.platform_name}
+      <div className="flex items-start gap-3">
+        <JobLogo src={j.company_logo || j.platform_logo} name={j.company_name || j.title} size={38} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <span className="text-[14.5px] font-bold leading-[1.3] text-jn-ink">{j.title}</span>
+            <span className="flex shrink-0 items-center gap-1.5">
+              <span className="h-[7px] w-[7px] rounded-full" style={{ background: mc }} />
+              <span className="text-[13.5px] font-extrabold" style={{ color: mc }}>{pct}</span>
             </span>
-          )}
-          {j.job_type && <span className="text-[11px] text-jn-faint">{j.job_type}</span>}
+          </div>
+          <div className="mt-[5px] truncate text-[12px] text-jn-muted">
+            {j.company_name || "—"}{j.location ? ` · ${j.location}` : ""}
+          </div>
+          <div className="mt-[11px] flex items-center justify-between">
+            <div className="flex items-center gap-[7px]">
+              {j.platform_name && (
+                <span className="flex items-center gap-[5px] rounded-jn-pill bg-[#F2F3F5] px-[9px] py-1 text-[11px] font-semibold text-jn-ink-soft">
+                  {j.platform_logo ? (
+                    <img
+                      src={j.platform_logo}
+                      alt=""
+                      className="h-[13px] w-[13px] rounded-[3px] object-contain"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    />
+                  ) : (
+                    <span className="h-[7px] w-[7px] rounded-[3px]" style={{ background: srcColor(j.platform_name) }} />
+                  )}
+                  {j.platform_name}
+                </span>
+              )}
+              {j.job_type && <span className="text-[11px] text-jn-faint">{j.job_type}</span>}
+            </div>
+            {jobPostedLabel(j, t) && <span className="text-[11px] text-jn-faint">{jobPostedLabel(j, t)}</span>}
+          </div>
         </div>
-        {jobPostedLabel(j, t) && <span className="text-[11px] text-jn-faint">{jobPostedLabel(j, t)}</span>}
       </div>
     </button>
   );
@@ -410,14 +435,17 @@ function JobDetailPanel({
     <div className="p-[30px]">
       {/* header */}
       <div className="flex items-start justify-between gap-6">
-        <div className="min-w-0 flex-1">
-          <h1 className="m-0 text-[25px] font-extrabold leading-[1.2] tracking-[-0.02em] text-jn-ink">{j.title}</h1>
-          <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2">
-            {j.company_name && <Meta icon={<IconBuilding size={15} />}>{j.company_name}</Meta>}
-            {j.location && <Meta icon={<IconMapPin size={15} />}>{j.location}</Meta>}
-            {j.seniority != null && <Meta icon={<IconBriefcase size={15} />}>{SENIORITY_LABELS[j.seniority] ?? j.seniority}</Meta>}
-            {j.applicant_count && <Meta icon={<IconUsers size={15} />}>{t("job.applicants", { count: j.applicant_count })}</Meta>}
-            {j.date_posted && <Meta icon={<IconCalendar size={15} />}>{new Date(j.date_posted).toLocaleDateString("vi-VN")}</Meta>}
+        <div className="flex min-w-0 flex-1 items-start gap-3.5">
+          <JobLogo src={j.company_logo || j.platform_logo} name={j.company_name || j.title} size={48} />
+          <div className="min-w-0 flex-1">
+            <h1 className="m-0 text-[25px] font-extrabold leading-[1.2] tracking-[-0.02em] text-jn-ink">{j.title}</h1>
+            <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+              {j.company_name && <Meta icon={<IconBuilding size={15} />}>{j.company_name}</Meta>}
+              {j.location && <Meta icon={<IconMapPin size={15} />}>{j.location}</Meta>}
+              {j.seniority != null && <Meta icon={<IconBriefcase size={15} />}>{SENIORITY_LABELS[j.seniority] ?? j.seniority}</Meta>}
+              {j.applicant_count && <Meta icon={<IconUsers size={15} />}>{t("job.applicants", { count: j.applicant_count })}</Meta>}
+              {j.date_posted && <Meta icon={<IconCalendar size={15} />}>{new Date(j.date_posted).toLocaleDateString("vi-VN")}</Meta>}
+            </div>
           </div>
         </div>
         <Ring pct={pct} color={mc} />
