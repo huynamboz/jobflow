@@ -3,7 +3,6 @@ import type { Icon } from "@tabler/icons-react";
 import {
   IconActivity,
   IconListCheck,
-  IconSunrise,
   IconBriefcase,
   IconCalendarTime,
   IconClipboardList,
@@ -47,7 +46,6 @@ export const adminConfig = {
         { labelKey: "items.jobs",         href: "/admin/jobs",      icon: IconBriefcase },
         { labelKey: "items.jobTracking",  href: "/admin/job-tracking", icon: IconListCheck },
         { labelKey: "items.mail",         href: "/admin/mail",         icon: IconMail },
-        { labelKey: "items.morningRefresh", href: "/admin/schedule/morning-refresh", icon: IconSunrise },
       ],
     },
     {
