@@ -7,7 +7,7 @@ import { mailService } from "@/services/mail.service";
 import { Input, Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/modal";
-import { IconArrowLeft, IconArrowRight, IconEye, IconFileText, IconLoader2, IconMail, IconMailExclamation, IconPaperclip, IconSparkles, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconArrowLeft, IconBriefcase, IconEye, IconFileText, IconLoader2, IconMail, IconMailExclamation, IconMapPin, IconPaperclip, IconPhone, IconSparkles, IconStairsUp, IconTrash, IconUpload } from "@tabler/icons-react";
 
 import { Card } from "@/components/ui/card";
 import { QuillEditor, type QuillHandle } from "@/components/quill-editor";
@@ -30,6 +30,12 @@ const LABEL: CSSProperties = {
   fontSize: 10.5, fontWeight: 700, textTransform: "uppercase",
   letterSpacing: "0.05em", color: "oklch(0.72 0.008 265)", marginBottom: 7,
 };
+const HAIRLINE = "#ECECEE";
+
+const SENIORITY_LABELS = ["Intern", "Junior", "Mid", "Senior", "Lead", "Manager"];
+function seniorityLabel(n?: number): string {
+  return n != null && n >= 0 && n < SENIORITY_LABELS.length ? SENIORITY_LABELS[n] : "—";
+}
 
 function initials(name: string): string {
   const p = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -243,7 +249,7 @@ export default function ApplyEmailPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 900, marginInline: "auto", width: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1120, marginInline: "auto", width: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <Button variant="light" isIconOnly onPress={() => navigate(-1)}><IconArrowLeft size={18} /></Button>
         <div>
@@ -252,49 +258,9 @@ export default function ApplyEmailPage() {
         </div>
       </div>
 
-      {/* Who is applying to which job — the only context HR needs here */}
-      <Card padding={16}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          {/* employee */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 220px" }}>
-            <span style={{ width: 44, height: 44, borderRadius: 13, display: "grid", placeItems: "center", background: "#e8f4f4", color: T.accent, fontWeight: 800, fontSize: 15, flexShrink: 0 }}>
-              {initials(emp?.full_name || "?")}
-            </span>
-            <div style={{ minWidth: 0 }}>
-              <div style={LABEL}>{t("compose.applicant")}</div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp?.full_name || "—"}</div>
-              <div style={{ fontSize: 12.5, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp?.position || "—"}</div>
-            </div>
-          </div>
-
-          {/* applying-to */}
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, background: "#e8f4f4", color: T.accent, fontWeight: 600, fontSize: 12, flexShrink: 0 }}>
-            {t("compose.applyingTo")} <IconArrowRight size={13} />
-          </span>
-
-          {/* job */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: "1 1 220px" }}>
-            <CompanyAvatar logo={job?.company?.logo_url} name={job?.company?.name || job?.title} size={44} />
-            <div style={{ minWidth: 0 }}>
-              <div style={LABEL}>{t("compose.position")}</div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job?.title || "—"}</div>
-              <div style={{ fontSize: 12.5, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {job?.company?.name || "—"}{job?.location ? ` · ${job.location}` : ""}
-              </div>
-            </div>
-          </div>
-
-          {job?.source_url && (
-            <a href={job.source_url} target="_blank" rel="noreferrer"
-              style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: T.accent, textDecoration: "none", flexShrink: 0, marginLeft: "auto" }}>
-              {t("compose.viewPosting")}
-            </a>
-          )}
-        </div>
-      </Card>
-
-      {/* composer */}
-      <Card style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 320px", gap: 16, alignItems: "start" }}>
+        {/* main: composer */}
+        <Card style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {/* Gửi từ — the linked Gmail the email is sent from */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 12, background: T.surface2, border: `1px solid ${T.line}` }}>
             <IconMail size={15} style={{ color: T.ink4, flexShrink: 0 }} />
@@ -405,6 +371,52 @@ export default function ApplyEmailPage() {
             </div>
           </div>
         </Card>
+
+        {/* right: job + employee context */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* employee */}
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: "#e8f4f4", color: T.accent, fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+                {initials(emp?.full_name || "?")}
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={LABEL}>{t("compose.applicant")}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp?.full_name || "—"}</div>
+                <div style={{ fontSize: 12, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{emp?.position || "—"}</div>
+              </div>
+            </div>
+            {(emp?.email || emp?.phone) && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${HAIRLINE}`, display: "flex", flexDirection: "column", gap: 7, fontSize: 12.5, color: T.ink2 }}>
+                {emp?.email && <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}><IconMail size={14} style={{ color: T.ink4, flexShrink: 0 }} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emp.email}</span></span>}
+                {emp?.phone && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconPhone size={14} style={{ color: T.ink4, flexShrink: 0 }} />{emp.phone}</span>}
+              </div>
+            )}
+          </Card>
+
+          {/* job */}
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <CompanyAvatar logo={job?.company?.logo_url} name={job?.company?.name || job?.title} size={42} />
+              <div style={{ minWidth: 0 }}>
+                <div style={LABEL}>{t("compose.position")}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job?.title || "—"}</div>
+                <div style={{ fontSize: 12, color: T.ink3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job?.company?.name || "—"}</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${HAIRLINE}`, display: "flex", flexDirection: "column", gap: 7, fontSize: 12.5, color: T.ink2 }}>
+              {job?.location && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconMapPin size={14} style={{ color: T.ink4, flexShrink: 0 }} />{job.location}</span>}
+              {job?.job_type && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconBriefcase size={14} style={{ color: T.ink4, flexShrink: 0 }} />{job.job_type}</span>}
+              {job?.seniority != null && <span style={{ display: "flex", alignItems: "center", gap: 7 }}><IconStairsUp size={14} style={{ color: T.ink4, flexShrink: 0 }} />{seniorityLabel(job.seniority)}</span>}
+            </div>
+            {job?.source_url && (
+              <a href={job.source_url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 12, fontSize: 12.5, fontWeight: 600, color: T.accent, textDecoration: "none" }}>
+                {t("compose.viewPosting")}
+              </a>
+            )}
+          </Card>
+        </div>
+      </div>
 
       {/* 026: block compose if the employee has no linked Gmail */}
       <Modal isOpen={credChecked && !linked && !!employeeId} hideCloseButton isDismissable={false} isKeyboardDismissDisabled size="md">
