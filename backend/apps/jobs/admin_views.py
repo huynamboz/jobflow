@@ -439,6 +439,45 @@ class AdminJobDetailView(APIView):
         return Response({"success": True, "message": "Job deactivated."})
 
 
+class AdminJobVerifyView(APIView):
+    """POST /api/admin/jobs/<pk>/verify/ — verify ONE job on demand against its
+    source platform (guest/headless) and update lifecycle + last_verified_at."""
+
+    permission_classes = [IsAdmin]
+
+    @extend_schema(tags=["Admin"])
+    def post(self, request, pk):
+        import logging
+        from datetime import datetime, timezone
+
+        logger = logging.getLogger(__name__)
+        try:
+            job = Job.objects.select_related("company", "platform").get(pk=pk)
+        except Job.DoesNotExist:
+            return Response({"success": False, "error": {"code": "NOT_FOUND", "message": "Job not found.", "status": 404}}, status=404)
+
+        if not job.source_url:
+            return Response({"success": False, "error": {"code": "NO_URL", "message": "Job has no source URL to verify.", "status": 400}}, status=400)
+
+        from ml_service.verifier import factory as verifier_factory
+        from apps.jobs.services.job_lifecycle_repository import DjangoJobLifecycleRepository
+
+        probe = verifier_factory.get_verifier_for_url(job.source_url)
+        if probe is None:
+            return Response({"success": False, "error": {"code": "UNSUPPORTED", "message": "No verifier supports this job's platform.", "status": 400}}, status=400)
+
+        try:
+            verifier = verifier_factory.get_verifier(probe.name, require_li_at=False, headless=True)
+            result = verifier.verify(job.source_url)
+        except Exception as exc:  # noqa: BLE001 — never 500 on a manual button
+            logger.warning("On-demand verify failed for job %s: %r", pk, exc)
+            return Response({"success": False, "error": {"code": "VERIFY_FAILED", "message": str(exc)[:300], "status": 502}}, status=502)
+
+        DjangoJobLifecycleRepository().apply_result(job.id, result, now=datetime.now(timezone.utc))
+        job.refresh_from_db()
+        return Response({"success": True, "data": JobListSerializer(job).data})
+
+
 class JDExportView(APIView):
     """GET /api/admin/jd/export/ — Download latest JD extraction results as JSON."""
     permission_classes = [IsAdmin]

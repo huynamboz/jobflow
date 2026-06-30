@@ -29,6 +29,8 @@ import {
   IconCheck,
   IconLoader2,
   IconAlertTriangle,
+  IconRefresh,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -98,6 +100,18 @@ function jobPostedLabel(j: JobLite, t: TFunction): string {
   if (days === 1) return t("posted.dayAgo");
   if (days < 30) return t("posted.daysAgo", { count: days });
   return new Date(iso).toLocaleDateString("vi-VN", { dateStyle: "short" });
+}
+
+function sinceLabel(iso: string, t: TFunction): string {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 1) return t("posted.today");
+  if (m < 60) return t("job.minsAgo", { count: m });
+  const h = Math.floor(m / 60);
+  if (h < 24) return t("job.hrsAgo", { count: h });
+  const d = Math.floor(h / 24);
+  if (d === 1) return t("posted.dayAgo");
+  if (d < 30) return t("posted.daysAgo", { count: d });
+  return new Date(iso).toLocaleDateString("vi-VN");
 }
 
 const SALARY_PERIOD_SUFFIX: Record<string, string> = {
@@ -341,7 +355,26 @@ function JobDetailPanel({
   const [descLoading, setDescLoading] = useState(true);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
   const [thread, setThread] = useState<MailLog[]>([]);
+  // On-demand verify — local override so we don't refetch the whole match.
+  const [verifying, setVerifying] = useState(false);
+  const [verifyInfo, setVerifyInfo] = useState<{ is_active: boolean; last_verified_at: string | null } | null>(null);
+  const isActive = verifyInfo ? verifyInfo.is_active : j.is_active;
+  const lastVerified = verifyInfo ? verifyInfo.last_verified_at : j.last_verified_at;
 
+  const doVerify = async () => {
+    setVerifying(true);
+    try {
+      const r = await jobService.verifyJob(j.id);
+      setVerifyInfo({ is_active: r.is_active, last_verified_at: r.last_verified_at });
+      addToast({ title: r.is_active ? t("job.verifyActive") : t("job.verifyClosed"), color: r.is_active ? "success" : "default" });
+    } catch {
+      addToast({ title: t("job.verifyFailed"), color: "danger" });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  useEffect(() => { setVerifyInfo(null); }, [j.id]);
   useEffect(() => { mailService.thread(match.id).then(setThread).catch(() => setThread([])); }, [match.id]);
   useEffect(() => {
     let alive = true;
@@ -381,10 +414,25 @@ function JobDetailPanel({
         {salary && <span className="rounded-jn-pill px-[13px] py-1.5 text-[12.5px] font-bold" style={{ background: C.successBg, color: C.success }}>{salary}</span>}
         {j.job_type && <span className="rounded-jn-pill bg-[#F2F3F5] px-[13px] py-1.5 text-[12.5px] font-semibold text-jn-ink-soft">{j.job_type}</span>}
         <span className="flex items-center gap-1.5 rounded-jn-pill px-[13px] py-1.5 text-[12.5px] font-semibold"
-          style={{ background: j.is_active ? C.successBg : "#F2F3F5", color: j.is_active ? C.success : "#A2A8B0" }}>
-          {j.is_active && <span className="h-1.5 w-1.5 rounded-full" style={{ background: C.success }} />}
-          {j.is_active ? t("job.active") : t("job.closed")}
+          style={{ background: isActive ? C.successBg : "#F2F3F5", color: isActive ? C.success : "#A2A8B0" }}>
+          {isActive && <span className="h-1.5 w-1.5 rounded-full" style={{ background: C.success }} />}
+          {isActive ? t("job.active") : t("job.closed")}
         </span>
+
+        {/* last verify + on-demand verify */}
+        <span className="flex items-center gap-1.5 text-[12px] text-jn-muted">
+          <IconShieldCheck size={14} className="text-jn-faint" />
+          {lastVerified ? t("job.lastVerified", { time: sinceLabel(lastVerified, t) }) : t("job.neverVerified")}
+        </span>
+        <button
+          type="button"
+          onClick={doVerify}
+          disabled={verifying}
+          className="flex items-center gap-1.5 rounded-jn-pill border border-jn-line-3 bg-jn-surface px-3 py-1 text-[12px] font-semibold text-jn-ink-soft transition-colors hover:bg-jn-sunken disabled:opacity-60"
+        >
+          {verifying ? <IconLoader2 size={13} className="animate-spin" /> : <IconRefresh size={13} />}
+          {verifying ? t("job.verifying") : t("job.verifyNow")}
+        </button>
       </div>
 
       {/* actions */}

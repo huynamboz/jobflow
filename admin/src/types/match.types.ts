@@ -28,6 +28,8 @@ export interface JobLite {
   date_posted?: string | null;
   source_url?: string;
   created_at?: string;
+  lifecycle?: string;
+  last_verified_at?: string | null;
 }
 
 export interface EmployeeJobMatch {

@@ -43,6 +43,7 @@ class JobListSerializer(serializers.ModelSerializer):
             "seniority", "job_type", "salary_min", "salary_max", "salary_currency",
             "salary_period", "salary_usd_annual_min", "salary_usd_annual_max",
             "applicant_count", "is_active", "date_posted", "source_url", "created_at",
+            "lifecycle", "last_verified_at",
         )
 
 

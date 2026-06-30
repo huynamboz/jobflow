@@ -32,6 +32,15 @@ class JobService {
     return res.data.data;
   }
 
+  /** Verify one job on demand → returns the updated job (is_active, lifecycle,
+   *  last_verified_at). Throws on UNSUPPORTED / VERIFY_FAILED. */
+  async verifyJob(id: number): Promise<{ is_active: boolean; lifecycle: string; last_verified_at: string | null }> {
+    const res = await apiClient.post<ApiSuccess<{ is_active: boolean; lifecycle: string; last_verified_at: string | null }>>(
+      `/admin/jobs/${id}/verify/`,
+    );
+    return res.data.data;
+  }
+
   async previewBatch(file: File): Promise<{ total: number; fields: string[]; sample: Record<string, unknown>[]; filename: string }> {
     const form = new FormData();
     form.append("file", file);
