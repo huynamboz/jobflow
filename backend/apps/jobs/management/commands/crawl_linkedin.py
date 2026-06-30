@@ -63,4 +63,5 @@ class Command(BaseCommand):
             serial=True,
             provider_kwargs=provider_kwargs,
             title="🔗 LinkedIn crawl" + ("" if auth else " (guest)"),
+            full=True,
         )

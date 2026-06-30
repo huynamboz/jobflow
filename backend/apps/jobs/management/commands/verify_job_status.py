@@ -28,66 +28,31 @@ _MIN_BATCH = 1
 _MAX_BATCH = 1000
 
 
-class _VerifyDashboard:
-    """Live rich progress bar for verify runs — one advancing bar with running
-    status tallies (✓active ✗expired ?unknown !error 🖼logos) + the current job.
-    """
+# verify status → (symbol, color, overview-counter key)
+_VERIFY_SYM = {
+    JobStatus.ACTIVE: ("✓", "green", "active"),
+    JobStatus.EXPIRED: ("✗", "red", "expired"),
+    JobStatus.UNKNOWN: ("?", "yellow", "unknown"),
+    JobStatus.ERROR: ("!", "magenta", "error"),
+    JobStatus.SESSION_EXPIRED: ("⌧", "red", "error"),
+}
 
-    # status → (symbol, color)
-    _SYM = {
-        JobStatus.ACTIVE: ("✓", "green"),
-        JobStatus.EXPIRED: ("✗", "red"),
-        JobStatus.UNKNOWN: ("?", "yellow"),
-        JobStatus.ERROR: ("!", "magenta"),
-        JobStatus.SESSION_EXPIRED: ("⌧", "red"),
-    }
 
-    def __init__(self, console, platform: str, total: int) -> None:
-        from rich.progress import (
-            Progress, SpinnerColumn, BarColumn, MofNCompleteColumn,
-            TextColumn, TimeElapsedColumn,
+def _verify_progress_cb(dash):
+    """Build a check_batch on_progress callback that feeds the full-terminal
+    dashboard — one overview tally bump + one table row per verified job."""
+    def cb(i: int, total: int, job_id: int, url: str, result) -> None:
+        sym, color, key = _VERIFY_SYM.get(result.status, ("·", "white", "error"))
+        has_logo = bool(getattr(result, "company_logo", ""))
+        dash.set(done=i, total=total)
+        dash.inc(key)
+        if has_logo:
+            dash.inc("logos")
+        dash.row(
+            i, job_id, f"[{color}]{sym} {result.status.value}[/]",
+            (url or "")[:80], "🖼" if has_logo else "[dim]-[/]",
         )
-        self._progress = Progress(
-            SpinnerColumn(),
-            TextColumn("[bold cyan]verify {task.fields[plat]:<9}"),
-            BarColumn(bar_width=22),
-            MofNCompleteColumn(),
-            TextColumn("[green]✓{task.fields[active]}"),
-            TextColumn("[red]✗{task.fields[expired]}"),
-            TextColumn("[yellow]?{task.fields[unknown]}"),
-            TextColumn("[magenta]!{task.fields[error]}"),
-            TextColumn("[blue]🖼{task.fields[logos]}"),
-            TextColumn("{task.fields[cur]}"),
-            TimeElapsedColumn(),
-            console=console,
-            transient=False,
-        )
-        self.counts: dict = {}
-        self.logos = 0
-        self._progress.start()
-        self._tid = self._progress.add_task(
-            "", total=max(total, 1), plat=platform[:9],
-            active=0, expired=0, unknown=0, error=0, logos=0, cur="",
-        )
-
-    def tick(self, i: int, total: int, job_id: int, url: str, result) -> None:
-        self.counts[result.status] = self.counts.get(result.status, 0) + 1
-        if getattr(result, "company_logo", ""):
-            self.logos += 1
-        sym, color = self._SYM.get(result.status, ("·", "white"))
-        errs = (self.counts.get(JobStatus.ERROR, 0)
-                + self.counts.get(JobStatus.SESSION_EXPIRED, 0))
-        self._progress.update(
-            self._tid, advance=1, total=total,
-            active=self.counts.get(JobStatus.ACTIVE, 0),
-            expired=self.counts.get(JobStatus.EXPIRED, 0),
-            unknown=self.counts.get(JobStatus.UNKNOWN, 0),
-            error=errs, logos=self.logos,
-            cur=f"[{color}]{sym} job={job_id}[/]",
-        )
-
-    def close(self) -> None:
-        self._progress.stop()
+    return cb
 
 
 class Command(BaseCommand):
@@ -174,36 +139,32 @@ class Command(BaseCommand):
             min_verified_age_hours=float(opts["min_age_hours"]),
         )
 
-        # Live rich dashboard when on a terminal (skip for JSON output / pipes
-        # / cron so logs stay plain).
+        # Full-terminal live dashboard when on a terminal (skip for JSON output
+        # / pipes / cron so logs stay plain).
         dash = None
         console = None
         if not json_report and sys.stdout.isatty():
             try:
                 from rich.console import Console
-                from rich.panel import Panel
-                from rich import box
+                from apps.jobs.services.live_dashboard import make_verify_dashboard
                 console = Console()
-                console.print(Panel.fit(
-                    f"[bold cyan]Verify job status[/]\n"
-                    f"[dim]platform {platform} · batch {batch} · "
-                    f"{'auth' if require_li_at else 'guest'} · "
-                    f"{'headed' if headed else 'headless'}"
-                    f"{' · DRY-RUN' if dry_run else ''}[/]",
-                    border_style="cyan", box=box.ROUNDED,
-                ))
-                dash = _VerifyDashboard(console, platform, batch)
+                if console.is_terminal:
+                    dash = make_verify_dashboard(console, platform, batch)
             except ImportError:
                 dash = None
 
         try:
-            report = service.check_batch(
-                platform=platform, batch=batch, dry_run=dry_run,
-                on_progress=(dash.tick if dash else None),
-            )
-        except Exception as exc:
             if dash:
-                dash.close()
+                with dash:
+                    report = service.check_batch(
+                        platform=platform, batch=batch, dry_run=dry_run,
+                        on_progress=_verify_progress_cb(dash),
+                    )
+            else:
+                report = service.check_batch(
+                    platform=platform, batch=batch, dry_run=dry_run,
+                )
+        except Exception as exc:
             # Auth-state missing: special exit code so cron can alert.
             from ml_service.verifier.browser_pool import AuthStateMissingError
             if isinstance(exc, AuthStateMissingError):
@@ -214,7 +175,6 @@ class Command(BaseCommand):
             sys.exit(3)
 
         if dash:
-            dash.close()
             self._render_rich_summary(console, report, dash)
         else:
             self._print_report(report)
@@ -298,7 +258,7 @@ class Command(BaseCommand):
             table.add_row(label, f"[bold]{count}[/]" if count else "[dim]0[/]")
         console.print(table)
 
-        console.print(f"[blue]🖼 {dash.logos}[/] company logo(s) scraped from pages"
+        console.print(f"[blue]🖼 {dash.get('logos')}[/] company logo(s) scraped from pages"
                       + ("" if report.dry_run else " → backfilled where missing"))
         if report.skipped_unsupported_url:
             console.print(f"[dim]{report.skipped_unsupported_url} skipped (unsupported url)[/]")

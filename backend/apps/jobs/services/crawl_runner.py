@@ -114,8 +114,8 @@ def run_crawl(
                 on_job = None
                 if progress:
                     progress.live(pname, base, q)  # mark keyword as started
-                    on_job = (lambda n, _p=pname, _q=q, _b=base:
-                              progress.live(_p, _b + n, _q))
+                    on_job = (lambda n, job=None, _p=pname, _q=q, _b=base:
+                              progress.live(_p, _b + n, _q, job))
                 try:
                     jobs.extend(p.fetch(
                         q, location=location, results_wanted=results_wanted, on_job=on_job,
@@ -246,10 +246,12 @@ class _RichProgress:
         if tid is not None:
             self._progress.update(tid, advance=1, found=found_total, kw=keyword[:26])
 
-    def live(self, provider: str, found_running: int, keyword: str) -> None:
+    def live(self, provider: str, found_running: int, keyword: str, job=None) -> None:
         """Intra-keyword heartbeat — refresh the running found-count and the
         keyword currently being fetched WITHOUT advancing the bar, so a long
-        single-keyword fetch (e.g. LinkedIn, ~1 min) doesn't look frozen."""
+        single-keyword fetch (e.g. LinkedIn, ~1 min) doesn't look frozen.
+        ``job`` (the latest RawJob) is accepted for interface parity with the
+        full dashboard but unused here."""
         tid = self._tasks.get(provider)
         if tid is not None:
             self._progress.update(tid, found=found_running, kw=f"⟳ {keyword[:24]}")
@@ -278,9 +280,14 @@ def live_crawl(
     serial: bool = False,
     provider_kwargs: dict | None = None,
     title: str = "Crawl",
+    full: bool = False,
 ) -> dict:
     """Run a crawl with a live rich dashboard (header panel → per-provider bars →
-    summary table). Falls back to plain logging if rich is unavailable."""
+    summary table). Falls back to plain logging if rich is unavailable.
+
+    ``full=True`` (on a real terminal) swaps the per-provider bars for a
+    full-screen dashboard: a pinned overview block + a live-scrolling table of
+    every scraped job."""
     try:
         from rich.console import Console
         from rich.panel import Panel
@@ -294,14 +301,17 @@ def live_crawl(
         return s
 
     console = Console()
-    console.print(Panel.fit(
-        f"[bold cyan]{title}[/]\n"
-        f"[dim]{len(providers)} providers · {len(queries)} keywords · "
-        f"{results_wanted} results/kw · {workers or len(providers)} workers · {request_delay}s/req[/]",
-        border_style="cyan", box=box.ROUNDED,
-    ))
-
-    prog = _RichProgress(console, providers)
+    if full and console.is_terminal:
+        from apps.jobs.services.live_dashboard import CrawlDashboard
+        prog = CrawlDashboard(console, providers, len(queries), title=title)
+    else:
+        console.print(Panel.fit(
+            f"[bold cyan]{title}[/]\n"
+            f"[dim]{len(providers)} providers · {len(queries)} keywords · "
+            f"{results_wanted} results/kw · {workers or len(providers)} workers · {request_delay}s/req[/]",
+            border_style="cyan", box=box.ROUNDED,
+        ))
+        prog = _RichProgress(console, providers)
     summary = run_crawl(
         providers, queries, results_wanted=results_wanted, location=location,
         out_dir=out_dir, workers=workers, request_delay=request_delay, serial=serial,

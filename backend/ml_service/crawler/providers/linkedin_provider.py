@@ -150,7 +150,7 @@ class LinkedInProvider(CrawlProvider):
                     self._stream_save(jobs[-1])
                 if on_job:
                     try:
-                        on_job(len(jobs))
+                        on_job(len(jobs), jobs[-1])
                     except Exception:
                         pass
                 if len(jobs) >= results_wanted:
