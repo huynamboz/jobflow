@@ -424,15 +424,17 @@ function JobDetailPanel({
           <IconShieldCheck size={14} className="text-jn-faint" />
           {lastVerified ? t("job.lastVerified", { time: sinceLabel(lastVerified, t) }) : t("job.neverVerified")}
         </span>
-        <button
-          type="button"
-          onClick={doVerify}
-          disabled={verifying}
-          className="flex items-center gap-1.5 rounded-jn-pill border border-jn-line-3 bg-jn-surface px-3 py-1 text-[12px] font-semibold text-jn-ink-soft transition-colors hover:bg-jn-sunken disabled:opacity-60"
-        >
-          {verifying ? <IconLoader2 size={13} className="animate-spin" /> : <IconRefresh size={13} />}
-          {verifying ? t("job.verifying") : t("job.verifyNow")}
-        </button>
+        {isActive && (
+          <button
+            type="button"
+            onClick={doVerify}
+            disabled={verifying}
+            className="flex items-center gap-1.5 rounded-jn-pill border border-jn-line-3 bg-jn-surface px-3 py-1 text-[12px] font-semibold text-jn-ink-soft transition-colors hover:bg-jn-sunken disabled:opacity-60"
+          >
+            {verifying ? <IconLoader2 size={13} className="animate-spin" /> : <IconRefresh size={13} />}
+            {verifying ? t("job.verifying") : t("job.verifyNow")}
+          </button>
+        )}
       </div>
 
       {/* actions */}
