@@ -72,7 +72,32 @@ const SRC_COLOR: Record<string, string> = {
 };
 const srcColor = (name?: string) => SRC_COLOR[(name || "").toLowerCase().replace(/\s+/g, "")] ?? "#6B7079";
 
-const matchColor = (pct: number) => (pct >= 95 ? "#1F9E6E" : pct >= 85 ? "#0064E5" : "#C77700");
+// Coloured on the rank-score scale (0–100, good dynamic range) — not the
+// saturated calibrated probability.
+const matchColor = (pct: number) => (pct >= 66 ? "#1F9E6E" : pct >= 40 ? "#0064E5" : "#C77700");
+
+/** Headline number = rank score (reranker × gates): real dynamic range, gate
+ *  penalties show through. Falls back to the calibrated P when no breakdown. */
+function rankPct(m: EmployeeJobMatch): number {
+  const r = m.score_breakdown?.rank_score;
+  return Math.round((r != null ? r : (m.match_score ?? 0)) * 100);
+}
+/** Eligibility stays on the calibrated probability (P ≥ 0.5 ⟺ rank ≈ 0.31). */
+function isEligible(m: EmployeeJobMatch): boolean {
+  return (m.match_score ?? 0) >= 0.5;
+}
+
+function EligiblePill({ eligible }: { eligible: boolean }) {
+  const { t } = useTranslation("employees");
+  return (
+    <span
+      className="rounded-jn-pill px-2 py-[3px] text-[10px] font-bold uppercase tracking-[0.03em]"
+      style={eligible ? { color: "#1F8A5B", background: "#E7F6EF" } : { color: "#6B7079", background: "#F2F3F5" }}
+    >
+      {eligible ? t("why.eligible") : t("why.notEligible")}
+    </span>
+  );
+}
 
 function initials(name: string): string {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -138,8 +163,8 @@ function Ring({ pct, size = 80, stroke = 7, color }: { pct: number; size?: numbe
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[20px] font-extrabold leading-none" style={{ color }}>{pct}%</span>
-        <span className="text-[8.5px] font-bold tracking-[0.08em] text-jn-faint">{t("why.confidenceShort").toUpperCase()}</span>
+        <span className="text-[20px] font-extrabold leading-none" style={{ color }}>{pct}</span>
+        <span className="text-[8.5px] font-bold tracking-[0.08em] text-jn-faint">{t("why.scoreShort").toUpperCase()}</span>
       </div>
     </div>
   );
@@ -149,7 +174,7 @@ function Ring({ pct, size = 80, stroke = 7, color }: { pct: number; size?: numbe
 function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; selected: boolean; onSelect: () => void }) {
   const { t } = useTranslation("employees");
   const j = match.job;
-  const pct = Math.round((match.match_score || 0) * 100);
+  const pct = rankPct(match);
   const mc = matchColor(pct);
   return (
     <button
@@ -166,7 +191,7 @@ function JobListItem({ match, selected, onSelect }: { match: EmployeeJobMatch; s
         <span className="text-[14.5px] font-bold leading-[1.3] text-jn-ink">{j.title}</span>
         <span className="flex shrink-0 items-center gap-1.5">
           <span className="h-[7px] w-[7px] rounded-full" style={{ background: mc }} />
-          <span className="text-[13.5px] font-extrabold" style={{ color: mc }}>{pct}%</span>
+          <span className="text-[13.5px] font-extrabold" style={{ color: mc }}>{pct}</span>
         </span>
       </div>
       <div className="mt-[5px] text-[12px] text-jn-muted">
@@ -229,10 +254,12 @@ function ScoreBreakdown({ match }: { match: EmployeeJobMatch }) {
   const covered = match.covered_skills ?? {};
   const trulyMissing = (match.missing_skills ?? []).filter((s) => !(s in covered));
 
+  const rankS = match.score_breakdown?.rank_score ?? overall;
   return (
     <div className="mt-3">
-      {/* the displayed number = calibrated probability (not an average of the dims) */}
-      <ScoreBar label={t("why.calibratedProbability")} value={overall} />
+      {/* headline = rank score (reranker × gates); P kept as the eligibility gate */}
+      <ScoreBar label={t("why.matchScore")} value={rankS} tone="#0064E5" />
+      <ScoreBar label={t("why.calibratedProbability")} value={overall} tone="#9097a0" />
       {Object.keys(match.dim_scores ?? {}).length > 0 ? (
         <>
           <div className="mb-2 mt-3.5 flex items-center gap-2">
@@ -321,8 +348,9 @@ function JobDetailPanel({
   const { t } = useTranslation("employees");
   const j = match.job;
   const salary = fmtSalary(j);
-  const pct = Math.round((match.match_score || 0) * 100);
+  const pct = rankPct(match);
   const mc = matchColor(pct);
+  const eligible = isEligible(match);
   const [desc, setDesc] = useState<string | null>(null);
   const [descLoading, setDescLoading] = useState(true);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
@@ -419,9 +447,12 @@ function JobDetailPanel({
             </span>
             <span className="text-[12.5px] font-bold tracking-[0.03em] text-jn-ink">{t("why.title").toUpperCase()}</span>
           </div>
-          <span className="flex items-baseline gap-1.5">
-            <span className="text-[10.5px] font-bold uppercase tracking-[0.04em]" style={{ color: "#1F8A5B" }}>{t("why.matchConfidence")}</span>
-            <span className="text-[15px] font-extrabold" style={{ color: C.success }}>{pct}%</span>
+          <span className="flex items-center gap-2">
+            <span className="flex items-baseline gap-1.5">
+              <span className="text-[10.5px] font-bold uppercase tracking-[0.04em]" style={{ color: "#1F8A5B" }}>{t("why.matchScore")}</span>
+              <span className="text-[15px] font-extrabold" style={{ color: C.success }}>{pct}</span>
+            </span>
+            <EligiblePill eligible={eligible} />
           </span>
         </div>
         <div className="mt-3 text-[13px] leading-[1.6] text-jn-ink-soft">{whyText}</div>
