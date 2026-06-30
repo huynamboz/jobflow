@@ -255,11 +255,14 @@ function ScoreBreakdown({ match }: { match: EmployeeJobMatch }) {
   const trulyMissing = (match.missing_skills ?? []).filter((s) => !(s in covered));
 
   const rankS = match.score_breakdown?.rank_score ?? overall;
+  // Ẩn thanh điểm tổng (Điểm phù hợp / Xác suất hiệu chuẩn) + khối
+  // "Điểm được tính thế nào". Đổi thành true để hiện lại.
+  const SHOW_SCORE_FORMULA = false;
   return (
     <div className="mt-3">
       {/* headline = rank score (reranker × gates); P kept as the eligibility gate */}
-      <ScoreBar label={t("why.matchScore")} value={rankS} tone="#0064E5" />
-      <ScoreBar label={t("why.calibratedProbability")} value={overall} tone="#9097a0" />
+      {SHOW_SCORE_FORMULA && <ScoreBar label={t("why.matchScore")} value={rankS} tone="#0064E5" />}
+      {SHOW_SCORE_FORMULA && <ScoreBar label={t("why.calibratedProbability")} value={overall} tone="#9097a0" />}
       {Object.keys(match.dim_scores ?? {}).length > 0 ? (
         <>
           <div className="mb-2 mt-3.5 flex items-center gap-2">
@@ -281,8 +284,8 @@ function ScoreBreakdown({ match }: { match: EmployeeJobMatch }) {
         </>
       )}
 
-      {/* provenance */}
-      {(() => {
+      {/* provenance — ẩn ("Điểm được tính thế nào") */}
+      {SHOW_SCORE_FORMULA && (() => {
         const bd = match.score_breakdown;
         if (!bd || !bd.stage1 || !Object.keys(bd.stage1).length) return null;
         const w = bd.weights ?? {};
