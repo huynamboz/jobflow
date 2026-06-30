@@ -8,6 +8,7 @@ import {
   ModalFooter,
   ModalHeader,
 } from "@heroui/modal";
+import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
 import {
   IconCloudUpload,
   IconLoader2,
@@ -17,10 +18,12 @@ import {
   IconMail,
   IconPhone,
   IconCalendar,
-  IconMessage,
   IconDots,
   IconDownload,
   IconPlus,
+  IconUser,
+  IconSettings,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -28,6 +31,7 @@ import type { TFunction } from "i18next";
 import { Avatar, Badge, Button, Card, PageHeader, SearchInput, useReveal } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth.store";
 import { employeeService } from "@/services/employee.service";
 import type { Employee } from "@/types/employee.types";
 
@@ -60,37 +64,10 @@ function statusFor(emp: Employee, t: TFunction): Status {
 // Seniority → coloured chip (mirrors the mockup's department pill).
 const SENIORITY_TINT: BadgeColor[] = ["neutral", "blue", "green", "violet", "amber", "red"];
 
-/** Small square action button on the card footer (message / call). Renders as
- *  an <a> when `href` is given (e.g. tel:) so we never nest a button in a link. */
-function CardIconBtn({
-  children,
-  onClick,
-  title,
-  href,
-}: {
-  children: React.ReactNode;
-  onClick: (e: React.MouseEvent) => void;
-  title?: string;
-  href?: string;
-}) {
-  const cls =
-    "grid h-[42px] w-[42px] shrink-0 place-items-center rounded-jn-btn border border-jn-line-3 bg-jn-surface text-jn-ink-mute transition-colors hover:bg-jn-sunken";
-  if (href) {
-    return (
-      <a href={href} title={title} onClick={onClick} className={cls}>
-        {children}
-      </a>
-    );
-  }
-  return (
-    <button type="button" title={title} onClick={onClick} className={cls}>
-      {children}
-    </button>
-  );
-}
-
-function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) {
+function EmployeeCard({ emp, onClick, onDelete }: { emp: Employee; onClick: () => void; onDelete: () => void }) {
   const { t } = useTranslation("employees");
+  const navigate = useNavigate();
+  const isAdmin = useAuthStore((s) => s.user?.role) === "admin";
   const st = statusFor(emp, t);
   const parsing = !emp.parsed_at && !emp.is_parse_failed;
   const cover = COVERS[emp.id % COVERS.length];
@@ -114,13 +91,34 @@ function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) 
         className="relative h-[74px] bg-jn-sunken bg-cover bg-center"
         style={{ backgroundImage: `url('${cover}')` }}
       >
-        <button
-          type="button"
-          onClick={stop}
-          className="absolute right-3 top-3 grid h-[30px] w-[30px] place-items-center rounded-[9px] bg-white/85 text-jn-ink-mute transition-colors hover:bg-white"
-        >
-          <IconDots size={16} />
-        </button>
+        <Dropdown placement="bottom-end">
+          <DropdownTrigger>
+            <button
+              type="button"
+              onClick={stop}
+              aria-label="More"
+              className="absolute right-3 top-3 grid h-[30px] w-[30px] place-items-center rounded-[9px] bg-white/85 text-jn-ink-mute transition-colors hover:bg-white"
+            >
+              <IconDots size={16} />
+            </button>
+          </DropdownTrigger>
+          <DropdownMenu
+            aria-label={t("card.menu")}
+            onAction={(key) => {
+              if (key === "view") onClick();
+              else if (key === "settings") navigate(`/admin/employees/${emp.id}/info`);
+              else if (key === "delete") onDelete();
+            }}
+          >
+            <DropdownItem key="view" startContent={<IconUser size={15} />}>{t("card.viewProfile")}</DropdownItem>
+            <DropdownItem key="settings" startContent={<IconSettings size={15} />}>{t("card.settings")}</DropdownItem>
+            {isAdmin ? (
+              <DropdownItem key="delete" className="text-danger" color="danger" startContent={<IconTrash size={15} />}>
+                {t("card.delete")}
+              </DropdownItem>
+            ) : null}
+          </DropdownMenu>
+        </Dropdown>
       </div>
 
       <div className="relative z-[1] -mt-[38px] px-6 pb-6">
@@ -177,22 +175,10 @@ function EmployeeCard({ emp, onClick }: { emp: Employee; onClick: () => void }) 
         </div>
 
         {/* actions */}
-        <div className="mt-5 flex gap-2.5">
-          <Button variant="primary" className="flex-1" onClick={(e) => { stop(e); onClick(); }}>
+        <div className="mt-5">
+          <Button variant="primary" fullWidth onClick={(e) => { stop(e); onClick(); }}>
             {t("card.viewProfile")}
           </Button>
-          <CardIconBtn title="Message" onClick={(e) => { stop(e); onClick(); }}>
-            <IconMessage size={16} />
-          </CardIconBtn>
-          {emp.phone ? (
-            <CardIconBtn title="Call" href={`tel:${emp.phone}`} onClick={stop}>
-              <IconPhone size={16} />
-            </CardIconBtn>
-          ) : (
-            <CardIconBtn title="Call" onClick={(e) => { stop(e); onClick(); }}>
-              <IconPhone size={16} />
-            </CardIconBtn>
-          )}
         </div>
       </div>
     </Card>
@@ -216,6 +202,8 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const reveal = useReveal([employees]);
 
   const load = useCallback(async () => {
@@ -305,7 +293,7 @@ export default function EmployeesPage() {
       ) : (
         <div className="grid gap-[22px]" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))" }}>
           {employees.map((emp) => (
-            <EmployeeCard key={emp.id} emp={emp} onClick={() => navigate(`/admin/employees/${emp.id}`)} />
+            <EmployeeCard key={emp.id} emp={emp} onClick={() => navigate(`/admin/employees/${emp.id}`)} onDelete={() => setDeleteTarget(emp)} />
           ))}
 
           {/* add-member card */}
@@ -330,6 +318,40 @@ export default function EmployeesPage() {
         onClose={() => setUploadOpen(false)}
         onUploaded={() => { setUploadOpen(false); void load(); }}
       />
+
+      {/* delete-confirm modal */}
+      <Modal isOpen={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)} size="sm">
+        <ModalContent>
+          <ModalHeader className="text-[17px] font-bold text-jn-ink">{t("info.deleteTitle")}</ModalHeader>
+          <ModalBody>
+            <p className="text-[13.5px] text-jn-ink-mute">{t("info.dangerDescription")}</p>
+            {deleteTarget && <p className="mt-1 text-[14px] font-semibold text-jn-ink">{deleteTarget.full_name}</p>}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={deleting}>{t("common:actions.cancel")}</Button>
+            <Button
+              variant="danger"
+              loading={deleting}
+              onClick={async () => {
+                if (!deleteTarget) return;
+                setDeleting(true);
+                try {
+                  await employeeService.remove(deleteTarget.id);
+                  addToast({ title: t("info.deleted"), color: "success" });
+                  setDeleteTarget(null);
+                  void load();
+                } catch {
+                  addToast({ title: t("info.deleteFailed"), color: "danger" });
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+            >
+              {t("info.deleteEmployee")}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

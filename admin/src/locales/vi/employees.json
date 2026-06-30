@@ -33,6 +33,9 @@
     "newMatches": "{{count}} việc mới",
     "noMatches": "Chưa có việc mới",
     "viewProfile": "Xem hồ sơ",
+    "settings": "Cài đặt",
+    "delete": "Xoá",
+    "menu": "Thao tác",
     "joined": "Vào {{date}}",
     "noPhone": "Chưa có SĐT",
     "empId": "EMP-{{id}}"
