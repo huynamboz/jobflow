@@ -215,6 +215,11 @@ CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6380/
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6380/0")
 CELERY_TIMEZONE = "Asia/Ho_Chi_Minh"
 CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "0") == "1"
+# Employee CV parse+match dispatch: prefer Celery (default). Set to 0 on a
+# single-box deploy where Redis is up but NO Celery worker runs — otherwise the
+# task queues forever and the upload looks "stuck at parse". 0 → run in the
+# in-process thread pool (reuses the warmed model, no second copy).
+EMPLOYEE_PARSE_USE_CELERY = os.environ.get("EMPLOYEE_PARSE_USE_CELERY", "1") == "1"
 
 EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND",

@@ -50,30 +50,43 @@ def _get_parse_pool() -> ThreadPoolExecutor:
 def _process_employee(employee_id: int) -> None:
     """Kick off parse + match without blocking the request.
 
-    Prefers Celery; when it isn't installed / the broker is down (dev), the work
-    runs in a small background thread pool so the upload returns immediately and
-    the UI can poll for results.
+    Prefers Celery; when it isn't installed / the broker is down (dev) / no
+    worker is running (single-box deploy with ``EMPLOYEE_PARSE_USE_CELERY=0``),
+    the work runs in a small background thread pool so the upload returns
+    immediately and the UI can poll for results.
+
+    NOTE: a live broker with NO worker silently queues the task forever (the
+    upload looks "stuck at parse"). On a single-box deploy that has Redis up but
+    no Celery worker, set ``EMPLOYEE_PARSE_USE_CELERY=0`` to force the thread
+    pool (runs in-process, reusing the warmed model — no second model copy).
     """
-    try:
-        # Import inside the try: when Celery is absent the task symbol doesn't
-        # exist, and we still want the background fallback.
-        from apps.employees.tasks import parse_and_match_employee
+    from django.conf import settings as _settings
 
-        parse_and_match_employee.delay(employee_id)
-    except Exception:  # noqa: BLE001 — no Celery / broker down: parse in a thread
-        from apps.employees.tasks import _do_parse_and_match
+    if getattr(_settings, "EMPLOYEE_PARSE_USE_CELERY", True):
+        try:
+            # Import inside the try: when Celery is absent the task symbol
+            # doesn't exist, and we still want the background fallback.
+            from apps.employees.tasks import parse_and_match_employee
 
-        def _run() -> None:
-            try:
-                _do_parse_and_match(employee_id)
-            except Exception:  # noqa: BLE001
-                logger.warning("Background parse failed for %s", employee_id, exc_info=True)
-            finally:
-                from django.db import connection
+            parse_and_match_employee.delay(employee_id)
+            return
+        except Exception:  # noqa: BLE001 — no Celery / broker down: parse in a thread
+            pass
 
-                connection.close()
+    # Forced thread pool (Celery disabled) or Celery dispatch failed above.
+    from apps.employees.tasks import _do_parse_and_match
 
-        _get_parse_pool().submit(_run)
+    def _run() -> None:
+        try:
+            _do_parse_and_match(employee_id)
+        except Exception:  # noqa: BLE001
+            logger.warning("Background parse failed for %s", employee_id, exc_info=True)
+        finally:
+            from django.db import connection
+
+            connection.close()
+
+    _get_parse_pool().submit(_run)
 
 
 def _process_rematch(employee_id: int) -> None:
