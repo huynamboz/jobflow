@@ -23,7 +23,16 @@
     "awaitingNote": "Chưa phát hiện phản hồi · đã gửi {{time}}",
     "bouncedNote": "Gửi thất bại · không tìm thấy địa chỉ {{addr}}",
     "sendFollowup": "Gửi nhắc lại",
-    "resend": "Gửi lại"
+    "resend": "Gửi lại",
+    "replyTo": "Trả lời {{addr}}",
+    "replyPlaceholder": "Viết nội dung trả lời…",
+    "replyFromHint": "Gửi từ {{addr}}",
+    "replyNoMatch": "Email này không gắn với match nào nên không gửi trả lời được.",
+    "replySent": "Đã gửi trả lời",
+    "replyFailed": "Không gửi được trả lời",
+    "sendReply": "Gửi trả lời",
+    "sending": "Đang gửi…",
+    "cancel": "Huỷ"
   },
   "page": {
     "title": "Thư",
@@ -122,6 +131,8 @@
     "message": "Nội dung",
     "generateEmail": "Tạo email",
     "generating": "Đang tạo…",
+    "regenerate": "Tạo lại",
+    "feedbackPlaceholder": "Góp ý cho AI — vd: ngắn gọn hơn, trang trọng hơn, nhấn mạnh React…",
     "editorPlaceholder": "Viết email ứng tuyển của bạn…",
     "sendFromHint": "Gửi từ {{addr}} · Đính kèm CV",
     "linkToSendHint": "Liên kết email của nhân viên này để gửi từ hệ thống",

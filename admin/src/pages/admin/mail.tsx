@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { addToast } from "@heroui/toast";
 import {
-  IconArrowBackUp, IconArrowForwardUp, IconArchive, IconCalendarEvent,
+  IconArrowBackUp, IconArrowForwardUp, IconCalendarEvent,
   IconClock, IconCheck, IconAlertTriangle, IconRefresh, IconMail, IconLoader2,
 } from "@tabler/icons-react";
 
@@ -12,7 +11,7 @@ import { Button, useReveal } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { mailService, type MailLog, type MailLogDetail } from "@/services/mail.service";
 
-type SentLog = MailLog & { employee: number; employee_name: string; match: number | null; job_title: string };
+type SentLog = MailLog & { employee: number; employee_name: string; match: number | null; job_title: string; company_name?: string; company_logo?: string };
 type Status = "replied" | "awaiting" | "bounced";
 type Thread = { log: SentLog; status: Status };
 type Tab = "all" | Status;
@@ -55,20 +54,36 @@ function StatusChip({ status, size = "sm" }: { status: Status; size?: "sm" | "md
   );
 }
 
-function Avatar({ label, size = 40 }: { label: string; size?: number }) {
+function Avatar({ label, size = 40, logo }: { label: string; size?: number; logo?: string }) {
+  const radius = size > 30 ? 11 : ("50%" as const);
   return (
-    <span
-      className="grid shrink-0 place-items-center font-extrabold text-white"
-      style={{ width: size, height: size, borderRadius: size > 30 ? 11 : "50%", fontSize: size * 0.36, background: "linear-gradient(135deg,#0064E5,#16C7B5)" }}
-    >
-      {(label || "?").charAt(0).toUpperCase()}
+    <span className="relative block shrink-0" style={{ width: size, height: size }}>
+      {logo && (
+        <img
+          src={logo}
+          alt=""
+          className="absolute inset-0 h-full w-full border border-jn-line-2 bg-white object-cover"
+          style={{ borderRadius: radius }}
+          onError={(e) => {
+            const el = e.currentTarget;
+            el.style.display = "none";
+            const sib = el.nextElementSibling as HTMLElement | null;
+            if (sib) sib.style.removeProperty("display");
+          }}
+        />
+      )}
+      <span
+        className="grid h-full w-full place-items-center font-extrabold text-white"
+        style={{ borderRadius: radius, fontSize: size * 0.36, background: "linear-gradient(135deg,#0064E5,#16C7B5)", display: logo ? "none" : undefined }}
+      >
+        {(label || "?").charAt(0).toUpperCase()}
+      </span>
     </span>
   );
 }
 
 export default function MailPage() {
   const { t } = useTranslation("mail");
-  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("all");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [counts, setCounts] = useState({ sent: 0, replied: 0, awaiting: 0, bounced: 0 });
@@ -196,10 +211,10 @@ export default function MailPage() {
                   <button key={log.id} type="button" onClick={() => setSelectedId(log.id)}
                     className="flex w-full gap-3 border-b border-jn-line-soft p-[15px] text-left transition-colors hover:bg-[#FAFBFC]"
                     style={{ background: active ? "#F5F9FF" : undefined, borderLeft: `3px solid ${active ? "#0064E5" : "transparent"}` }}>
-                    <Avatar label={companyFromEmail(log.to_addr)} />
+                    <Avatar label={log.company_name || companyFromEmail(log.to_addr)} logo={log.company_logo} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className={cn("min-w-0 flex-1 truncate text-[13.5px]", status === "replied" ? "font-bold" : "font-semibold")}>{companyFromEmail(log.to_addr)}</span>
+                        <span className={cn("min-w-0 flex-1 truncate text-[13.5px]", status === "replied" ? "font-bold" : "font-semibold")}>{log.company_name || companyFromEmail(log.to_addr)}</span>
                         <span className="shrink-0 text-[11px] text-jn-faint">{relTime(log.created_at, t)}</span>
                       </div>
                       <div className={cn("mt-0.5 truncate text-[12.5px] text-jn-ink-soft", status === "replied" ? "font-bold" : "font-semibold")}>{log.job_title || log.subject}</div>
@@ -223,10 +238,7 @@ export default function MailPage() {
               {detailLoading ? <IconLoader2 size={22} className="animate-spin" /> : <div className="text-center"><IconMail size={30} className="mx-auto mb-2 text-jn-faint" />{t("box.selectThread")}</div>}
             </div>
           ) : (
-            <ThreadDetail detail={detail} onReply={() => {
-              const m = detail.match?.id, e = detail.employee?.id, j = detail.job?.id;
-              if (m && e && j) navigate(`/admin/apply-email?employee=${e}&job=${j}&match=${m}`);
-            }} />
+            <ThreadDetail detail={detail} onSent={load} />
           )}
         </div>
       </div>
@@ -234,38 +246,69 @@ export default function MailPage() {
   );
 }
 
-function ThreadDetail({ detail, onReply }: { detail: MailLogDetail; onReply: () => void }) {
+function ThreadDetail({ detail, onSent }: { detail: MailLogDetail; onSent: () => void }) {
   const { t } = useTranslation("mail");
-  const { log, employee, job } = detail;
+  const { log, employee } = detail;
   const sent = detail.thread.find((m) => m.direction === "out") ?? log;
   const reply = detail.thread.find((m) => m.direction === "in" && !m.is_bounce);
   const bounce = detail.thread.find((m) => m.is_bounce);
   const status: Status = bounce ? "bounced" : reply ? "replied" : "awaiting";
-  const company = companyFromEmail(log.to_addr);
+  const company = detail.job?.company || log.company_name || companyFromEmail(log.to_addr);
+  const companyLogo = detail.job?.company_logo || log.company_logo;
+
+  const replyRef = useRef<HTMLDivElement>(null);
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [sending, setSending] = useState(false);
+  const matchId = detail.match?.id ?? null;
+
+  const openReply = () => {
+    setReplyOpen(true);
+    setTimeout(() => replyRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+  };
+
+  const sendReply = async () => {
+    const body = replyText.trim();
+    if (!matchId || !body) return;
+    setSending(true);
+    try {
+      await mailService.sendApply(matchId, log.to_addr, `Re: ${log.subject || ""}`.trim(), body, { noCv: true });
+      addToast({ title: t("box.replySent"), color: "success" });
+      setReplyText("");
+      setReplyOpen(false);
+      onSent();
+    } catch {
+      addToast({ title: t("box.replyFailed"), color: "danger" });
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="p-[30px]">
       {/* head */}
       <div className="flex items-start justify-between gap-5">
-        <div className="min-w-0 flex-1">
-          <h2 className="m-0 text-[20px] font-extrabold leading-[1.25] tracking-[-0.01em] text-jn-ink">{log.subject || t("detail.noSubject")}</h2>
-          <div className="mt-2.5 flex flex-wrap items-center gap-3">
-            <StatusChip status={status} size="md" />
-            {employee && (
+        <div className="flex min-w-0 flex-1 gap-3.5">
+          <Avatar label={company} size={44} logo={companyLogo} />
+          <div className="min-w-0">
+            <h2 className="m-0 text-[20px] font-extrabold leading-[1.25] tracking-[-0.01em] text-jn-ink">{log.subject || t("detail.noSubject")}</h2>
+            <div className="mt-1 truncate text-[12.5px] font-semibold text-jn-ink-soft">{company}</div>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <StatusChip status={status} size="md" />
+              {employee && (
+                <span className="text-[12.5px] text-jn-muted">
+                  {t("box.appliedFor")} <strong className="font-semibold text-jn-ink-soft">{employee.full_name}</strong>
+                </span>
+              )}
+              <span className="h-[13px] w-px bg-jn-line-3" />
               <span className="text-[12.5px] text-jn-muted">
-                {t("box.appliedFor")} <strong className="font-semibold text-jn-ink-soft">{employee.full_name}</strong>
+                {t("box.sentBy")} <strong className="font-semibold text-jn-ink-soft">{sent.from_addr}</strong>
               </span>
-            )}
-            <span className="h-[13px] w-px bg-jn-line-3" />
-            <span className="text-[12.5px] text-jn-muted">
-              {t("box.sentBy")} <strong className="font-semibold text-jn-ink-soft">{sent.from_addr}</strong>
-            </span>
+            </div>
           </div>
         </div>
         <div className="flex shrink-0 gap-1.5">
-          <Button variant="primary" size="sm" leftIcon={<IconArrowBackUp size={15} />} onClick={onReply}>{t("box.reply")}</Button>
-          <DetailIconBtn title={t("box.forward")} onClick={() => job?.source_url && window.open(job.source_url, "_blank")}><IconArrowForwardUp size={16} /></DetailIconBtn>
-          <DetailIconBtn title={t("box.archive")} onClick={() => {}}><IconArchive size={16} /></DetailIconBtn>
+          <Button variant="primary" size="sm" leftIcon={<IconArrowBackUp size={15} />} onClick={openReply}>{t("box.reply")}</Button>
         </div>
       </div>
 
@@ -294,7 +337,7 @@ function ThreadDetail({ detail, onReply }: { detail: MailLogDetail; onReply: () 
       {/* reply */}
       {reply && (
         <div className="mt-5 flex gap-3.5">
-          <Avatar label={company} size={40} />
+          <Avatar label={company} size={40} logo={companyLogo} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2.5">
               <span className="text-[13.5px] font-bold text-jn-ink">{reply.from_addr}</span>
@@ -305,7 +348,7 @@ function ThreadDetail({ detail, onReply }: { detail: MailLogDetail; onReply: () 
               {reply.body_text}
             </div>
             <div className="mt-3.5 flex flex-wrap gap-2.5">
-              <Button variant="primary" size="sm" leftIcon={<IconArrowBackUp size={15} />} onClick={onReply}>{t("box.reply")}</Button>
+              <Button variant="primary" size="sm" leftIcon={<IconArrowBackUp size={15} />} onClick={openReply}>{t("box.reply")}</Button>
               <Button variant="secondary" size="sm" leftIcon={<IconCalendarEvent size={15} className="text-jn-ink-mute" />}>{t("box.scheduleInterview")}</Button>
               <Button variant="secondary" size="sm" leftIcon={<IconArrowForwardUp size={15} className="text-jn-ink-mute" />}>{t("box.forwardToCandidate")}</Button>
             </div>
@@ -323,18 +366,36 @@ function ThreadDetail({ detail, onReply }: { detail: MailLogDetail; onReply: () 
           <span className="flex-1 text-[13px] text-jn-ink-soft">
             {bounce ? t("box.bouncedNote", { addr: log.to_addr }) : t("box.awaitingNote", { time: relTime(sent.created_at, t) })}
           </span>
-          <Button variant="secondary" size="sm" onClick={onReply}>{bounce ? t("box.resend") : t("box.sendFollowup")}</Button>
+          <Button variant="secondary" size="sm" onClick={openReply}>{bounce ? t("box.resend") : t("box.sendFollowup")}</Button>
+        </div>
+      )}
+
+      {/* inline reply composer */}
+      {replyOpen && (
+        <div ref={replyRef} className="mt-5 rounded-[12px] border border-jn-line-2 bg-jn-surface p-4">
+          <div className="mb-2 text-[12.5px] font-semibold text-jn-ink">{t("box.replyTo", { addr: log.to_addr })}</div>
+          <textarea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            placeholder={t("box.replyPlaceholder")}
+            rows={5}
+            autoFocus
+            disabled={sending}
+            className="w-full resize-y rounded-[10px] border border-jn-line-2 bg-[#FAFBFC] px-3.5 py-2.5 text-[14px] leading-[1.6] text-jn-ink outline-none focus:border-[#0064E5]"
+          />
+          {!matchId && <div className="mt-2 text-[11.5px] text-[#C77700]">{t("box.replyNoMatch")}</div>}
+          <div className="mt-2.5 flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-[11.5px] text-jn-muted">{t("box.replyFromHint", { addr: sent.from_addr })}</span>
+            <div className="flex shrink-0 gap-2">
+              <Button variant="secondary" size="sm" onClick={() => { setReplyOpen(false); setReplyText(""); }} disabled={sending}>{t("box.cancel")}</Button>
+              <Button variant="primary" size="sm" leftIcon={sending ? <IconLoader2 size={15} className="animate-spin" /> : <IconArrowBackUp size={15} />}
+                onClick={sendReply} disabled={sending || !replyText.trim() || !matchId}>
+                {sending ? t("box.sending") : t("box.sendReply")}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
-  );
-}
-
-function DetailIconBtn({ children, onClick, title }: { children: React.ReactNode; onClick: () => void; title: string }) {
-  return (
-    <button type="button" title={title} onClick={onClick}
-      className="grid h-9 w-9 place-items-center rounded-[9px] border border-jn-line-3 bg-jn-surface text-jn-ink-mute transition-colors hover:bg-jn-sunken">
-      {children}
-    </button>
   );
 }

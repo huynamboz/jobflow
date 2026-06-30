@@ -92,9 +92,13 @@ export default function MailDetailPage() {
         <Button isIconOnly variant="light" radius="full" className="shrink-0" onPress={() => navigate("/admin/mail")}>
           <IconArrowLeft size={18} />
         </Button>
-        <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-          <IconMail size={24} stroke={1.75} />
-        </div>
+        {job?.company_logo ? (
+          <img src={job.company_logo} alt="" className="size-12 shrink-0 rounded-2xl border border-default-200 bg-white object-cover" />
+        ) : (
+          <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <IconMail size={24} stroke={1.75} />
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold tracking-tight text-foreground">{log.subject || t("detail.noSubject")}</h1>
           <div className="mt-1 truncate text-sm text-default-500">
@@ -182,7 +186,12 @@ export default function MailDetailPage() {
               </div>
               <div>
                 <div className="text-sm font-semibold leading-snug text-foreground">{job.title}</div>
-                {job.company && <div className="mt-0.5 text-xs text-default-500">{job.company}</div>}
+                {job.company && (
+                  <div className="mt-1 flex items-center gap-2">
+                    {job.company_logo && <img src={job.company_logo} alt="" className="size-5 shrink-0 rounded-md border border-default-200 bg-white object-cover" />}
+                    <span className="text-xs text-default-500">{job.company}</span>
+                  </div>
+                )}
               </div>
               <div className="space-y-1 text-xs text-default-500">
                 {job.location && <div className="flex items-center gap-1.5"><IconMapPin size={13} className="text-default-400" />{job.location}</div>}

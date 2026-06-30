@@ -23,7 +23,16 @@
     "awaitingNote": "No reply detected yet · sent {{time}}",
     "bouncedNote": "Delivery failed · address {{addr}} not found",
     "sendFollowup": "Send follow-up",
-    "resend": "Resend email"
+    "resend": "Resend email",
+    "replyTo": "Reply to {{addr}}",
+    "replyPlaceholder": "Write your reply…",
+    "replyFromHint": "Sent from {{addr}}",
+    "replyNoMatch": "This email isn't linked to a match, so a reply can't be sent.",
+    "replySent": "Reply sent",
+    "replyFailed": "Could not send reply",
+    "sendReply": "Send reply",
+    "sending": "Sending…",
+    "cancel": "Cancel"
   },
   "page": {
     "title": "Mail",
@@ -122,6 +131,8 @@
     "message": "Message",
     "generateEmail": "Generate email",
     "generating": "Generating…",
+    "regenerate": "Regenerate",
+    "feedbackPlaceholder": "Feedback for the AI — e.g. make it shorter, more formal, mention React…",
     "editorPlaceholder": "Write your application email…",
     "sendFromHint": "Send from {{addr}} · CV attached",
     "linkToSendHint": "Link this employee's email to send from the system",

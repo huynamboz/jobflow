@@ -172,7 +172,7 @@ def _sync_status_payload(new: int | None = None):
 def email_log_list(request):
     """All emails, newest first, filterable. ?direction=out|in &status= &is_bounce=
     &employee= &page= — for the central Mail management page."""
-    qs = EmailLog.objects.select_related("employee", "match__job").order_by("-created_at")
+    qs = EmailLog.objects.select_related("employee", "match__job__company").order_by("-created_at")
     p = request.query_params
     if p.get("direction"):
         qs = qs.filter(direction=p["direction"])
@@ -216,6 +216,7 @@ def email_log_detail(request, pk):
         job_data = {
             "id": job.id, "title": job.title,
             "company": job.company.name if job.company_id else "",
+            "company_logo": (job.company.logo_url or "") if job.company_id else "",
             "location": job.location, "job_type": job.job_type,
             "source_url": job.source_url,
         }

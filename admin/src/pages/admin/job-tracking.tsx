@@ -1,21 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { addToast } from "@heroui/toast";
 import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
+import { Modal, ModalContent, ModalBody, ModalFooter } from "@heroui/modal";
 import {
   IconBriefcase,
   IconLoader2,
   IconClock,
   IconDots,
-  IconPlus,
-  IconFilter,
   IconSend,
   IconActivity,
   IconAward,
   IconChecklist,
   IconExternalLink,
+  IconMapPin,
   IconUser,
 } from "@tabler/icons-react";
 
@@ -107,6 +107,11 @@ export default function JobTrackingPage() {
   // Re-scan reveals when the board mounts after the async load.
   const reveal = useReveal([items, loading]);
   const [busy, setBusy] = useState<number | null>(null);
+  const [active, setActive] = useState<EmployeeJobMatch | null>(null);
+  // Native HTML5 drag-and-drop between columns.
+  const dragId = useRef<number | null>(null);
+  const lastDragEnd = useRef(0);
+  const [dragOver, setDragOver] = useState<MatchStatus | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,6 +148,15 @@ export default function JobTrackingPage() {
     return map;
   }, [items]);
 
+  const dropTo = (colKey: MatchStatus) => {
+    const id = dragId.current;
+    dragId.current = null;
+    setDragOver(null);
+    if (id == null) return;
+    const m = items.find((x) => x.id === id);
+    if (m && m.status !== colKey) void setStatus(m, colKey);
+  };
+
   const applied = byStatus.applied?.length ?? 0;
   const responseRate = items.length ? Math.round(((items.length - applied) / items.length) * 100) : 0;
   const summary = [
@@ -151,8 +165,6 @@ export default function JobTrackingPage() {
     { key: "offers", value: `${byStatus.won?.length ?? 0}`, color: "#1F9E6E", bg: "rgba(31,158,110,.12)", icon: <IconAward size={19} /> },
     { key: "responseRate", value: `${responseRate}%`, color: "#0E9CA6", bg: "rgba(14,156,166,.12)", icon: <IconChecklist size={19} /> },
   ];
-
-  const goApply = () => navigate("/admin/employees");
 
   return (
     <div ref={reveal} className="flex min-h-0 flex-col gap-5">
@@ -163,14 +175,6 @@ export default function JobTrackingPage() {
             {t("tracking.titlePrefix")} {t("tracking.titleEmphasis")}
           </h1>
           <div className="mt-[5px] text-[14px] text-jn-muted">{t("tracking.subtitle")}</div>
-        </div>
-        <div className="flex gap-2.5">
-          <Button variant="secondary" leftIcon={<IconFilter size={15} className="text-jn-ink-mute" />}>
-            {t("tracking.filter")}
-          </Button>
-          <Button variant="primary" leftIcon={<IconPlus size={15} />} onClick={goApply}>
-            {t("tracking.addApplication")}
-          </Button>
         </div>
       </div>
 
@@ -212,8 +216,14 @@ export default function JobTrackingPage() {
             return (
               <div
                 key={col.key}
-                className="flex w-[288px] shrink-0 flex-col gap-[11px] rounded-jn-card p-3"
-                style={{ background: "#EFF1F4" }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOver !== col.key) setDragOver(col.key); }}
+                onDrop={(e) => { e.preventDefault(); dropTo(col.key); }}
+                className="flex w-[288px] shrink-0 flex-col gap-[11px] rounded-jn-card p-3 transition-colors"
+                style={{
+                  background: dragOver === col.key ? "#E4E9F2" : "#EFF1F4",
+                  outline: dragOver === col.key ? "2px dashed #9DB6E8" : "none",
+                  outlineOffset: -2,
+                }}
               >
                 {/* column header */}
                 <div className="flex items-center gap-2.5 px-1.5 pb-0.5 pt-1.5">
@@ -222,13 +232,6 @@ export default function JobTrackingPage() {
                   <span className="rounded-jn-pill bg-white px-[9px] py-px text-[12px] font-bold text-jn-ink-mute">
                     {cards.length}
                   </span>
-                  <button
-                    type="button"
-                    onClick={goApply}
-                    className="ml-auto grid h-[26px] w-[26px] place-items-center rounded-[7px] text-jn-muted transition-colors hover:bg-[#F2F3F5]"
-                  >
-                    <IconPlus size={15} />
-                  </button>
                 </div>
 
                 {/* cards */}
@@ -239,11 +242,15 @@ export default function JobTrackingPage() {
                     <div
                       key={m.id}
                       role="button"
-                      onClick={() => navigate(`/admin/employees/${m.employee}`)}
+                      draggable
+                      onDragStart={(e) => { dragId.current = m.id; e.dataTransfer.effectAllowed = "move"; }}
+                      onDragEnd={() => { dragId.current = null; setDragOver(null); lastDragEnd.current = Date.now(); }}
+                      onClick={() => { if (Date.now() - lastDragEnd.current < 200) return; setActive(m); }}
                       className={cn(
-                        "cursor-pointer rounded-[13px] border bg-jn-surface p-3.5",
+                        "cursor-grab rounded-[13px] border bg-jn-surface p-3.5 active:cursor-grabbing",
                         "transition-[box-shadow,transform,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(20,20,40,.1)]",
                         busy === m.id && "opacity-60",
+                        dragId.current === m.id && "opacity-40",
                       )}
                       style={{ borderColor: "#ECECEE" }}
                       onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#DCDEE2")}
@@ -336,22 +343,112 @@ export default function JobTrackingPage() {
                     </div>
                   );
                 })}
-
-                {/* add card */}
-                <button
-                  type="button"
-                  onClick={goApply}
-                  className="flex items-center justify-center gap-1.5 rounded-[11px] border-[1.5px] border-dashed px-3 py-[11px] text-[12.5px] font-semibold text-jn-muted transition-colors hover:bg-[#EEF0F3] hover:text-jn-ink-mute"
-                  style={{ borderColor: "#D5D8DC" }}
-                >
-                  <IconPlus size={14} />
-                  {t("tracking.addCard")}
-                </button>
               </div>
             );
           })}
         </div>
       )}
+
+      <ApplicationDetailModal
+        match={active}
+        onClose={() => setActive(null)}
+        onViewEmployee={(emp) => { setActive(null); navigate(`/admin/employees/${emp}`); }}
+      />
     </div>
+  );
+}
+
+/* ── Application detail dialog (opened by clicking a kanban card) ────────── */
+function ApplicationDetailModal({
+  match, onClose, onViewEmployee,
+}: {
+  match: EmployeeJobMatch | null;
+  onClose: () => void;
+  onViewEmployee: (employee: number) => void;
+}) {
+  const { t } = useTranslation("jobs");
+  const m = match;
+  const pct = m ? Math.round((m.match_score ?? 0) * 100) : 0;
+  const ms = matchStyle(pct);
+  const col = COLUMNS.find((c) => c.key === m?.status);
+
+  return (
+    <Modal isOpen={!!m} onClose={onClose} size="lg" scrollBehavior="inside">
+      <ModalContent>
+        {m && (
+          <>
+            <ModalBody className="gap-4 px-6 py-6">
+              {/* job header */}
+              <div className="flex items-start gap-3.5">
+                <JobLogo src={m.job.company_logo || m.job.platform_logo} name={m.job.company_name || m.job.title} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[16px] font-extrabold leading-snug tracking-[-0.01em] text-jn-ink">{m.job.title}</div>
+                  <div className="mt-0.5 truncate text-[13px] text-jn-muted">{m.job.company_name || t("tracking.dash")}</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-jn-muted">
+                    {m.job.location && <span className="inline-flex items-center gap-1"><IconMapPin size={13} />{m.job.location}</span>}
+                    {m.job.job_type && <span className="inline-flex items-center gap-1"><IconBriefcase size={13} />{m.job.job_type}</span>}
+                  </div>
+                </div>
+                <span className="shrink-0 rounded-[11px] px-2.5 py-1 text-[13px] font-extrabold" style={{ color: ms.color, background: ms.bg }}>{pct}%</span>
+              </div>
+
+              {/* status + employee */}
+              <div className="flex flex-wrap items-center gap-2.5 rounded-[12px] border border-jn-line-2 bg-jn-surface px-3.5 py-3">
+                {col && (
+                  <span className="inline-flex items-center gap-1.5 rounded-jn-pill px-2.5 py-[3px] text-[12px] font-bold" style={{ color: col.actionColor, background: col.actionBg }}>
+                    <span className="h-2 w-2 rounded-full" style={{ background: col.color }} />
+                    {t(STATUS_LABEL[m.status])}
+                  </span>
+                )}
+                <span className="h-3.5 w-px bg-jn-line-3" />
+                <Avatar name={m.employee_name} size={22} />
+                <span className="truncate text-[13px] font-medium text-jn-ink-soft">{m.employee_name}</span>
+              </div>
+
+              {/* matched skills */}
+              {m.matched_skills?.length > 0 && (
+                <div>
+                  <div className="mb-1.5 text-[12px] font-semibold text-jn-ink">{t("tracking.dialog.matchedSkills")}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {m.matched_skills.map((s) => (
+                      <span key={s} className="rounded-jn-pill bg-[#E7F6EF] px-2.5 py-1 text-[11.5px] font-medium text-[#1F9E6E]">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* missing skills */}
+              {m.missing_skills?.length > 0 && (
+                <div>
+                  <div className="mb-1.5 text-[12px] font-semibold text-jn-ink">{t("tracking.dialog.missingSkills")}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {m.missing_skills.map((s) => (
+                      <span key={s} className="rounded-jn-pill bg-jn-sunken px-2.5 py-1 text-[11.5px] font-medium text-jn-muted">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {m.notes && (
+                <div>
+                  <div className="mb-1.5 text-[12px] font-semibold text-jn-ink">{t("tracking.dialog.notes")}</div>
+                  <div className="whitespace-pre-line rounded-[10px] border border-jn-line-soft bg-[#FAFBFC] px-3.5 py-2.5 text-[13px] text-jn-ink-soft">{m.notes}</div>
+                </div>
+              )}
+            </ModalBody>
+            <ModalFooter className="gap-2 px-6 pb-5">
+              {m.job.source_url && (
+                <Button variant="secondary" size="sm" leftIcon={<IconExternalLink size={15} />} onClick={() => window.open(m.job.source_url, "_blank", "noopener")}>
+                  {t("tracking.openPosting")}
+                </Button>
+              )}
+              <Button variant="primary" size="sm" leftIcon={<IconUser size={15} />} onClick={() => onViewEmployee(m.employee)}>
+                {t("tracking.viewEmployee")}
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

@@ -605,7 +605,7 @@ EMAIL_SYSTEM_PROMPT = (
 )
 
 
-def _build_email_messages(emp: Employee, job) -> list[dict]:
+def _build_email_messages(emp: Employee, job, *, feedback: str = "", current_draft: str = "") -> list[dict]:
     seniority = (
         _SENIORITY_LABELS[emp.seniority]
         if emp.seniority is not None and 0 <= emp.seniority < len(_SENIORITY_LABELS)
@@ -627,6 +627,18 @@ def _build_email_messages(emp: Employee, job) -> list[dict]:
         f"Description:\n{desc or '(no description provided)'}\n\n"
         f"Write my application email body now, in first person as {emp.full_name}."
     )
+    # Regeneration pass — rewrite the previous draft applying HR's feedback.
+    fb = (feedback or "").strip()
+    if fb:
+        draft = (current_draft or "").strip()[:2000]
+        user += (
+            "\n\nThis is a REVISION. Rewrite the email applying the feedback below; "
+            "keep what works, change only what the feedback asks for, and return the "
+            "full revised email body (not a diff).\n"
+            f"FEEDBACK:\n{fb}\n"
+        )
+        if draft:
+            user += f"\nPREVIOUS DRAFT:\n{draft}\n"
     return [
         {"role": "system", "content": EMAIL_SYSTEM_PROMPT},
         {"role": "user", "content": user},
@@ -648,7 +660,11 @@ class GenerateApplicationEmailView(APIView):
         if emp is None or job is None:
             return Response({"error": "employee and job are required"}, status=drf_status.HTTP_400_BAD_REQUEST)
 
-        messages = _build_email_messages(emp, job)
+        messages = _build_email_messages(
+            emp, job,
+            feedback=request.data.get("feedback", ""),
+            current_draft=request.data.get("current_draft", ""),
+        )
 
         def token_stream():
             try:

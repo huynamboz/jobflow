@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
 import { mailService } from "@/services/mail.service";
-import { Input } from "@heroui/input";
+import { Input, Textarea } from "@heroui/input";
 import { Spinner } from "@heroui/spinner";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/modal";
 import { IconArrowLeft, IconBriefcase, IconBuilding, IconEye, IconFileText, IconMail, IconMailExclamation, IconMapPin, IconPaperclip, IconSparkles, IconTrash, IconUpload, IconUser } from "@tabler/icons-react";
@@ -67,6 +67,7 @@ export default function ApplyEmailPage() {
   const bodyText = useRef("");
   const [marking, setMarking] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [feedback, setFeedback] = useState("");
   const editorRef = useRef<QuillHandle>(null);
 
   // Attachment: HR can preview, remove, or replace the CV that gets attached.
@@ -148,9 +149,13 @@ export default function ApplyEmailPage() {
     bodyText.current = text;
   }, []);
 
-  // Stream an LLM-written draft straight into the editor.
-  const generateEmail = async () => {
+  // Stream an LLM-written draft straight into the editor. When `withFeedback`
+  // is set, send the current draft + HR's feedback so the LLM revises it.
+  const generateEmail = async (withFeedback = false) => {
     if (!employeeId || !jobId || generating) return;
+    const fb = withFeedback ? feedback.trim() : "";
+    if (withFeedback && !fb) return;
+    const currentDraft = bodyText.current || "";
     setGenerating(true);
     editorRef.current?.setText("");
     try {
@@ -158,7 +163,10 @@ export default function ApplyEmailPage() {
       const resp = await fetch(`${API_CONFIG.baseURL}/admin/application-email/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ employee: employeeId, job: jobId }),
+        body: JSON.stringify({
+          employee: employeeId, job: jobId,
+          ...(fb ? { feedback: fb, current_draft: currentDraft } : {}),
+        }),
       });
       if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
 
@@ -172,6 +180,7 @@ export default function ApplyEmailPage() {
         editorRef.current?.setText(acc);
       }
       bodyText.current = acc;
+      if (fb) setFeedback("");
     } catch {
       addToast({ title: t("composeToast.generateFailed"), description: t("composeToast.generateFailedHint"), color: "danger" });
     } finally {
@@ -301,11 +310,36 @@ export default function ApplyEmailPage() {
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: T.ink3 }}>{t("compose.message")}</div>
-              <Button size="sm" variant="flat" color="primary" startContent={<IconSparkles size={14} />} isLoading={generating} onPress={generateEmail}>
+              <Button size="sm" variant="flat" color="primary" startContent={<IconSparkles size={14} />} isLoading={generating} onPress={() => generateEmail(false)}>
                 {generating ? t("compose.generating") : t("compose.generateEmail")}
               </Button>
             </div>
             <QuillEditor ref={editorRef} initialHTML={bodyHTML} placeholder={t("compose.editorPlaceholder")} onChange={onEditorChange} minHeight={300} />
+            {/* Feedback → regenerate: tell the LLM what to change and rewrite the draft */}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginTop: 8 }}>
+              <Textarea
+                size="sm"
+                minRows={1}
+                maxRows={3}
+                value={feedback}
+                onValueChange={setFeedback}
+                placeholder={t("compose.feedbackPlaceholder")}
+                isDisabled={generating}
+                classNames={{ inputWrapper: "bg-default-50" }}
+                className="flex-1"
+              />
+              <Button
+                size="sm"
+                variant="flat"
+                color="secondary"
+                startContent={<IconSparkles size={14} />}
+                isLoading={generating}
+                isDisabled={!feedback.trim()}
+                onPress={() => generateEmail(true)}
+              >
+                {t("compose.regenerate")}
+              </Button>
+            </div>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 12, color: T.ink3 }}>

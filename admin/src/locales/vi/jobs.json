@@ -139,6 +139,11 @@
     "moveTo": "Chuyển sang {{label}}",
     "reopen": "Mở lại",
     "viewEmployee": "Xem nhân viên",
+    "dialog": {
+      "matchedSkills": "Kỹ năng khớp",
+      "missingSkills": "Kỹ năng còn thiếu",
+      "notes": "Ghi chú"
+    },
     "summary": {
       "total": "Tổng đã nộp",
       "inProgress": "Đang xử lý",
