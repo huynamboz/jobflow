@@ -12,6 +12,7 @@ export interface JobLite {
   id: number;
   title: string;
   company_name?: string;
+  company_logo?: string;
   platform_name?: string;
   platform_logo?: string;
   location?: string;

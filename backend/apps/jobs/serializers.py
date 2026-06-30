@@ -33,13 +33,14 @@ class JobSkillSerializer(serializers.ModelSerializer):
 
 class JobListSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(source="company.name", read_only=True, default="")
+    company_logo = serializers.CharField(source="company.logo_url", read_only=True, default="")
     platform_name = serializers.CharField(source="platform.name", read_only=True, default="")
     platform_logo = serializers.CharField(source="platform.logo_url", read_only=True, default="")
 
     class Meta:
         model = Job
         fields = (
-            "id", "title", "company_name", "platform_name", "platform_logo", "location",
+            "id", "title", "company_name", "company_logo", "platform_name", "platform_logo", "location",
             "seniority", "job_type", "salary_min", "salary_max", "salary_currency",
             "salary_period", "salary_usd_annual_min", "salary_usd_annual_max",
             "applicant_count", "is_active", "date_posted", "source_url", "created_at",

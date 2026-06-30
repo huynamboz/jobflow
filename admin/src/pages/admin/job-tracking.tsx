@@ -250,7 +250,7 @@ export default function JobTrackingPage() {
                       onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#ECECEE")}
                     >
                       <div className="flex items-start gap-[11px]">
-                        <JobLogo src={m.job.platform_logo} name={m.job.company_name || m.job.title} />
+                        <JobLogo src={m.job.company_logo || m.job.platform_logo} name={m.job.company_name || m.job.title} />
                         <div className="min-w-0 flex-1">
                           <div className="text-[13.5px] font-bold leading-[1.3] text-jn-ink">{m.job.title}</div>
                           <div className="mt-px truncate text-[12px] text-jn-muted">
